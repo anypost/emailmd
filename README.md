@@ -69,7 +69,7 @@ https://www.emailmd.dev/llms-full.txt
 
 Contributions are welcome! Feel free to open an [issue](https://github.com/anypost/emailmd/issues) or submit a [pull request](https://github.com/anypost/emailmd/pulls).
 
-> Email.md is under active development. The API may change between minor versions until we hit 1.0.
+> Email.md is under active development. The API may change between minor versions until we hit 1.0 — breaking changes are always called out in the changelog. See [Stability & Versioning](https://www.emailmd.dev/docs/stability) for what the semver contract covers.
 
 ## Acknowledgements
 
