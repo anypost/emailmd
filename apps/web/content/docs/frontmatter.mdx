@@ -96,6 +96,8 @@ When both the `fonts:` frontmatter and the `fonts` [render option](/docs/api-ref
 | `border_radius` | Border radius for buttons, callouts, highlights |
 | `fonts` | Nested map of custom web fonts: family name → stylesheet URL |
 
+Frontmatter values are validated before rendering: theme values containing markup characters fall back to the base theme, font entries with unsafe URLs are skipped, and the preheader is HTML-escaped in the output. Invalid values never break the render — they surface on [`warnings`](/docs/api-reference#renderwarning) instead.
+
 ## Custom Metadata
 
 Any keys beyond the ones above are passed through in the `meta` object returned by `render()`. This is useful for storing email metadata alongside the template:

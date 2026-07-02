@@ -40,8 +40,10 @@ Compact, centered highlight with custom background
 |-----------|--------|--------|------------|
 | **align** | Bare keyword | `center`, `left`, `right` | callout, highlight, header, footer |
 | **padding** | Bare keyword | `compact`, `spacious` | callout, highlight |
-| **color** | `color=<hex>` | Any hex color | callout, highlight, centered, header, footer |
-| **bg** | `bg=<hex>` | Any hex color | callout, highlight |
+| **color** | `color=<color>` | Hex, named, `rgb()`, or `hsl()` color | callout, highlight, centered, header, footer |
+| **bg** | `bg=<color>` | Hex, named, `rgb()`, or `hsl()` color | callout, highlight |
 | **border-radius** | `border-radius=<value>` | Any CSS length (e.g. `16px`, `0`) | callout, highlight |
+
+Parameter values are validated: an unrecognized color, alignment, or length falls back to the theme default and surfaces a [render warning](/docs/api-reference#renderwarning) rather than breaking the email. Template tags like `{{brand_color}}` are passed through for your sending app to resolve.
 
 See each directive's page for detailed examples.

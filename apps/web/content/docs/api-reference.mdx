@@ -32,6 +32,7 @@ const { html, text, meta } = await render("# Hello");
   templateSyntax?: Array<{ prefix: string; suffix: string }>;
   sanitizeStyles?: boolean;
   beautify?: boolean;
+  strings?: RenderStrings;
 }
 ```
 
@@ -45,6 +46,7 @@ const { html, text, meta } = await render("# Hello");
 | `templateSyntax`  | `Array<{ prefix: string; suffix: string }>`   | Template delimiters preserved during compilation. Default `[{{...}}, [[...]]]`.         |
 | `sanitizeStyles`  | `boolean`                                     | Sanitize template variables inside CSS before minification. Requires `minify: true`.    |
 | `beautify`        | `boolean`                                     | Pretty-print output HTML. Ignored when `minify: true`. Default `false`.                 |
+| `strings`         | `RenderStrings`                               | Override output strings for localization. See [`RenderStrings`](#renderstrings).        |
 
 ## `RenderResult`
 
@@ -68,19 +70,60 @@ const { html, text, meta } = await render("# Hello");
 
 ```typescript
 {
-  stage: 'frontmatter';
+  stage: 'frontmatter' | 'theme' | 'content' | 'mjml';
   message: string;
   cause?: Error;
 }
 ```
 
-| Property  | Type                        | Description                                          |
-| --------- | --------------------------- | ---------------------------------------------------- |
-| `stage`   | `'frontmatter'`             | Which render stage produced the warning              |
-| `message` | `string`                    | Human-readable message                               |
-| `cause`   | `Error?`                    | Original thrown error, when one is available         |
+| Property  | Type      | Description                                          |
+| --------- | --------- | ---------------------------------------------------- |
+| `stage`   | `string`  | Which render stage produced the warning (see below)  |
+| `message` | `string`  | Human-readable message                               |
+| `cause`   | `Error?`  | Original thrown error, when one is available         |
 
-When `render()` encounters an invalid frontmatter block, it returns empty `meta` and appends a warning instead of throwing. The `html`/`text` output still contains the rendered body, so UIs can keep the preview alive and surface the warning alongside it.
+Warnings never stop the render — `html`/`text` output always contains a working email, so UIs can keep the preview alive and surface warnings alongside it. The stages:
+
+| Stage         | Meaning                                                                                              |
+| ------------- | ---------------------------------------------------------------------------------------------------- |
+| `frontmatter` | The YAML block could not be parsed. The body renders with empty `meta`.                               |
+| `theme`       | A theme or font value was invalid (e.g. contained markup) and the default was used instead.           |
+| `content`     | A directive or button value was invalid — an unknown color, alignment, length, or unsafe URL — and was dropped or replaced with the theme default. |
+| `mjml`        | The MJML compiler reported a validation error (at the default `soft` level).                          |
+
+## Input validation
+
+All user-supplied values that end up in the HTML are escaped and/or validated before interpolation:
+
+- The frontmatter `preheader` is HTML-escaped.
+- Directive params must be plausible values: colors must be hex, named, `rgb()`/`rgba()`, or `hsl()`/`hsla()`; alignment must be `left`, `center`, or `right`; lengths must be CSS length tokens like `8px` or `50%`.
+- Hero background URLs with `javascript:`, `data:`, `vbscript:`, or `file:` schemes are dropped.
+- Theme values containing `<`, `>`, or `"` are replaced with the base theme's value.
+- Font entries with unsafe family names or URLs are skipped.
+
+Invalid values never throw — they fall back to safe defaults and surface as [`warnings`](#renderwarning). Template tags (`{{ x }}`, `{% x %}`, `${x}`, `%%x%%`, `[[x]]`) pass through validation untouched so merge fields keep working. Note that raw inline HTML in the markdown body is passed through by design — treat the markdown source as trusted, and resolve template variables with properly encoded values in your sending app.
+
+## `RenderStrings`
+
+Overridable output strings, for localization:
+
+```typescript
+{
+  buttonFallback?: string;
+}
+```
+
+`buttonFallback` is the sentence shown under a button rendered with the `fallback` attribute. It supports the placeholders `{text}` (the button label) and `{url}` (a clickable copy of the button link), and may contain HTML entities:
+
+```typescript
+await render(md, {
+  strings: {
+    buttonFallback: 'Probleme mit &bdquo;{text}&ldquo;? Nutzen Sie diesen Link: {url}',
+  },
+});
+```
+
+A per-button `fallback="custom text"` attribute still takes precedence over the global string. See [Buttons](/docs/buttons#fallback-urls).
 
 ## `Theme`
 
@@ -108,6 +151,7 @@ interface Theme {
   fontSize: string;         // Base font size (e.g. "16px")
   lineHeight: string;       // Base line height (e.g. "1.6")
   contentWidth: string;     // Email width (e.g. "600px")
+  borderRadius: string;     // Border radius for buttons, callouts (e.g. "8px")
 }
 ```
 
@@ -135,13 +179,19 @@ function buildHead(theme: Theme, preheader?: string): string;
 
 Generates the MJML `<mj-head>` element containing global styles, font imports, and the hidden preheader text. Used when building [custom wrappers](/docs/wrappers).
 
-## `segmentsToMjml(segments, theme)`
+## `segmentsToMjml(segments, theme, ctx?)`
 
 ```typescript
-function segmentsToMjml(segments: Segment[], theme: Theme): string;
+function segmentsToMjml(
+  segments: Segment[],
+  theme: Theme,
+  ctx?: { strings?: RenderStrings; warnings?: RenderWarning[] },
+): string;
 ```
 
 Converts parsed content segments into MJML body elements (sections, columns, text, buttons, images, tables, etc.). Used when building [custom wrappers](/docs/wrappers).
+
+The optional `ctx` argument forwards localized [`strings`](#renderstrings) and a `warnings` array to collect [content validation issues](#input-validation) during segment rendering. Custom wrappers should pass through the values they receive on `meta` (the default wrapper does) so those warnings surface on the render result.
 
 ## `Segment`
 
@@ -163,8 +213,42 @@ Represents a parsed block of content from the markdown. The `segments` array is 
 type WrapperFn = (
   segments: Segment[],
   theme: Theme,
-  meta?: Record<string, unknown>,
+  meta?: WrapperMeta,
 ) => string;
 ```
 
-A function that receives parsed segments, the resolved theme, and frontmatter metadata, and returns a complete MJML string. See [Wrappers](/docs/wrappers) for usage examples.
+A function that receives parsed segments, the resolved theme, and render context, and returns a complete MJML string. See [Wrappers](/docs/wrappers) for usage examples.
+
+## `WrapperMeta`
+
+The context object passed to wrapper functions:
+
+```typescript
+{
+  preheader?: string;
+  frontmatter?: Record<string, unknown>;
+  strings?: RenderStrings;
+  warnings?: RenderWarning[];
+}
+```
+
+| Property      | Type                       | Description                                                                    |
+| ------------- | -------------------------- | ------------------------------------------------------------------------------ |
+| `preheader`   | `string?`                  | Preheader text from frontmatter                                                 |
+| `frontmatter` | `Record<string, unknown>?` | The full frontmatter map, including custom keys                                 |
+| `strings`     | `RenderStrings?`           | Localized strings from render options — forward to `segmentsToMjml`             |
+| `warnings`    | `RenderWarning[]?`         | The render's warnings collector — forward to `segmentsToMjml`                   |
+
+## Sanitize helpers
+
+The validation primitives used internally are exported for reuse:
+
+```typescript
+import { escapeHtml, escapeAttrValue, isCssColor, isCssLength, isSafeUrl } from "emailmd";
+```
+
+- **`escapeHtml(value)`** — escape a raw string for HTML text or attribute context
+- **`escapeAttrValue(value)`** — escape `"` and `<` without double-escaping existing entities
+- **`isCssColor(value)`** — hex, named, `rgb()`/`hsl()` functional color, or template token
+- **`isCssLength(value)`** — 1–4 CSS length tokens (e.g. `8px 16px`), or template token
+- **`isSafeUrl(value)`** — no scheme, a safe scheme (`http`, `https`, `mailto`, `tel`), or template token

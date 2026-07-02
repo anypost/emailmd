@@ -90,3 +90,15 @@ Override the default fallback message with `fallback="custom text"` to support d
 ```
 
 The custom text is rendered before the URL link. When no value is provided (`fallback` without `="..."`), the default English message is used.
+
+To change the default message globally — instead of per button — pass `strings.buttonFallback` to `render()`. It supports `{text}` and `{url}` placeholders:
+
+```typescript
+await render(md, {
+  strings: {
+    buttonFallback: "Si vous avez des difficultés avec le bouton « {text} », copiez cette URL : {url}",
+  },
+});
+```
+
+A per-button `fallback="..."` attribute still wins over the global string. See [`RenderStrings`](/docs/api-reference#renderstrings).
