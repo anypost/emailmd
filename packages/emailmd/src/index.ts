@@ -1,9 +1,9 @@
 export type { Theme } from './theme.js';
-export type { WrapperFn, WrapperMeta, RenderStrings, SegmentContext, MjmlCompileError } from './mjml.js';
+export type { WrapperFn, WrapperMeta, RenderStrings, SegmentContext } from './mjml.js';
 export type { Segment, SegmentType } from './segmenter.js';
 export type { RenderWarning } from './warnings.js';
 export { defaultTheme, lightTheme, darkTheme, mergeTheme, resolveBaseTheme } from './theme.js';
-export { extractFrontmatter, frontmatterToThemeOverrides } from './frontmatter.js';
+export { extractFrontmatter, frontmatterToThemeOverrides, frontmatterToFonts } from './frontmatter.js';
 export { buildHead, segmentsToMjml } from './mjml.js';
 export { defaultWrapper } from './wrappers/default.js';
 export { escapeHtml, escapeAttrValue, isCssColor, isCssLength, isSafeUrl } from './sanitize.js';
@@ -140,6 +140,12 @@ export async function render(markdown: string, options?: RenderOptions): Promise
     });
   }
 
+  if (meta.theme !== undefined && meta.theme !== 'light' && meta.theme !== 'dark') {
+    warnings.push({
+      stage: 'theme',
+      message: `Unknown theme "${String(meta.theme)}" — using default. Valid values: "light", "dark".`,
+    });
+  }
   const baseTheme = resolveBaseTheme(meta.theme as string | undefined);
   const frontmatterOverrides = frontmatterToThemeOverrides(meta);
   const merged = mergeTheme({ ...options?.theme, ...frontmatterOverrides }, baseTheme);

@@ -287,9 +287,11 @@ function renderButtonFallback(buttons: Array<Record<string, string>>, theme: The
   const lines = fallbackButtons.map(b => {
     const href = escapeAttrValue(b.href);
     const linkHtml = `<a href="${href}" style="color: ${theme.bodyColor}; word-break: break-all;">${href}</a>`;
+    // Single-pass substitution: handles repeated placeholders, and neither
+    // scans substituted values for placeholders nor expands `$`-patterns.
     const message = b.fallback !== 'true'
       ? `${b.fallback} ${linkHtml}`
-      : template.replace('{text}', b.text).replace('{url}', linkHtml);
+      : template.replace(/\{(text|url)\}/g, (_, key) => (key === 'text' ? b.text : linkHtml));
     return message;
   });
 

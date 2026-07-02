@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] — Unreleased
+
+Final API audit ahead of 1.0.
+
+### Fixed
+- `strings.buttonFallback` placeholder substitution is now single-pass: repeated `{text}`/`{url}` placeholders all substitute, and `$` characters in button text or URLs are no longer mangled by replacement-pattern expansion (e.g. `Save $$5` rendered as `Save $5`).
+
+### Added
+- `frontmatterToFonts` is now exported alongside `frontmatterToThemeOverrides`, so custom pipelines can extract both.
+- An unknown frontmatter `theme:` value (anything other than `light`/`dark`) now surfaces a `theme`-stage warning instead of silently falling back to the default.
+
+### Removed
+- The `MjmlCompileError` type export. It was unobtainable through any public API (`renderMjml` is internal) and would otherwise be frozen into the 1.0 contract unused.
+
 ## [0.5.0] — 2026-07-02
 
 ### Changed

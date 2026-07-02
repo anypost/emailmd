@@ -19,6 +19,20 @@ describe('strings option', () => {
     expect(html).not.toContain('If you&#x2019;re having trouble');
   });
 
+  it('substitutes repeated placeholders', async () => {
+    const { html } = await render(md, {
+      strings: { buttonFallback: '{text} and {text} again: {url}' },
+    });
+    expect(html).not.toContain('{text}');
+    expect(html.match(/Get Started and Get Started again/)).toBeTruthy();
+  });
+
+  it('does not expand $-patterns from button text into the message', async () => {
+    const dollars = '[Save $$5 now](https://example.com/x){button fallback}';
+    const { html } = await render(dollars);
+    expect(html).toContain('Save $$5 now');
+  });
+
   it('accepts a custom message without placeholders', async () => {
     const { html } = await render(md, {
       strings: { buttonFallback: 'Copy the link below into your browser.' },

@@ -25,6 +25,18 @@ describe('warnings pipeline', () => {
     expect(warnings?.some(w => w.stage === 'theme')).toBe(true);
   });
 
+  it('reports an unknown frontmatter theme name with stage "theme"', async () => {
+    const { warnings } = await render('---\ntheme: solarized\n---\n\n# Hello');
+    expect(warnings?.some(w => w.stage === 'theme' && w.message.includes('solarized'))).toBe(true);
+  });
+
+  it('does not warn for valid theme names', async () => {
+    for (const t of ['light', 'dark']) {
+      const { warnings } = await render(`---\ntheme: ${t}\n---\n\n# Hello`);
+      expect(warnings).toBeUndefined();
+    }
+  });
+
   it('surfaces MJML compilation errors with stage "mjml"', async () => {
     // mj-text directly inside mj-body is invalid MJML.
     const badWrapper: WrapperFn = () =>
