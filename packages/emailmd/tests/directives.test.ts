@@ -337,3 +337,40 @@ describe('buttons inside directives', async () => {
     expect(html).toContain('https://example.com/start');
   });
 });
+
+describe('callout and highlight padding presets', async () => {
+  // The padding preset on the card column must be the full effective inset —
+  // the inner mj-text is rendered with padding="0" so MJML's 10px 25px
+  // mj-text default cannot dilute the compact/spacious variants.
+  async function effectivePaddings(md: string, marker: string): Promise<string[]> {
+    const { html } = await render(md);
+    const idx = html.indexOf(marker);
+    expect(idx).toBeGreaterThan(-1);
+    const region = html.slice(Math.max(0, idx - 900), idx);
+    return [...region.matchAll(/padding[^:]*:\s*([^;"]+)[;"]/g)].map((m) => m[1]);
+  }
+
+  it('callout default: 20px 24px card padding, zero text padding', async () => {
+    const pads = await effectivePaddings('::: callout\nPad probe\n:::', 'Pad probe');
+    expect(pads).toContain('20px 24px');
+    expect(pads[pads.length - 1]).toBe('0');
+  });
+
+  it('callout compact: 12px 16px card padding, zero text padding', async () => {
+    const pads = await effectivePaddings('::: callout compact\nPad probe\n:::', 'Pad probe');
+    expect(pads).toContain('12px 16px');
+    expect(pads[pads.length - 1]).toBe('0');
+  });
+
+  it('callout spacious: 32px 40px card padding, zero text padding', async () => {
+    const pads = await effectivePaddings('::: callout spacious\nPad probe\n:::', 'Pad probe');
+    expect(pads).toContain('32px 40px');
+    expect(pads[pads.length - 1]).toBe('0');
+  });
+
+  it('highlight compact: 12px 16px card padding, zero text padding', async () => {
+    const pads = await effectivePaddings('::: highlight compact\nPad probe\n:::', 'Pad probe');
+    expect(pads).toContain('12px 16px');
+    expect(pads[pads.length - 1]).toBe('0');
+  });
+});

@@ -165,8 +165,10 @@ function renderCalloutSegment(segment: Segment, theme: Theme, ctx?: SegmentConte
   const textColor = resolveColor(segment.attrs?.color, theme.bodyColor, ctx, 'callout color');
   const padding = resolvePadding(segment.attrs?.padding);
   const borderRadius = resolveLength(segment.attrs?.['border-radius'], theme.borderRadius, ctx, 'callout border-radius');
+  // padding="0" overrides mj-text's built-in 10px 25px default, so the card
+  // column's padding preset is the full effective inset.
   const textMjml = segment.content
-    ? `<mj-text align="${align}" font-size="${theme.fontSize}" color="${textColor}" line-height="${theme.lineHeight}">${processInlineImages(segment.content)}</mj-text>`
+    ? `<mj-text align="${align}" padding="0" font-size="${theme.fontSize}" color="${textColor}" line-height="${theme.lineHeight}">${processInlineImages(segment.content)}</mj-text>`
     : '';
   const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
   let mjml = `<mj-section background-color="${theme.contentColor}" padding="8px 32px">
@@ -199,8 +201,10 @@ function renderHighlightSegment(segment: Segment, theme: Theme, ctx?: SegmentCon
   const textColor = resolveColor(segment.attrs?.color, theme.buttonTextColor, ctx, 'highlight color');
   const padding = resolvePadding(segment.attrs?.padding);
   const borderRadius = resolveLength(segment.attrs?.['border-radius'], theme.borderRadius, ctx, 'highlight border-radius');
+  // padding="0" overrides mj-text's built-in 10px 25px default, so the card
+  // column's padding preset is the full effective inset.
   const textMjml = segment.content
-    ? `<mj-text align="${align}" font-size="${theme.fontSize}" color="${textColor}" font-weight="600">${processInlineImages(segment.content)}</mj-text>`
+    ? `<mj-text align="${align}" padding="0" font-size="${theme.fontSize}" color="${textColor}" font-weight="600">${processInlineImages(segment.content)}</mj-text>`
     : '';
   const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
   let mjml = `<mj-section background-color="${theme.contentColor}" padding="8px 32px">
