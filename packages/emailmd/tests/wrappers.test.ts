@@ -59,6 +59,31 @@ describe('custom wrapper', async () => {
     expect(html).toContain('Hello');
   });
 
+  it('receives the full frontmatter map on meta', async () => {
+    const spy = vi.fn((segments, theme, meta) => {
+      const head = buildHead(theme, meta?.preheader);
+      return `<mjml>${head}<mj-body>${segmentsToMjml(segments, theme)}</mj-body></mjml>`;
+    });
+
+    const md = '---\npreheader: Hi\ncampaign: summer-2026\n---\n\n# Hello';
+    await render(md, { wrapper: spy as WrapperFn });
+
+    const meta = (spy as ReturnType<typeof vi.fn>).mock.calls[0][2];
+    expect(meta.frontmatter).toMatchObject({ preheader: 'Hi', campaign: 'summer-2026' });
+  });
+
+  it('can forward the warnings collector to segmentsToMjml', async () => {
+    const forwardingWrapper: WrapperFn = (segments, theme, meta) => {
+      const body = segmentsToMjml(segments, theme, { warnings: meta?.warnings });
+      return `<mjml>${buildHead(theme)}<mj-body>${body}</mj-body></mjml>`;
+    };
+
+    const { warnings } = await render('::: callout bg=bad;value\nHi\n:::', {
+      wrapper: forwardingWrapper,
+    });
+    expect(warnings?.some(w => w.stage === 'content')).toBe(true);
+  });
+
   it('segmentsToMjml produces valid MJML content for custom wrappers', async () => {
     const customWrapper: WrapperFn = (segments, theme) => {
       const head = buildHead(theme);

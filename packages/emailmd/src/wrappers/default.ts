@@ -5,7 +5,7 @@ import { buildHead, segmentsToMjml } from '../mjml.js';
 
 export function defaultWrapper(segments: Segment[], theme: Theme, meta?: WrapperMeta): string {
   const head = buildHead(theme, meta?.preheader);
-  const body = segmentsToMjml(segments, theme);
+  const body = segmentsToMjml(segments, theme, { strings: meta?.strings, warnings: meta?.warnings });
 
   return `<mjml>
   ${head}

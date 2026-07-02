@@ -4,6 +4,31 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — Unreleased
+
+### Security
+- All user-supplied values interpolated into MJML are now escaped and/or validated:
+  - Frontmatter `preheader` is HTML-escaped (a literal apostrophe now renders as `&#39;`).
+  - Directive params (`bg`, `color`, `align`, `border-radius`) are validated — colors must be hex/named/`rgb()`/`hsl()`, alignment must be `left`/`center`/`right`, lengths must be CSS length tokens. Invalid values fall back to theme defaults and surface a warning.
+  - Hero background URLs with `javascript:`, `data:`, `vbscript:`, or `file:` schemes are dropped with a warning.
+  - Frontmatter theme values containing `<`, `>`, or `"` are replaced with the base theme value, with a warning.
+  - Font entries with unsafe family names or URLs are dropped, with a warning.
+  - Button/image attributes get defense-in-depth attribute escaping.
+  - Template tokens (`{{ x }}`, `{% x %}`, `${x}`, `%%x%%`, `[[x]]`) still pass through all of the above untouched.
+- New `tests/injection.test.ts` suite covering hostile input across all interpolation sites.
+
+### Added
+- `RenderOptions.strings` — override output strings for localization. First entry: `buttonFallback`, the sentence shown under buttons rendered with `fallback`, with `{text}`/`{url}` placeholders.
+- `WrapperMeta.frontmatter` — custom wrappers now receive the full frontmatter map, not just the preheader.
+- `WrapperMeta.strings` / `WrapperMeta.warnings` — wrappers can forward these to `segmentsToMjml` (the default wrapper does) so content warnings surface in `RenderResult.warnings`.
+- `RenderWarning.stage` now covers `'frontmatter' | 'theme' | 'content' | 'mjml'`.
+- Sanitize helpers exported: `escapeHtml`, `escapeAttrValue`, `isCssColor`, `isCssLength`, `isSafeUrl`.
+
+### Changed
+- MJML compilation errors are surfaced on `RenderResult.warnings` (stage `'mjml'`) instead of being logged to `console.warn`. Validator noise about template tokens in attribute values is filtered out.
+- `segmentsToMjml()` accepts an optional third `SegmentContext` argument (`{ strings, warnings }`). Existing two-argument calls behave as before.
+- Internal `renderMjml()` now returns `{ html, errors }` instead of a bare string (not part of the public API).
+
 ## [0.3.5] — 2026-07-02
 
 ### Changed

@@ -42,7 +42,8 @@ preheader: Don't miss our biggest announcement
 
 # Hello`;
     const { html } = await render(md);
-    expect(html).toContain("Don't miss our biggest announcement");
+    // The preheader is HTML-escaped on output, so the apostrophe becomes an entity.
+    expect(html).toContain('Don&#39;t miss our biggest announcement');
   });
 
   it('contains no MJML tags in output', async () => {

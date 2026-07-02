@@ -1,12 +1,70 @@
 import mjml2html from 'mjml';
 import type { Segment } from './segmenter.js';
 import type { Theme } from './theme.js';
+import type { RenderWarning } from './warnings.js';
+import { escapeHtml, escapeAttrValue, isCssColor, isCssLength, isSafeUrl } from './sanitize.js';
+
+/**
+ * Overridable output strings, for localization.
+ */
+export interface RenderStrings {
+  /**
+   * Sentence shown under a button rendered with `fallback`. Supports the
+   * placeholders `{text}` (button label) and `{url}` (a clickable copy of the
+   * button link). May contain HTML entities.
+   */
+  buttonFallback?: string;
+}
+
+const DEFAULT_BUTTON_FALLBACK =
+  'If you&#x2019;re having trouble clicking the &ldquo;{text}&rdquo; button, copy and paste this URL into your browser: {url}';
 
 export interface WrapperMeta {
+  /** Preheader text from frontmatter, shown in the inbox preview pane. */
   preheader?: string;
+  /** The full frontmatter map, for wrappers that need more than the preheader. */
+  frontmatter?: Record<string, unknown>;
+  /** Overridable output strings (see {@link RenderStrings}). */
+  strings?: RenderStrings;
+  /** When provided, non-fatal content issues are pushed here during segment rendering. */
+  warnings?: RenderWarning[];
 }
 
 export type WrapperFn = (segments: Segment[], theme: Theme, meta?: WrapperMeta) => string;
+
+/** Context threaded through segment rendering: strings overrides and a warnings collector. */
+export interface SegmentContext {
+  strings?: RenderStrings;
+  warnings?: RenderWarning[];
+}
+
+function warn(ctx: SegmentContext | undefined, message: string): void {
+  ctx?.warnings?.push({ stage: 'content', message });
+}
+
+/** Validate a user-supplied color; fall back (with a warning) when it is not a plausible CSS color. */
+function resolveColor(value: string | undefined, fallback: string, ctx: SegmentContext | undefined, label: string): string {
+  if (!value) return fallback;
+  if (isCssColor(value)) return value;
+  warn(ctx, `Invalid color "${value}" for ${label} — using default.`);
+  return fallback;
+}
+
+const ALIGN_VALUES = new Set(['left', 'center', 'right']);
+
+function resolveAlign(value: string | undefined, fallback: string, ctx: SegmentContext | undefined, label: string): string {
+  if (!value) return fallback;
+  if (ALIGN_VALUES.has(value)) return value;
+  warn(ctx, `Invalid alignment "${value}" for ${label} — using "${fallback}".`);
+  return fallback;
+}
+
+function resolveLength(value: string | undefined, fallback: string, ctx: SegmentContext | undefined, label: string): string {
+  if (!value) return fallback;
+  if (isCssLength(value)) return value;
+  warn(ctx, `Invalid length "${value}" for ${label} — using default.`);
+  return fallback;
+}
 
 export function buildHead(theme: Theme, preheader?: string): string {
   return `<mj-head>
@@ -34,7 +92,7 @@ export function buildHead(theme: Theme, preheader?: string): string {
       dd { margin: 2px 0 0 24px; }
       img { vertical-align: middle; }
     </mj-style>
-    ${preheader ? `<mj-preview>${preheader}</mj-preview>` : ''}
+    ${preheader ? `<mj-preview>${escapeHtml(preheader)}</mj-preview>` : ''}
   </mj-head>`;
 }
 
@@ -91,98 +149,98 @@ function resolvePadding(value: string | undefined): string {
   return '20px 24px';
 }
 
-function renderEmbeddedButtons(buttons: Array<Record<string, string>>, theme: Theme): string {
+function renderEmbeddedButtons(buttons: Array<Record<string, string>>, theme: Theme, ctx?: SegmentContext): string {
   return buttons.map(attrs => {
-    const { bgColor, textColor, border } = resolveButtonColors(attrs, theme);
+    const { bgColor, textColor, border } = resolveButtonColors(attrs, theme, ctx);
     const isFullWidth = attrs.width === 'full';
     const widthAttr = isFullWidth ? ' width="100%"' : '';
-    const borderRadius = attrs['border-radius'] || theme.borderRadius;
-    return `<mj-button background-color="${bgColor}" color="${textColor}" font-size="16px" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px"${widthAttr} ${border} href="${attrs.href}">${attrs.text}</mj-button>`;
+    const borderRadius = resolveLength(attrs['border-radius'], theme.borderRadius, ctx, 'button border-radius');
+    return `<mj-button background-color="${bgColor}" color="${textColor}" font-size="16px" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>`;
   }).join('\n        ');
 }
 
-function renderCalloutSegment(segment: Segment, theme: Theme): string {
-  const align = segment.attrs?.align || 'left';
-  const bgColor = segment.attrs?.bg || theme.cardColor;
-  const textColor = segment.attrs?.color || theme.bodyColor;
+function renderCalloutSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  const align = resolveAlign(segment.attrs?.align, 'left', ctx, 'callout align');
+  const bgColor = resolveColor(segment.attrs?.bg, theme.cardColor, ctx, 'callout bg');
+  const textColor = resolveColor(segment.attrs?.color, theme.bodyColor, ctx, 'callout color');
   const padding = resolvePadding(segment.attrs?.padding);
-  const borderRadius = segment.attrs?.['border-radius'] || theme.borderRadius;
+  const borderRadius = resolveLength(segment.attrs?.['border-radius'], theme.borderRadius, ctx, 'callout border-radius');
   const textMjml = segment.content
     ? `<mj-text align="${align}" font-size="${theme.fontSize}" color="${textColor}" line-height="${theme.lineHeight}">${processInlineImages(segment.content)}</mj-text>`
     : '';
-  const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme) : '';
+  const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
   let mjml = `<mj-section background-color="${theme.contentColor}" padding="8px 32px">
       <mj-column background-color="${bgColor}" border-radius="${borderRadius}" padding="${padding}">
         ${textMjml}${buttonMjml}
       </mj-column>
     </mj-section>`;
-  if (segment.buttons) mjml += renderButtonFallback(segment.buttons, theme);
+  if (segment.buttons) mjml += renderButtonFallback(segment.buttons, theme, ctx);
   return mjml;
 }
 
-function renderCenteredSegment(segment: Segment, theme: Theme): string {
-  const textColor = segment.attrs?.color || theme.bodyColor;
+function renderCenteredSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  const textColor = resolveColor(segment.attrs?.color, theme.bodyColor, ctx, 'centered color');
   const textMjml = segment.content
     ? `<mj-text align="center" font-size="${theme.fontSize}" color="${textColor}">${processInlineImages(segment.content)}</mj-text>`
     : '';
-  const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme) : '';
+  const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
   let mjml = `<mj-section background-color="${theme.contentColor}" padding="8px 32px">
       <mj-column>
         ${textMjml}${buttonMjml}
       </mj-column>
     </mj-section>`;
-  if (segment.buttons) mjml += renderButtonFallback(segment.buttons, theme);
+  if (segment.buttons) mjml += renderButtonFallback(segment.buttons, theme, ctx);
   return mjml;
 }
 
-function renderHighlightSegment(segment: Segment, theme: Theme): string {
-  const align = segment.attrs?.align || 'left';
-  const bgColor = segment.attrs?.bg || theme.brandColor;
-  const textColor = segment.attrs?.color || theme.buttonTextColor;
+function renderHighlightSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  const align = resolveAlign(segment.attrs?.align, 'left', ctx, 'highlight align');
+  const bgColor = resolveColor(segment.attrs?.bg, theme.brandColor, ctx, 'highlight bg');
+  const textColor = resolveColor(segment.attrs?.color, theme.buttonTextColor, ctx, 'highlight color');
   const padding = resolvePadding(segment.attrs?.padding);
-  const borderRadius = segment.attrs?.['border-radius'] || theme.borderRadius;
+  const borderRadius = resolveLength(segment.attrs?.['border-radius'], theme.borderRadius, ctx, 'highlight border-radius');
   const textMjml = segment.content
     ? `<mj-text align="${align}" font-size="${theme.fontSize}" color="${textColor}" font-weight="600">${processInlineImages(segment.content)}</mj-text>`
     : '';
-  const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme) : '';
+  const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
   let mjml = `<mj-section background-color="${theme.contentColor}" padding="8px 32px">
       <mj-column background-color="${bgColor}" border-radius="${borderRadius}" padding="${padding}">
         ${textMjml}${buttonMjml}
       </mj-column>
     </mj-section>`;
-  if (segment.buttons) mjml += renderButtonFallback(segment.buttons, theme);
+  if (segment.buttons) mjml += renderButtonFallback(segment.buttons, theme, ctx);
   return mjml;
 }
 
-function renderHeaderSegment(segment: Segment, theme: Theme): string {
-  const align = segment.attrs?.align || 'center';
-  const textColor = segment.attrs?.color || theme.bodyColor;
+function renderHeaderSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  const align = resolveAlign(segment.attrs?.align, 'center', ctx, 'header align');
+  const textColor = resolveColor(segment.attrs?.color, theme.bodyColor, ctx, 'header color');
   const textMjml = segment.content
     ? `<mj-text align="${align}" font-size="13px" color="${textColor}" line-height="1.5">${processInlineImages(segment.content)}</mj-text>`
     : '';
-  const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme) : '';
+  const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
   let mjml = `<mj-section padding="32px 32px 24px 32px">
       <mj-column>
         ${textMjml}${buttonMjml}
       </mj-column>
     </mj-section>`;
-  if (segment.buttons) mjml += renderButtonFallback(segment.buttons, theme);
+  if (segment.buttons) mjml += renderButtonFallback(segment.buttons, theme, ctx);
   return mjml;
 }
 
-function renderFooterSegment(segment: Segment, theme: Theme): string {
-  const align = segment.attrs?.align || 'center';
-  const textColor = segment.attrs?.color || theme.bodyColor;
+function renderFooterSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  const align = resolveAlign(segment.attrs?.align, 'center', ctx, 'footer align');
+  const textColor = resolveColor(segment.attrs?.color, theme.bodyColor, ctx, 'footer color');
   const textMjml = segment.content
     ? `<mj-text align="${align}" font-size="13px" color="${textColor}" line-height="1.5">${processInlineImages(segment.content)}</mj-text>`
     : '';
-  const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme) : '';
+  const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
   let mjml = `<mj-section padding="24px 32px 32px 32px">
       <mj-column>
         ${textMjml}${buttonMjml}
       </mj-column>
     </mj-section>`;
-  if (segment.buttons) mjml += renderButtonFallback(segment.buttons, theme);
+  if (segment.buttons) mjml += renderButtonFallback(segment.buttons, theme, ctx);
   return mjml;
 }
 
@@ -194,8 +252,11 @@ function renderHrSegment(theme: Theme): string {
     </mj-section>`;
 }
 
-function resolveButtonColors(attrs: Record<string, string>, theme: Theme): { bgColor: string; textColor: string; border: string } {
-  const customColor = attrs.color;
+function resolveButtonColors(attrs: Record<string, string>, theme: Theme, ctx?: SegmentContext): { bgColor: string; textColor: string; border: string } {
+  const customColor = attrs.color && isCssColor(attrs.color) ? attrs.color : undefined;
+  if (attrs.color && !customColor) {
+    warn(ctx, `Invalid color "${attrs.color}" for button — using theme default.`);
+  }
   const variant = attrs.variant;
 
   if (customColor) {
@@ -213,18 +274,18 @@ function resolveButtonColors(attrs: Record<string, string>, theme: Theme): { bgC
   }
 }
 
-function renderButtonFallback(buttons: Array<Record<string, string>>, theme: Theme): string {
+function renderButtonFallback(buttons: Array<Record<string, string>>, theme: Theme, ctx?: SegmentContext): string {
   const fallbackButtons = buttons.filter(b => b.fallback);
   if (fallbackButtons.length === 0) return '';
 
-  const defaultFallback = (text: string, href: string) =>
-    `If you&#x2019;re having trouble clicking the &ldquo;${text}&rdquo; button, copy and paste this URL into your browser: ${href}`;
+  const template = ctx?.strings?.buttonFallback ?? DEFAULT_BUTTON_FALLBACK;
 
   const lines = fallbackButtons.map(b => {
-    const linkHtml = `<a href="${b.href}" style="color: ${theme.bodyColor}; word-break: break-all;">${b.href}</a>`;
+    const href = escapeAttrValue(b.href);
+    const linkHtml = `<a href="${href}" style="color: ${theme.bodyColor}; word-break: break-all;">${href}</a>`;
     const message = b.fallback !== 'true'
       ? `${b.fallback} ${linkHtml}`
-      : `${defaultFallback(b.text, linkHtml)}`;
+      : template.replace('{text}', b.text).replace('{url}', linkHtml);
     return message;
   });
 
@@ -235,33 +296,33 @@ function renderButtonFallback(buttons: Array<Record<string, string>>, theme: The
     </mj-section>`;
 }
 
-function renderButtonSegment(segment: Segment, theme: Theme): string {
+function renderButtonSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
   const attrs = segment.attrs!;
-  const { bgColor, textColor, border } = resolveButtonColors(attrs, theme);
+  const { bgColor, textColor, border } = resolveButtonColors(attrs, theme, ctx);
   const isFullWidth = attrs.width === 'full';
   const widthAttr = isFullWidth ? ' width="100%"' : '';
-  const borderRadius = attrs['border-radius'] || theme.borderRadius;
+  const borderRadius = resolveLength(attrs['border-radius'], theme.borderRadius, ctx, 'button border-radius');
 
   let mjml = `<mj-section background-color="${theme.contentColor}" padding="8px 32px">
       <mj-column>
-        <mj-button background-color="${bgColor}" color="${textColor}" font-size="16px" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px"${widthAttr} ${border} href="${attrs.href}">${attrs.text}</mj-button>
+        <mj-button background-color="${bgColor}" color="${textColor}" font-size="16px" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>
       </mj-column>
     </mj-section>`;
 
-  mjml += renderButtonFallback([attrs], theme);
+  mjml += renderButtonFallback([attrs], theme, ctx);
 
   return mjml;
 }
 
-function renderButtonGroupSegment(segment: Segment, theme: Theme): string {
+function renderButtonGroupSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
   const columns = segment.buttons!.map(attrs => {
-    const { bgColor, textColor, border } = resolveButtonColors(attrs, theme);
+    const { bgColor, textColor, border } = resolveButtonColors(attrs, theme, ctx);
     const isFullWidth = attrs.width === 'full';
     const widthAttr = isFullWidth ? ' width="100%"' : '';
-    const borderRadius = attrs['border-radius'] || theme.borderRadius;
+    const borderRadius = resolveLength(attrs['border-radius'], theme.borderRadius, ctx, 'button border-radius');
 
     return `<mj-column>
-        <mj-button background-color="${bgColor}" color="${textColor}" font-size="16px" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px" padding="10px 0"${widthAttr} ${border} href="${attrs.href}">${attrs.text}</mj-button>
+        <mj-button background-color="${bgColor}" color="${textColor}" font-size="16px" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px" padding="10px 0"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>
       </mj-column>`;
   }).join('\n      ');
 
@@ -269,28 +330,35 @@ function renderButtonGroupSegment(segment: Segment, theme: Theme): string {
       ${columns}
     </mj-section>`;
 
-  mjml += renderButtonFallback(segment.buttons!, theme);
+  mjml += renderButtonFallback(segment.buttons!, theme, ctx);
 
   return mjml;
 }
 
-function renderImageSegment(segment: Segment, theme: Theme): string {
+function renderImageSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
   const attrs = segment.attrs!;
 
   const mjAttrs: string[] = [
-    `src="${attrs.src}"`,
+    `src="${escapeAttrValue(attrs.src)}"`,
     `fluid-on-mobile="true"`,
-    `align="${attrs.align || 'center'}"`,
+    `align="${resolveAlign(segment.attrs?.align, 'center', ctx, 'image align')}"`,
   ];
 
-  if (attrs.alt) mjAttrs.push(`alt="${attrs.alt}"`);
-  if (attrs.title) mjAttrs.push(`title="${attrs.title}"`);
+  if (attrs.alt) mjAttrs.push(`alt="${escapeAttrValue(attrs.alt)}"`);
+  if (attrs.title) mjAttrs.push(`title="${escapeAttrValue(attrs.title)}"`);
   if (attrs.width) {
     const width = /^\d+$/.test(attrs.width) ? `${attrs.width}px` : attrs.width;
-    mjAttrs.push(`width="${width}"`);
+    if (isCssLength(width)) {
+      mjAttrs.push(`width="${width}"`);
+    } else {
+      warn(ctx, `Invalid width "${attrs.width}" for image — ignoring.`);
+    }
   }
-  if (attrs.href) mjAttrs.push(`href="${attrs.href}"`);
-  if (attrs['border-radius']) mjAttrs.push(`border-radius="${attrs['border-radius']}"`);
+  if (attrs.href) mjAttrs.push(`href="${escapeAttrValue(attrs.href)}"`);
+  if (attrs['border-radius']) {
+    const radius = resolveLength(attrs['border-radius'], theme.borderRadius, ctx, 'image border-radius');
+    mjAttrs.push(`border-radius="${radius}"`);
+  }
 
   return `<mj-section background-color="${theme.contentColor}" padding="8px 32px">
       <mj-column>
@@ -299,24 +367,28 @@ function renderImageSegment(segment: Segment, theme: Theme): string {
     </mj-section>`;
 }
 
-function renderHeroSegment(segment: Segment, theme: Theme): string {
-  const url = segment.attrs?.url || '';
-  const heroColor = segment.attrs?.color || theme.buttonTextColor;
+function renderHeroSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  let url = segment.attrs?.url || '';
+  if (url && !isSafeUrl(url)) {
+    warn(ctx, `Unsafe URL "${url}" for hero background — ignoring.`);
+    url = '';
+  }
+  const heroColor = resolveColor(segment.attrs?.color, theme.buttonTextColor, ctx, 'hero color');
   let textMjml = '';
   if (segment.content) {
     let content = processInlineImages(segment.content);
-    if (segment.attrs?.color) {
-      content = content.replace(/<(h[1-3])([\s>])/g, `<$1 style="color: ${segment.attrs.color}"$2`);
+    if (segment.attrs?.color && heroColor === segment.attrs.color) {
+      content = content.replace(/<(h[1-3])([\s>])/g, `<$1 style="color: ${heroColor}"$2`);
     }
     textMjml = `<mj-text align="center" color="${heroColor}">${content}</mj-text>`;
   }
-  const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme) : '';
-  let mjml = `<mj-section background-url="${url}" background-size="cover" background-repeat="no-repeat" padding="40px 32px">
+  const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
+  let mjml = `<mj-section background-url="${escapeAttrValue(url)}" background-size="cover" background-repeat="no-repeat" padding="40px 32px">
       <mj-column>
         ${textMjml}${buttonMjml}
       </mj-column>
     </mj-section>`;
-  if (segment.buttons) mjml += renderButtonFallback(segment.buttons, theme);
+  if (segment.buttons) mjml += renderButtonFallback(segment.buttons, theme, ctx);
   return mjml;
 }
 
@@ -355,37 +427,37 @@ function renderTableSegment(segment: Segment, theme: Theme): string {
     </mj-section>`;
 }
 
-function segmentToMjml(segment: Segment, theme: Theme): string {
+function segmentToMjml(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
   switch (segment.type) {
     case 'text':
       return renderTextSegment(segment.content, theme);
     case 'callout':
-      return renderCalloutSegment(segment, theme);
+      return renderCalloutSegment(segment, theme, ctx);
     case 'centered':
-      return renderCenteredSegment(segment, theme);
+      return renderCenteredSegment(segment, theme, ctx);
     case 'highlight':
-      return renderHighlightSegment(segment, theme);
+      return renderHighlightSegment(segment, theme, ctx);
     case 'header':
-      return renderHeaderSegment(segment, theme);
+      return renderHeaderSegment(segment, theme, ctx);
     case 'footer':
-      return renderFooterSegment(segment, theme);
+      return renderFooterSegment(segment, theme, ctx);
     case 'hr':
       return renderHrSegment(theme);
     case 'button':
-      return renderButtonSegment(segment, theme);
+      return renderButtonSegment(segment, theme, ctx);
     case 'button-group':
-      return renderButtonGroupSegment(segment, theme);
+      return renderButtonGroupSegment(segment, theme, ctx);
     case 'image':
-      return renderImageSegment(segment, theme);
+      return renderImageSegment(segment, theme, ctx);
     case 'table':
       return renderTableSegment(segment, theme);
     case 'hero':
-      return renderHeroSegment(segment, theme);
+      return renderHeroSegment(segment, theme, ctx);
   }
 }
 
-export function segmentsToMjml(segments: Segment[], theme: Theme): string {
-  return segments.map((s) => segmentToMjml(s, theme)).join('\n    ');
+export function segmentsToMjml(segments: Segment[], theme: Theme, ctx?: SegmentContext): string {
+  return segments.map((s) => segmentToMjml(s, theme, ctx)).join('\n    ');
 }
 
 export interface MjmlRenderOptions {
@@ -403,13 +475,21 @@ export interface MjmlRenderOptions {
   beautify?: boolean;
 }
 
+/** A single error reported by the MJML compiler. */
+export interface MjmlCompileError {
+  line?: number;
+  message: string;
+  tagName?: string;
+  formattedMessage?: string;
+}
+
 export async function renderMjml(
   segments: Segment[],
   theme: Theme,
   meta: WrapperMeta,
   wrapper: WrapperFn,
   mjmlOptions?: MjmlRenderOptions,
-): Promise<string> {
+): Promise<{ html: string; errors: MjmlCompileError[] }> {
   const mjmlDoc = wrapper(segments, theme, meta);
   const { html, errors } = await mjml2html(mjmlDoc, {
     minify: mjmlOptions?.minify ?? false,
@@ -419,8 +499,5 @@ export async function renderMjml(
     ...(mjmlOptions?.sanitizeStyles !== undefined ? { sanitizeStyles: mjmlOptions.sanitizeStyles } : {}),
     ...(mjmlOptions?.beautify !== undefined ? { beautify: mjmlOptions.beautify } : {}),
   });
-  if (errors.length > 0) {
-    console.warn('MJML compilation warnings:', errors);
-  }
-  return html;
+  return { html, errors: errors ?? [] };
 }
