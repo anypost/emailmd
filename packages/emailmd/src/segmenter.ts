@@ -370,11 +370,26 @@ function splitOnTables(segments: Segment[]): Segment[] {
   return result;
 }
 
+// Any internal marker still present after all split passes is an orphan —
+// e.g. the markers of a directive nested inside another directive, which the
+// segmenter does not unwrap. Orphans must not leak into the output document.
+// (User-authored lookalike comments are neutralized in the parser and never
+// reach this point as matching markers.)
+const ORPHAN_MARKER_RE = /<!--EMAILMD:[A-Z_0-9]+(?:\s+[\w-]+="[^"]*")*-->/g;
+
+function stripOrphanMarkers(segments: Segment[]): Segment[] {
+  return segments.map((seg) =>
+    seg.content.includes('<!--EMAILMD:')
+      ? { ...seg, content: seg.content.replace(ORPHAN_MARKER_RE, '') }
+      : seg,
+  );
+}
+
 export function segment(html: string): Segment[] {
   const { html: htmlWithPlaceholders, buttons } = extractButtons(html);
   const segments = splitOnDirectives(htmlWithPlaceholders);
   const withButtons = splitOnButtonPlaceholders(segments, buttons);
   const withImages = splitOnImages(withButtons);
   const withTables = splitOnTables(withImages);
-  return splitOnHr(withTables);
+  return stripOrphanMarkers(splitOnHr(withTables));
 }

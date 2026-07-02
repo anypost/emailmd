@@ -18,6 +18,27 @@ md.use(sub);
 md.use(sup);
 registerDirectives(md);
 
+// User-authored HTML comments that mimic internal segmentation markers
+// (<!--EMAILMD:...-->) could confuse the segmenter, since `html: true`
+// passes comments through verbatim. EMAILMD: is our reserved namespace, so
+// drop such comments — including any attacker-controlled payload inside.
+// Code spans and fences are untouched — markdown-it entity-escapes those.
+md.core.ruler.push('neutralize_internal_markers', (state) => {
+  const neutralize = (s: string) => s.replace(/<!--EMAILMD:[\s\S]*?(?:-->|$)/g, '');
+  for (const token of state.tokens) {
+    if (token.type === 'html_block') {
+      token.content = neutralize(token.content);
+    } else if (token.type === 'inline' && token.children) {
+      for (const child of token.children) {
+        if (child.type === 'html_inline') {
+          child.content = neutralize(child.content);
+        }
+      }
+    }
+  }
+  return true;
+});
+
 // Matches template tags that should pass through markdown-it untouched.
 // Matches template tags that could break markdown-it link/URL parsing.
 // Excludes ERB/EJS (<% %>) since markdown-it HTML-encodes those safely.
@@ -29,25 +50,32 @@ registerDirectives(md);
 // end-to-end through the pipeline.
 const TEMPLATE_TAG_RE = /(\{\{[\s\S]*?\}\}|\{%[\s\S]*?%\}|\$\{[\s\S]*?\}|%%[\s\S]*?%%)/g;
 
-function shieldTemplateTags(input: string): { text: string; tags: string[] } {
+function shieldTemplateTags(input: string): { text: string; tags: string[]; prefix: string } {
+  // Pick a placeholder prefix that does not occur in the source, so a literal
+  // "EMAILMDTPL0ENDTPL" typed by the user can never be mistaken for (or
+  // cross-substituted with) a shielded template tag.
+  let prefix = 'EMAILMDTPL';
+  while (input.includes(prefix)) prefix += 'X';
+
   const tags: string[] = [];
   const text = input.replace(TEMPLATE_TAG_RE, (match) => {
     const idx = tags.length;
     tags.push(match);
-    return `EMAILMDTPL${idx}ENDTPL`;
+    return `${prefix}${idx}ENDTPL`;
   });
-  return { text, tags };
+  return { text, tags, prefix };
 }
 
-function restoreTemplateTags(html: string, tags: string[]): string {
+function restoreTemplateTags(html: string, tags: string[], prefix: string): string {
   if (tags.length === 0) return html;
-  return html.replace(/EMAILMDTPL(\d+)ENDTPL/g, (_, idx) => tags[parseInt(idx, 10)] ?? _);
+  const re = new RegExp(`${prefix}(\\d+)ENDTPL`, 'g');
+  return html.replace(re, (_, idx) => tags[parseInt(idx, 10)] ?? _);
 }
 
 export function parseMarkdown(markdown: string): string {
-  const { text: shielded, tags } = shieldTemplateTags(markdown);
+  const { text: shielded, tags, prefix } = shieldTemplateTags(markdown);
   let html = md.render(shielded);
-  html = restoreTemplateTags(html, tags);
+  html = restoreTemplateTags(html, tags, prefix);
 
   // Replace <input> checkboxes with Unicode characters for email safety
   // (email clients strip <input> elements)

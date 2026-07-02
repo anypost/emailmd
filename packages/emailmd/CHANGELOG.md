@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] — Unreleased
+
+### Fixed
+- User-authored HTML comments in the reserved `<!--EMAILMD:...-->` namespace are dropped during parsing instead of being mistaken for internal segmentation markers. Escaped mentions inside code spans/fences are unaffected.
+- A literal `EMAILMDTPL0ENDTPL` string in the source can no longer be cross-substituted with a real template tag — the internal shielding placeholder now picks a prefix guaranteed not to occur in the input.
+- Directives nested inside other directives no longer leak internal markers into the output. The inner directive's content renders inside the outer block (inner styling is not applied — nested directives remain unsupported).
+
+### Added
+- `tests/malformed.test.ts` — 26 tests covering degenerate documents (empty/whitespace/frontmatter-only), CRLF and mixed line endings, unclosed/empty/unknown/nested directives, spoofed internal markers and template placeholders, and edge-case buttons/images.
+
 ## [0.4.0] — 2026-07-02
 
 ### Security
