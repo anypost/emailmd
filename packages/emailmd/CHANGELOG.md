@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.5.0] — Unreleased
+## [0.5.0] — 2026-07-02
 
 ### Changed
 - **Callout and highlight padding presets now apply fully.** The inner text element carried MJML's built-in `10px 25px` padding on top of the card's padding preset, so `compact` was barely tighter than the default and 25px of horizontal inset was constant. The text element is now rendered with zero padding, making the presets the true effective inset: default `20px 24px`, `compact` `12px 16px`, `spacious` `32px 40px`. **Visual change:** existing callouts/highlights render tighter than before (default effective inset was `30px 49px`). This lands before 1.0 so the padding semantics we freeze are the intended ones.
