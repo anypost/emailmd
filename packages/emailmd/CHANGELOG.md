@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.5] — 2026-07-02
+
+### Changed
+- Upgraded MJML to ^5.4.0. No output changes; unlocks `mj-section` `gutter` and `mj-social-element` `border` attributes for future use.
+
+### Security
+- Updated transitive dependencies to pick up fixes for quadratic-complexity DoS advisories in `js-yaml` (GHSA-h67p-54hq-rp68), `markdown-it` (GHSA-6v5v-wf23-fmfq), and `linkify-it` (GHSA-22p9-wv53-3rq4). The `linkify-it` advisory affected emailmd directly, since rendering runs with `linkify` enabled on untrusted markdown.
+
 ## [0.3.4] — 2026-06-09
 
 ### Changed
