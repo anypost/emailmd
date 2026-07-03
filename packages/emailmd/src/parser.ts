@@ -72,7 +72,15 @@ function restoreTemplateTags(html: string, tags: string[], prefix: string): stri
   return html.replace(re, (_, idx) => tags[parseInt(idx, 10)] ?? _);
 }
 
-export function parseMarkdown(markdown: string): string {
+export interface ParseOptions {
+  /** Render single newlines as `<br>` (markdown-it `breaks` mode). Default: `false`. */
+  breaks?: boolean;
+}
+
+export function parseMarkdown(markdown: string, options?: ParseOptions): string {
+  // The instance is a module-level singleton, so set the option every call
+  // rather than only when enabled.
+  md.set({ breaks: options?.breaks ?? false });
   const { text: shielded, tags, prefix } = shieldTemplateTags(markdown);
   let html = md.render(shielded);
   html = restoreTemplateTags(html, tags, prefix);

@@ -421,6 +421,18 @@ export function Toolbar({ getView, value, onChange, onReset, lastSaved }: Toolba
               >
                 Divider
               </MenuItem>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) =>
+                  insertBlock(
+                    v,
+                    '::: accordion\n### First question?\nFirst answer.\n\n### Second question?\nSecond answer.\n:::',
+                    'First question?'
+                  )
+                )}
+              >
+                Accordion (FAQ)
+              </MenuItem>
             </>
           )}
         </ToolbarMenu>

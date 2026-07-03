@@ -9,6 +9,7 @@ import { registerColumns } from './columns.js';
 import { registerSpacer } from './spacer.js';
 import { registerDivider } from './divider.js';
 import { registerSocial } from './social.js';
+import { registerAccordion } from './accordion.js';
 
 export function registerDirectives(md: MarkdownIt): void {
   registerCallout(md);
@@ -21,4 +22,5 @@ export function registerDirectives(md: MarkdownIt): void {
   registerSpacer(md);
   registerDivider(md);
   registerSocial(md);
+  registerAccordion(md);
 }

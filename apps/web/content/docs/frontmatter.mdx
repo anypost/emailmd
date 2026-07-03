@@ -90,6 +90,38 @@ The font still needs to be named in `font_family` (or via `fontFamily` in code) 
 
 When both the `fonts:` frontmatter and the `fonts` [render option](/docs/api-reference#renderoptions) are provided, frontmatter wins on matching family names and non-overlapping entries merge together.
 
+## Language and Direction
+
+Set `lang` (a language tag like `en`, `de`, or `pt-BR`) and `dir` (`ltr`, `rtl`, or `auto`) to emit the matching attributes on the output document's `<html>` tag — screen readers pick the right voice, and right-to-left scripts lay out correctly:
+
+```markdown
+---
+lang: ar
+dir: rtl
+---
+
+# مرحبا
+```
+
+When unset, the output uses MJML's defaults (`lang="und" dir="auto"`).
+
+`dir: rtl` does more than set the attribute: the default text alignment flips to right (email clients don't do this for you — MJML hardcodes left alignment), and left-anchored details like blockquote bars and list indents flip with it. Explicit alignment parameters (`center`, `left`, `right` on directives and images) still apply as written.
+
+## Hard Line Breaks
+
+By default, a single newline does not break a line (standard markdown — use a blank line for a new paragraph). Set `breaks: true` to render every newline as a line break, the way non-technical writers usually expect:
+
+```markdown
+---
+breaks: true
+---
+
+Line one
+Line two renders below it
+```
+
+Apps can set this globally with the `breaks` [render option](/docs/api-reference#renderoptions); the frontmatter value wins per document.
+
 ## All Frontmatter Keys
 
 | Key | Description |
@@ -120,6 +152,9 @@ When both the `fonts:` frontmatter and the `fonts` [render option](/docs/api-ref
 | `border_radius` | Border radius for buttons, callouts, highlights |
 | `fonts` | Nested map of custom web fonts: family name → stylesheet URL |
 | `dark` | Map of dark-palette overrides for `theme: auto` (implies `auto` when present) |
+| `lang` | Document language tag (e.g. `en`, `pt-BR`) for the output `<html>` |
+| `dir` | Text direction — `ltr`, `rtl`, or `auto` |
+| `breaks` | `true` renders single newlines as line breaks |
 
 Frontmatter values are validated before rendering: theme values containing markup characters fall back to the base theme, font entries with unsafe URLs are skipped, and the preheader is HTML-escaped in the output. Invalid values never break the render — they surface on [`warnings`](/docs/api-reference#renderwarning) instead.
 

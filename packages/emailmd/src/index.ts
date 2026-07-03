@@ -54,6 +54,12 @@ export interface RenderOptions {
    * pinned frontmatter `theme: light`/`theme: dark` renders static instead.
    */
   darkTheme?: true | Partial<Theme>;
+  /**
+   * Render single newlines as line breaks (`<br>`), the way non-technical
+   * writers expect Enter to behave. Frontmatter `breaks:` overrides this
+   * per document. Default: `false` (standard markdown).
+   */
+  breaks?: boolean;
 }
 
 /** Object returned by {@link render}. */
@@ -192,7 +198,44 @@ export async function render(markdown: string, options?: RenderOptions): Promise
     }
   }
 
-  const parsedHtml = parseMarkdown(content);
+  // Hard line breaks: frontmatter wins over the render option per document.
+  let breaks = options?.breaks ?? false;
+  if (meta.breaks !== undefined) {
+    if (typeof meta.breaks === 'boolean') {
+      breaks = meta.breaks;
+    } else {
+      warnings.push({
+        stage: 'frontmatter',
+        message: `Invalid "breaks" frontmatter — expected true or false.`,
+      });
+    }
+  }
+
+  // Document language and text direction, emitted on the output <html> tag.
+  let lang: string | undefined;
+  if (meta.lang !== undefined) {
+    if (typeof meta.lang === 'string' && /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{1,8})*$/.test(meta.lang)) {
+      lang = meta.lang;
+    } else {
+      warnings.push({
+        stage: 'frontmatter',
+        message: `Invalid "lang" frontmatter "${String(meta.lang)}" — expected a language tag like "en" or "pt-BR".`,
+      });
+    }
+  }
+  let dir: 'ltr' | 'rtl' | 'auto' | undefined;
+  if (meta.dir !== undefined) {
+    if (meta.dir === 'ltr' || meta.dir === 'rtl' || meta.dir === 'auto') {
+      dir = meta.dir;
+    } else {
+      warnings.push({
+        stage: 'frontmatter',
+        message: `Invalid "dir" frontmatter "${String(meta.dir)}" — expected "ltr", "rtl", or "auto".`,
+      });
+    }
+  }
+
+  const parsedHtml = parseMarkdown(content, { breaks });
   const segments = segment(parsedHtml);
 
   const wrapperFn = resolveWrapper(options?.wrapper);
@@ -203,6 +246,8 @@ export async function render(markdown: string, options?: RenderOptions): Promise
     strings: options?.strings,
     warnings,
     darkTheme: darkThemeResolved,
+    lang,
+    dir,
   };
 
   const frontmatterFonts = frontmatterToFonts(meta);

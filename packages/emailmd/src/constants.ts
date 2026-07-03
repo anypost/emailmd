@@ -14,6 +14,7 @@ export const MARKER_HERO_CLOSE = '<!--EMAILMD:HERO_CLOSE-->';
 export const MARKER_COLUMNS_CLOSE = '<!--EMAILMD:COLUMNS_CLOSE-->';
 export const MARKER_COLUMN_CLOSE = '<!--EMAILMD:COLUMN_CLOSE-->';
 export const MARKER_SOCIAL_CLOSE = '<!--EMAILMD:SOCIAL_CLOSE-->';
+export const MARKER_ACCORDION_CLOSE = '<!--EMAILMD:ACCORDION_CLOSE-->';
 
 /**
  * A table header row whose cells are all empty (`| | |`) opts the table out of

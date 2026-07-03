@@ -1,0 +1,38 @@
+---
+title: Accordion
+description: Collapsible FAQ sections with graceful fallback.
+---
+
+An accordion turns headings into clickable, collapsible panels — ideal for FAQs. Each heading inside the block becomes a panel title, and the content below it becomes the panel body:
+
+```markdown
+::: accordion
+### How do I reset my password?
+Click **Forgot password** on the sign-in page.
+
+### Where is my order?
+Check the tracking link in your confirmation email.
+:::
+```
+
+Any heading level works, and panel bodies support inline formatting, links, and lists. Text placed before the first heading renders as an intro paragraph above the accordion.
+
+## Client Support
+
+Collapsing is interactive in WebKit-based clients (Apple Mail, iOS Mail) and some others. Clients without support — including Gmail and Outlook — show **every panel expanded**, which reads naturally: the fallback is just your headings and content in order. The plain-text version flattens the same way.
+
+## Custom Icons
+
+The expand/collapse icons default to the MJML set (served from imgur). For production email we recommend self-hosting — point `icon-wrapped` (collapsed state) and `icon-unwrapped` (expanded state) at your own images:
+
+```markdown
+::: accordion icon-wrapped=https://cdn.example.com/plus.png icon-unwrapped=https://cdn.example.com/minus.png
+### Question?
+Answer.
+:::
+```
+
+## Notes
+
+- A block with no headings degrades to a regular text section and surfaces a render warning.
+- Panel borders use the theme's `divider_color`, and titles use `heading_color` — both adapt in [dark mode](/docs/theme#automatic-dark-mode).

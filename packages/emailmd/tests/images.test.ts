@@ -178,3 +178,50 @@ describe('image plain text output', async () => {
     expect(text).toContain('[Image: icon]');
   });
 });
+
+describe('image captions', async () => {
+  it('renders a caption line under the image', async () => {
+    const { html } = await render('![Chart](https://example.com/chart.png){caption="Figure 1 — signups"}');
+    expect(html).toContain('Figure 1 — signups');
+    // Caption renders after the image markup
+    const imgIdx = html.indexOf('chart.png');
+    const capIdx = html.indexOf('Figure 1');
+    expect(imgIdx).toBeGreaterThan(-1);
+    expect(capIdx).toBeGreaterThan(imgIdx);
+  });
+
+  it('matches the image alignment', async () => {
+    const { html } = await render('![Alt](https://example.com/img.png){align="left" caption="Left cap"}');
+    expect(html).toContain('Left cap');
+    expect(html).toMatch(/text-align:left[^]*Left cap/);
+  });
+
+  it('renders entities in the caption exactly once', async () => {
+    const { html } = await render('![Alt](https://example.com/img.png){caption="Tom & Jerry"}');
+    expect(html).toContain('Tom &amp; Jerry');
+    expect(html).not.toContain('&amp;amp;');
+  });
+
+  it('works on linked images', async () => {
+    const { html } = await render('[![Alt](https://example.com/img.png)](https://example.com){caption="Click me"}');
+    expect(html).toContain('Click me');
+    expect(html).toContain('href="https://example.com"');
+  });
+
+  it('renders inside column cells', async () => {
+    const md = `:::: columns
+::: column
+![Alt](https://example.com/a.png){caption="Cell cap"}
+:::
+::::`;
+    const { html } = await render(md);
+    expect(html).toContain('Cell cap');
+  });
+
+  it('appears in plain text after the image label', async () => {
+    const { text } = await render('![Chart](https://example.com/chart.png){caption="Figure 1"}');
+    expect(text).toContain('[Image: Chart]');
+    expect(text).toContain('Figure 1');
+    expect(text.indexOf('Figure 1')).toBeGreaterThan(text.indexOf('[Image: Chart]'));
+  });
+});

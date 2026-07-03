@@ -37,6 +37,9 @@ export function toPlainText(html: string): string {
   // Social blocks flatten to their links
   text = text.replace(/<!--EMAILMD:SOCIAL_(?:OPEN|CLOSE)(?:\s+[\w-]+="[^"]*")*-->/g, '');
 
+  // Accordions flatten to sequential headings + content
+  text = text.replace(/<!--EMAILMD:ACCORDION_(?:OPEN|CLOSE)(?:\s+[\w-]+="[^"]*")*-->/g, '');
+
   // Convert buttons: <p><a href="url" button="">Text</a></p> → Text: url
   // Handles both single and multiple buttons in one paragraph
   text = text.replace(/<p>\s*((?:<a\s+[^>]*>[^<]*<\/a>\s*)+)<\/p>/g, (match, inner) => {
@@ -62,9 +65,14 @@ export function toPlainText(html: string): string {
     return `\n${toUpperCasePreserveTokens(stripTags(content))}\n`;
   });
 
-  // Convert images to [Image: alt]
-  text = text.replace(/<img\s+[^>]*alt="([^"]*)"[^>]*>/gi, '[Image: $1]');
-  text = text.replace(/<img\s+[^>]*>/gi, '');
+  // Convert images to [Image: alt], with the caption (if any) on the next line
+  text = text.replace(/<img\s+([^>]*)>/gi, (_, attrString: string) => {
+    const alt = /alt="([^"]*)"/i.exec(attrString)?.[1] ?? '';
+    const caption = /caption="([^"]*)"/i.exec(attrString)?.[1];
+    const label = alt ? `[Image: ${alt}]` : '';
+    if (!caption) return label;
+    return label ? `${label}\n${caption}` : caption;
+  });
 
   // Convert links: <a href="url">text</a> → text (url)
   text = text.replace(/<a\s+[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/gi, (_, url, label) => {

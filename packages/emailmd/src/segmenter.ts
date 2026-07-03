@@ -8,9 +8,10 @@ import {
   MARKER_COLUMNS_CLOSE,
   MARKER_COLUMN_CLOSE,
   MARKER_SOCIAL_CLOSE,
+  MARKER_ACCORDION_CLOSE,
 } from './constants.js';
 
-export type SegmentType = 'text' | 'callout' | 'centered' | 'highlight' | 'header' | 'footer' | 'button' | 'button-group' | 'image' | 'hr' | 'table' | 'hero' | 'columns' | 'spacer' | 'social';
+export type SegmentType = 'text' | 'callout' | 'centered' | 'highlight' | 'header' | 'footer' | 'button' | 'button-group' | 'image' | 'hr' | 'table' | 'hero' | 'columns' | 'spacer' | 'social' | 'accordion';
 
 /** One cell of a `columns` segment. Cell content is itself segmented. */
 export interface ColumnCell {
@@ -43,6 +44,7 @@ const PARAMETERIZED_DIRECTIVES: Array<{
   { re: /<!--EMAILMD:HERO_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'hero', close: MARKER_HERO_CLOSE },
   { re: /<!--EMAILMD:COLUMNS_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'columns', close: MARKER_COLUMNS_CLOSE },
   { re: /<!--EMAILMD:SOCIAL_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'social', close: MARKER_SOCIAL_CLOSE },
+  { re: /<!--EMAILMD:ACCORDION_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'accordion', close: MARKER_ACCORDION_CLOSE },
 ];
 
 function parseMarkerAttrs(attrString: string): Record<string, string> {
@@ -170,6 +172,7 @@ function parseImageAttrs(imgAttrString: string, linkAttrString?: string): Record
   if (imgAttrs.width) attrs.width = imgAttrs.width;
   if (imgAttrs.align) attrs.align = imgAttrs.align;
   if (imgAttrs['border-radius']) attrs['border-radius'] = imgAttrs['border-radius'];
+  if (imgAttrs.caption) attrs.caption = imgAttrs.caption;
 
   // For linked images, extract href from the <a> tag
   if (linkAttrString) {
@@ -179,6 +182,7 @@ function parseImageAttrs(imgAttrString: string, linkAttrString?: string): Record
     if (linkAttrs.width && !imgAttrs.width) attrs.width = linkAttrs.width;
     if (linkAttrs.align && !imgAttrs.align) attrs.align = linkAttrs.align;
     if (linkAttrs['border-radius'] && !imgAttrs['border-radius']) attrs['border-radius'] = linkAttrs['border-radius'];
+    if (linkAttrs.caption && !imgAttrs.caption) attrs.caption = linkAttrs.caption;
   }
 
   return attrs;

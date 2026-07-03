@@ -35,6 +35,10 @@ export interface WrapperMeta {
    * style overrides.
    */
   darkTheme?: Theme;
+  /** Validated frontmatter `lang`, for the output document's `lang` attribute. */
+  lang?: string;
+  /** Validated frontmatter `dir`, for the output document's text direction. */
+  dir?: 'ltr' | 'rtl' | 'auto';
 }
 
 export type WrapperFn = (segments: Segment[], theme: Theme, meta?: WrapperMeta) => string;
@@ -43,6 +47,13 @@ export type WrapperFn = (segments: Segment[], theme: Theme, meta?: WrapperMeta) 
 export interface SegmentContext {
   strings?: RenderStrings;
   warnings?: RenderWarning[];
+  /** Document text direction; `rtl` flips the default (start-edge) alignment to `right`. */
+  dir?: 'ltr' | 'rtl' | 'auto';
+}
+
+/** Default alignment for start-aligned blocks: `right` in RTL documents. */
+function startAlign(ctx: SegmentContext | undefined): string {
+  return ctx?.dir === 'rtl' ? 'right' : 'left';
 }
 
 function warn(ctx: SegmentContext | undefined, message: string): void {
@@ -100,16 +111,20 @@ function buildDarkModeStyles(dark: Theme): string {
     ['.emd-hl > table, .emd-hl > table > tbody > tr > td', `background-color: ${dark.brandColor} !important;`],
     ['.emd-s code, .emd-s pre', `background-color: ${dark.cardColor} !important;`],
     ['.emd-s mark', `background-color: ${dark.brandColor}33 !important;`],
+    ['.emd-acc td', `background-color: ${dark.contentColor} !important;`],
   ];
   const colorRules: CssRule[] = [
     ['.emd-s div', `color: ${dark.bodyColor} !important;`],
     ['.emd-s h1, .emd-s h2, .emd-s h3', `color: ${dark.headingColor} !important;`],
     ['.emd-s div a', `color: ${dark.brandColor} !important;`],
     ['.emd-hl div', `color: ${dark.buttonTextColor} !important;`],
-    ['.emd-s blockquote', `border-left-color: ${dark.brandColor} !important;`],
+    ['.emd-s blockquote', `border-color: ${dark.brandColor} !important;`],
     ['.emd-s p[style*="border-top"]', `border-color: ${dark.dividerColor} !important;`],
     ['.emd-tbl', `color: ${dark.bodyColor} !important;`],
     ['.emd-tbl th, .emd-tbl td', `border-color: ${dark.cardColor} !important;`],
+    ['.emd-acc table', `border-color: ${dark.dividerColor} !important;`],
+    ['.emd-acc .mj-accordion-title td', `color: ${dark.headingColor} !important;`],
+    ['.emd-acc .mj-accordion-content td', `color: ${dark.bodyColor} !important;`],
   ];
 
   return `<mj-style>
@@ -126,30 +141,34 @@ function buildDarkModeStyles(dark: Theme): string {
     </mj-raw>`;
 }
 
-export function buildHead(theme: Theme, preheader?: string, darkTheme?: Theme): string {
+export function buildHead(theme: Theme, preheader?: string, darkTheme?: Theme, dir?: 'ltr' | 'rtl' | 'auto'): string {
+  // MJML hardcodes text-align:left on text blocks, so RTL documents flip the
+  // default alignment and the left-anchored styles (blockquote bar, list indent).
+  const rtl = dir === 'rtl';
+  const start = rtl ? 'right' : 'left';
   return `<mj-head>
     <mj-attributes>
       <mj-all font-family="${theme.fontFamily}" />
-      <mj-text font-size="${theme.fontSize}" line-height="${theme.lineHeight}" color="${theme.bodyColor}" />
+      <mj-text font-size="${theme.fontSize}" line-height="${theme.lineHeight}" color="${theme.bodyColor}"${rtl ? ' align="right"' : ''} />
     </mj-attributes>
     <mj-style>
       h1 { font-size: 32px; font-weight: 700; color: ${theme.headingColor}; margin: 0 0 12px 0; }
       h2 { font-size: 24px; font-weight: 700; color: ${theme.headingColor}; margin: 0 0 10px 0; }
       h3 { font-size: 20px; font-weight: 600; color: ${theme.headingColor}; margin: 0 0 8px 0; }
       a { color: ${theme.brandColor}; }
-      blockquote { border-left: 3px solid ${theme.brandColor}; padding-left: 16px; margin: 0; }
-      blockquote blockquote { border-left-color: ${theme.cardColor}; }
+      blockquote { border-${start}: 3px solid ${theme.brandColor}; padding-${start}: 16px; margin: 0; }
+      blockquote blockquote { border-color: ${theme.cardColor}; }
       code { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; background-color: ${theme.cardColor}; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
       pre { background-color: ${theme.cardColor}; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 0; }
       pre code { background-color: transparent; padding: 0; border-radius: 0; font-size: inherit; }
-      ul, ol { margin: 0 0 8px 0; padding-left: 24px; }
+      ul, ol { margin: 0 0 8px 0; padding-${start}: 24px; }
       li { margin-bottom: 4px; }
-      .task-list-item { list-style-type: none; margin-left: -24px; }
+      .task-list-item { list-style-type: none; margin-${start}: -24px; }
       ul ul, ol ol, ul ol, ol ul { margin-top: 4px; margin-bottom: 0; }
       mark { background-color: ${theme.brandColor}33; padding: 2px 4px; border-radius: 2px; }
       dl { margin: 0 0 8px 0; }
       dt { font-weight: 700; margin-top: 8px; }
-      dd { margin: 2px 0 0 24px; }
+      dd { margin: ${rtl ? '2px 24px 0 0' : '2px 0 0 24px'}; }
       img { vertical-align: middle; }
     </mj-style>
     ${darkTheme ? buildDarkModeStyles(darkTheme) : ''}
@@ -221,7 +240,7 @@ function renderEmbeddedButtons(buttons: Array<Record<string, string>>, theme: Th
 }
 
 function renderCalloutSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
-  const align = resolveAlign(segment.attrs?.align, 'left', ctx, 'callout align');
+  const align = resolveAlign(segment.attrs?.align, startAlign(ctx), ctx, 'callout align');
   const bgColor = resolveColor(segment.attrs?.bg, theme.cardColor, ctx, 'callout bg');
   const textColor = resolveColor(segment.attrs?.color, theme.bodyColor, ctx, 'callout color');
   const padding = resolvePadding(segment.attrs?.padding);
@@ -257,7 +276,7 @@ function renderCenteredSegment(segment: Segment, theme: Theme, ctx?: SegmentCont
 }
 
 function renderHighlightSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
-  const align = resolveAlign(segment.attrs?.align, 'left', ctx, 'highlight align');
+  const align = resolveAlign(segment.attrs?.align, startAlign(ctx), ctx, 'highlight align');
   const bgColor = resolveColor(segment.attrs?.bg, theme.brandColor, ctx, 'highlight bg');
   const textColor = resolveColor(segment.attrs?.color, theme.buttonTextColor, ctx, 'highlight color');
   const padding = resolvePadding(segment.attrs?.padding);
@@ -464,12 +483,21 @@ function buildImageMjAttrs(attrs: Record<string, string>, theme: Theme, ctx?: Se
   return mjAttrs;
 }
 
+function imageCaptionMjml(attrs: Record<string, string>, theme: Theme, fallbackAlign = 'center'): string {
+  if (!attrs.caption) return '';
+  const align = attrs.align && ALIGN_VALUES.has(attrs.align) ? attrs.align : fallbackAlign;
+  // Caption values arrive entity-escaped from markdown-it; escapeAttrValue
+  // blocks tag injection without double-escaping `&`.
+  return `<mj-text align="${align}" padding="4px 0 0" font-size="13px" color="${theme.bodyColor}" line-height="1.5">${escapeAttrValue(attrs.caption)}</mj-text>`;
+}
+
 function renderImageSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
   const mjAttrs = buildImageMjAttrs(segment.attrs!, theme, ctx);
+  const caption = imageCaptionMjml(segment.attrs!, theme);
 
   return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
       <mj-column>
-        <mj-image ${mjAttrs.join(' ')} />
+        <mj-image ${mjAttrs.join(' ')} />${caption ? `\n        ${caption}` : ''}
       </mj-column>
     </mj-section>`;
 }
@@ -493,6 +521,80 @@ function renderHeroSegment(segment: Segment, theme: Theme, ctx?: SegmentContext)
   let mjml = `<mj-section background-url="${escapeAttrValue(url)}" background-size="cover" background-repeat="no-repeat" padding="40px 32px">
       <mj-column>
         ${textMjml}${buttonMjml}
+      </mj-column>
+    </mj-section>`;
+  if (segment.buttons) mjml += renderButtonFallback(segment.buttons, theme, ctx);
+  return mjml;
+}
+
+/** Split accordion content on headings: each heading opens a new panel. */
+function parseAccordionPanels(content: string): { intro: string; panels: Array<{ title: string; body: string }> } {
+  const headingRe = /<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/g;
+  const panels: Array<{ title: string; body: string }> = [];
+  let intro = '';
+  let lastTitle: string | null = null;
+  let lastEnd = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = headingRe.exec(content)) !== null) {
+    const before = content.slice(lastEnd, match.index);
+    if (lastTitle === null) {
+      intro = before;
+    } else {
+      panels.push({ title: lastTitle, body: before });
+    }
+    lastTitle = match[1].replace(/<[^>]*>/g, '').trim();
+    lastEnd = match.index + match[0].length;
+  }
+  if (lastTitle !== null) {
+    panels.push({ title: lastTitle, body: content.slice(lastEnd) });
+  } else {
+    intro = content;
+  }
+  return { intro, panels };
+}
+
+function renderAccordionSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  const { intro, panels } = parseAccordionPanels(segment.content);
+
+  if (panels.length === 0) {
+    warn(ctx, 'Accordion contains no headings — rendering its content as regular text.');
+    return renderTextSegment(segment.content, theme);
+  }
+
+  const iconAttrs: string[] = [];
+  for (const [param, mjAttr] of [
+    ['icon-wrapped', 'icon-wrapped-url'],
+    ['icon-unwrapped', 'icon-unwrapped-url'],
+  ] as const) {
+    const url = segment.attrs?.[param];
+    if (!url) continue;
+    if (isSafeUrl(url)) {
+      iconAttrs.push(`${mjAttr}="${escapeAttrValue(url)}"`);
+    } else {
+      warn(ctx, `Unsafe URL "${url}" for accordion ${param} — using the default icon.`);
+    }
+  }
+
+  const introMjml = intro.trim()
+    ? `<mj-text padding="0 0 8px" font-size="${theme.fontSize}" color="${theme.bodyColor}" line-height="${theme.lineHeight}">${processInlineImages(intro)}</mj-text>
+        `
+    : '';
+  const elements = panels
+    .map(
+      (panel) => `<mj-accordion-element background-color="${theme.contentColor}">
+            <mj-accordion-title color="${theme.headingColor}" font-size="${theme.fontSize}" font-family="${theme.fontFamily}" padding="12px 4px">${escapeAttrValue(panel.title)}</mj-accordion-title>
+            <mj-accordion-text color="${theme.bodyColor}" font-size="${theme.fontSize}" font-family="${theme.fontFamily}" line-height="${theme.lineHeight}" padding="0 4px 12px">${panel.body}</mj-accordion-text>
+          </mj-accordion-element>`,
+    )
+    .join('\n          ');
+
+  const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
+  let mjml = `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
+      <mj-column>
+        ${introMjml}<mj-accordion css-class="emd-acc" border="1px solid ${theme.dividerColor}" font-family="${theme.fontFamily}"${iconAttrs.length > 0 ? ' ' + iconAttrs.join(' ') : ''}>
+          ${elements}
+        </mj-accordion>${buttonMjml}
       </mj-column>
     </mj-section>`;
   if (segment.buttons) mjml += renderButtonFallback(segment.buttons, theme, ctx);
@@ -671,7 +773,7 @@ function renderCellButton(attrs: Record<string, string>, theme: Theme, ctx?: Seg
 }
 
 function renderCellSegments(cell: ColumnCell, theme: Theme, ctx?: SegmentContext): string {
-  const cellAlign = cell.attrs?.align ? resolveAlign(cell.attrs.align, 'left', ctx, 'column align') : undefined;
+  const cellAlign = cell.attrs?.align ? resolveAlign(cell.attrs.align, startAlign(ctx), ctx, 'column align') : undefined;
   const textColor = cell.attrs?.color ? resolveColor(cell.attrs.color, theme.bodyColor, ctx, 'column color') : undefined;
 
   const parts: string[] = [];
@@ -687,6 +789,8 @@ function renderCellSegments(cell: ColumnCell, theme: Theme, ctx?: SegmentContext
         const attrs = { ...seg.attrs! };
         if (!attrs.align && cellAlign) attrs.align = cellAlign;
         parts.push(`<mj-image padding="4px 0" ${buildImageMjAttrs(attrs, theme, ctx).join(' ')} />`);
+        const caption = imageCaptionMjml(attrs, theme);
+        if (caption) parts.push(caption);
         break;
       }
       case 'button':
@@ -801,6 +905,8 @@ function segmentToMjml(segment: Segment, theme: Theme, ctx?: SegmentContext): st
       return renderSpacerSegment(segment, theme, ctx);
     case 'social':
       return renderSocialSegment(segment, theme, ctx);
+    case 'accordion':
+      return renderAccordionSegment(segment, theme, ctx);
   }
 }
 

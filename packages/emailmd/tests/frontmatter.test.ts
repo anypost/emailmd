@@ -129,3 +129,117 @@ describe('theme frontmatter shortcut', async () => {
     expect(html).toContain('#e11d48');
   });
 });
+
+describe('lang and dir frontmatter', async () => {
+  it('emits lang and dir on the html tag', async () => {
+    const { html, warnings } = await render(`---\nlang: ar\ndir: rtl\n---\n\n# Hello`);
+    expect(html).toMatch(/<html[^>]* lang="ar"/);
+    expect(html).toMatch(/<html[^>]* dir="rtl"/);
+    expect(warnings).toBeUndefined();
+  });
+
+  it('accepts region subtags', async () => {
+    const { html } = await render(`---\nlang: pt-BR\n---\n\n# Olá`);
+    expect(html).toMatch(/<html[^>]* lang="pt-BR"/);
+  });
+
+  it('falls back to MJML defaults (lang="und" dir="auto") when unset', async () => {
+    const { html } = await render('# Hello');
+    expect(html).toMatch(/<html[^>]* lang="und"/);
+    expect(html).toMatch(/<html[^>]* dir="auto"/);
+  });
+
+  it('warns on an invalid lang and falls back to the default', async () => {
+    const { html, warnings } = await render(`---\nlang: 'en"><script>'\n---\n\n# Hello`);
+    expect(warnings?.[0].stage).toBe('frontmatter');
+    expect(warnings?.[0].message).toContain('lang');
+    expect(html).not.toContain('<script>');
+    expect(html).toMatch(/<html[^>]* lang="und"/);
+  });
+
+  it('warns on an invalid dir and falls back to the default', async () => {
+    const { warnings, html } = await render(`---\ndir: sideways\n---\n\n# Hello`);
+    expect(warnings?.[0].message).toContain('dir');
+    expect(html).toMatch(/<html[^>]* dir="auto"/);
+  });
+});
+
+describe('hard line breaks', async () => {
+  const TWO_LINES = 'line one\nline two';
+
+  it('keeps standard markdown behavior by default', async () => {
+    const { html } = await render(TWO_LINES);
+    expect(html).not.toMatch(/line one<br/);
+  });
+
+  it('renders single newlines as <br> with the breaks option', async () => {
+    const { html } = await render(TWO_LINES, { breaks: true });
+    expect(html).toMatch(/line one<br/);
+  });
+
+  it('enables breaks via frontmatter', async () => {
+    const { html } = await render(`---\nbreaks: true\n---\n\n${TWO_LINES}`);
+    expect(html).toMatch(/line one<br/);
+  });
+
+  it('frontmatter breaks: false overrides the render option', async () => {
+    const { html } = await render(`---\nbreaks: false\n---\n\n${TWO_LINES}`, { breaks: true });
+    expect(html).not.toMatch(/line one<br/);
+  });
+
+  it('does not leak the setting into the next render', async () => {
+    await render(TWO_LINES, { breaks: true });
+    const { html } = await render(TWO_LINES);
+    expect(html).not.toMatch(/line one<br/);
+  });
+
+  it('warns on a non-boolean breaks value', async () => {
+    const { warnings } = await render(`---\nbreaks: sometimes\n---\n\n# Hi`);
+    expect(warnings?.[0].stage).toBe('frontmatter');
+    expect(warnings?.[0].message).toContain('breaks');
+  });
+});
+
+describe('rtl rendering', async () => {
+  const RTL_DOC = `---
+dir: rtl
+---
+
+مرحبا بكم
+
+> اقتباس
+
+::: callout
+ملاحظة
+:::
+
+- بند واحد`;
+
+  it('flips the default text alignment to right', async () => {
+    const { html } = await render(RTL_DOC);
+    expect(html).toMatch(/text-align:right[^>]*>\s*<p>مرحبا/);
+  });
+
+  it('flips directive default alignment', async () => {
+    const { html } = await render(RTL_DOC);
+    expect(html).toMatch(/text-align:right[^>]*>\s*<p>ملاحظة/);
+  });
+
+  it('flips blockquote bars and list indents', async () => {
+    const { html } = await render(RTL_DOC);
+    expect(html).toMatch(/border-right:\s*3px solid/);
+    expect(html).toMatch(/padding-right:\s*24px/);
+  });
+
+  it('keeps explicit alignment overrides', async () => {
+    const md = `---\ndir: rtl\n---\n\n::: callout center\nوسط\n:::`;
+    const { html } = await render(md);
+    expect(html).toMatch(/text-align:center[^>]*>\s*<p>وسط/);
+  });
+
+  it('does not flip ltr documents', async () => {
+    const { html } = await render('Hello\n\n> quote');
+    expect(html).toMatch(/border-left:\s*3px solid/);
+    expect(html).not.toMatch(/text-align:right[^>]*>\s*<p>Hello/);
+  });
+});
