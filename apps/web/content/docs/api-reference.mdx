@@ -33,6 +33,7 @@ const { html, text, meta } = await render("# Hello");
   sanitizeStyles?: boolean;
   beautify?: boolean;
   strings?: RenderStrings;
+  darkTheme?: true | Partial<Theme>;
 }
 ```
 
@@ -47,6 +48,7 @@ const { html, text, meta } = await render("# Hello");
 | `sanitizeStyles`  | `boolean`                                     | Sanitize template variables inside CSS before minification. Requires `minify: true`.    |
 | `beautify`        | `boolean`                                     | Pretty-print output HTML. Ignored when `minify: true`. Default `false`.                 |
 | `strings`         | `RenderStrings`                               | Override output strings for localization. See [`RenderStrings`](#renderstrings).        |
+| `darkTheme`       | `true \| Partial<Theme>`                      | Opt into [automatic dark mode](/docs/theme#automatic-dark-mode). `true` = built-in dark palette; a partial theme merges over it. Overridden by a pinned frontmatter `theme: light`/`dark`. |
 
 ## `RenderResult`
 

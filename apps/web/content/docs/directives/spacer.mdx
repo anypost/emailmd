@@ -1,0 +1,39 @@
+---
+title: Spacer
+description: Explicit vertical whitespace.
+---
+
+A spacer adds explicit vertical space between blocks. It's a single line — no closing `:::` needed:
+
+```markdown
+Above the gap.
+
+::: spacer 48
+
+Below the gap.
+```
+
+The number is the height in pixels; other CSS units work too (`::: spacer 2em`). Without a value the spacer is `24px`:
+
+```markdown
+::: spacer
+```
+
+Spacers work inside [columns](/docs/directives/columns) as well:
+
+```markdown
+:::: columns
+::: column
+Top of the column
+
+::: spacer 40
+
+Pushed down
+:::
+::: column
+Other column
+:::
+::::
+```
+
+Spacers leave no trace in the plain-text version of the email.

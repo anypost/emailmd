@@ -4,9 +4,13 @@
     "index",
     "header",
     "hero",
+    "columns",
     "callout",
     "highlight",
     "centered",
+    "spacer",
+    "divider",
+    "social",
     "footer"
   ]
 }

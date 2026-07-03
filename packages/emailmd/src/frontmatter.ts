@@ -27,6 +27,7 @@ const themeKeys: Set<string> = new Set([
   'danger_text_color',
   'warning_color',
   'warning_text_color',
+  'divider_color',
   'font_family',
   'font_size',
   'line_height',

@@ -4,12 +4,12 @@ import type { WrapperMeta } from '../mjml.js';
 import { buildHead, segmentsToMjml } from '../mjml.js';
 
 export function defaultWrapper(segments: Segment[], theme: Theme, meta?: WrapperMeta): string {
-  const head = buildHead(theme, meta?.preheader);
+  const head = buildHead(theme, meta?.preheader, meta?.darkTheme);
   const body = segmentsToMjml(segments, theme, { strings: meta?.strings, warnings: meta?.warnings });
 
   return `<mjml>
   ${head}
-  <mj-body background-color="${theme.backgroundColor}" width="${theme.contentWidth}">
+  <mj-body css-class="emd-root" background-color="${theme.backgroundColor}" width="${theme.contentWidth}">
     ${body}
   </mj-body>
 </mjml>`;

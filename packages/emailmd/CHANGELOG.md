@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] — Unreleased
+
+Layout and appearance features ahead of 1.0.
+
+### Added
+- **Columns directive** (`:::: columns` / `::: column`): multi-column layouts that stack on mobile. Per-column `width` (bare number = percent), `align`, `valign`, `bg` (card-style cell with padding presets), and `color`; container-level `gap` (default 16px) and `stack=false` (stay side-by-side on mobile via `mj-group`). Text, images, buttons, tables, dividers, and spacers keep their positions inside cells. Columns flatten sequentially in plain text.
+- **Spacer directive** (`::: spacer 24`): explicit vertical whitespace. Single-line — no closing fence. Bare numbers are pixels; defaults to 24px.
+- **Divider directive** (`::: divider color=#dc2626 thickness=2 width=50%`): styled horizontal rule with `color`, `thickness`, `width`, and alignment keywords. Single-line — no closing fence.
+- **Social directive** (`::: social` + a list of links): social icon row. Icons derived from link hostnames (X/Twitter, GitHub, LinkedIn, Instagram, Facebook, YouTube, and more; unknown hosts get a generic web icon). Params: `labels` (show link text), `icon-size`, `icon-base` (self-hosted icon set), alignment. Per-link icon override via `{icon=url}`. Links go to the URL directly (`-noshare`), not share-intent URLs.
+- **Automatic dark mode**: `theme: auto` in frontmatter renders light but adapts to the reader's dark mode; a `dark:` map of theme keys tunes the dark variant (and implies `auto` on its own). Apps can enable it globally with the `darkTheme` render option (`true` or a partial theme) — an explicitly pinned `theme: light`/`theme: dark` renders static instead. Emits `color-scheme` meta tags, a `prefers-color-scheme: dark` media query, and `[data-ogsc]`/`[data-ogsb]` selectors for Outlook.com. Apple Mail and Outlook honor the overrides; Gmail applies its own inversion regardless.
+- **`dividerColor` theme key** (frontmatter `divider_color`): color of plain `---` rules and the default for the divider directive. Defaults match the previous hardcoded values (light `#f4f4f5`, dark `#27272a`) — no visual change unless set.
+- Stable `emd-*` CSS classes on rendered output (`emd-root`, `emd-s`, `emd-bg`, `emd-card`, `emd-hl`, `emd-tbl`) — hooks for the dark-mode overrides and for custom wrapper CSS.
+- `WrapperMeta.darkTheme` (resolved dark palette) and an optional third `darkTheme` parameter on `buildHead`, so custom wrappers can participate in dark mode.
+
 ## [0.6.0] — 2026-07-02
 
 Final API audit ahead of 1.0.

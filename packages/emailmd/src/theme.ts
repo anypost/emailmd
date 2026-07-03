@@ -15,6 +15,7 @@ export interface Theme {
   dangerTextColor: string;
   warningColor: string;
   warningTextColor: string;
+  dividerColor: string;
   fontFamily: string;
   fontSize: string;
   lineHeight: string;
@@ -47,6 +48,7 @@ export const lightTheme: Theme = {
   dangerTextColor: '#ffffff',
   warningColor: '#d97706',
   warningTextColor: '#ffffff',
+  dividerColor: '#f4f4f5',
   ...sharedTypography,
 };
 
@@ -67,6 +69,7 @@ export const darkTheme: Theme = {
   dangerTextColor: '#ffffff',
   warningColor: '#d97706',
   warningTextColor: '#ffffff',
+  dividerColor: '#27272a',
   ...sharedTypography,
 };
 
@@ -74,7 +77,8 @@ export const defaultTheme: Theme = { ...lightTheme };
 
 export function resolveBaseTheme(name?: string): Theme {
   if (name === 'dark') return darkTheme;
-  if (name === 'light') return lightTheme;
+  // `auto` renders light by default and adapts via prefers-color-scheme.
+  if (name === 'light' || name === 'auto') return lightTheme;
   return defaultTheme;
 }
 

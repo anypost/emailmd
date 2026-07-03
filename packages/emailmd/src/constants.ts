@@ -11,3 +11,6 @@ export const MARKER_FOOTER_CLOSE = '<!--EMAILMD:FOOTER_CLOSE-->';
 export const MARKER_BUTTON = '<!--EMAILMD:BUTTON';
 export const MARKER_BUTTON_END = '-->';
 export const MARKER_HERO_CLOSE = '<!--EMAILMD:HERO_CLOSE-->';
+export const MARKER_COLUMNS_CLOSE = '<!--EMAILMD:COLUMNS_CLOSE-->';
+export const MARKER_COLUMN_CLOSE = '<!--EMAILMD:COLUMN_CLOSE-->';
+export const MARKER_SOCIAL_CLOSE = '<!--EMAILMD:SOCIAL_CLOSE-->';

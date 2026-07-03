@@ -1,0 +1,58 @@
+---
+title: Social
+description: Social link icon rows for footers.
+---
+
+A social block turns a list of links into an icon row. The icon is derived from each link's hostname:
+
+```markdown
+::: social
+- [GitHub](https://github.com/anypost/emailmd)
+- [X](https://x.com/emailmd)
+- [LinkedIn](https://www.linkedin.com/company/emailmd)
+:::
+```
+
+Recognized networks: Facebook, X/Twitter, Instagram, LinkedIn, GitHub, YouTube, Pinterest, Medium, Vimeo, Dribbble, SoundCloud, Tumblr, Snapchat, and Xing. Any other host gets a generic web icon.
+
+## Parameters
+
+### Labels
+
+Icons only by default; add the `labels` flag to show each link's text next to its icon:
+
+```markdown
+::: social labels
+- [Follow us](https://x.com/emailmd)
+:::
+```
+
+### Icon size and alignment
+
+```markdown
+::: social icon-size=32 left
+- [GitHub](https://github.com/anypost/emailmd)
+:::
+```
+
+`icon-size` is pixels (default `24`). Alignment keywords: `left`, `center` (default), `right`.
+
+### Self-hosted icons
+
+The default icons are the MJML set, served from Mailjet's CDN. For production email we recommend hosting your own — point `icon-base` at a directory containing `<network>.png` files (e.g. `github.png`, `x.png`, `web.png`):
+
+```markdown
+::: social icon-base=https://cdn.example.com/icons/
+- [GitHub](https://github.com/anypost/emailmd)
+:::
+```
+
+You can also override a single link's icon with an attribute:
+
+```markdown
+::: social
+- [Blog](https://blog.example.com){icon=https://cdn.example.com/blog.png}
+:::
+```
+
+In the plain-text version of the email, the block flattens to `Label (url)` lines.

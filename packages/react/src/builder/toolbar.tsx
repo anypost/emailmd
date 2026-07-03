@@ -336,6 +336,30 @@ export function Toolbar({ getView, value, onChange, onReset, lastSaved }: Toolba
               >
                 Hero
               </MenuItem>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) =>
+                  insertBlock(
+                    v,
+                    ':::: columns\n::: column\nLeft column\n:::\n::: column\nRight column\n:::\n::::',
+                    'Left column'
+                  )
+                )}
+              >
+                Columns
+              </MenuItem>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) =>
+                  insertBlock(
+                    v,
+                    '::: social\n- [GitHub](https://github.com/your-org)\n- [X](https://x.com/your-handle)\n- [LinkedIn](https://www.linkedin.com/company/your-company)\n:::',
+                    'GitHub'
+                  )
+                )}
+              >
+                Social Links
+              </MenuItem>
               <MenuSeparator />
               <MenuLabel>Content Blocks</MenuLabel>
               <MenuItem
@@ -365,6 +389,18 @@ export function Toolbar({ getView, value, onChange, onReset, lastSaved }: Toolba
                 )}
               >
                 Centered
+              </MenuItem>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) => insertBlock(v, '::: spacer 24'))}
+              >
+                Spacer
+              </MenuItem>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) => insertBlock(v, '::: divider color=#e2e8f0 width=50%'))}
+              >
+                Divider
               </MenuItem>
             </>
           )}

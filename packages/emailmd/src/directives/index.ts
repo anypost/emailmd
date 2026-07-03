@@ -5,6 +5,10 @@ import { registerHighlight } from './highlight.js';
 import { registerHeader } from './header.js';
 import { registerFooter } from './footer.js';
 import { registerHero } from './hero.js';
+import { registerColumns } from './columns.js';
+import { registerSpacer } from './spacer.js';
+import { registerDivider } from './divider.js';
+import { registerSocial } from './social.js';
 
 export function registerDirectives(md: MarkdownIt): void {
   registerCallout(md);
@@ -13,4 +17,8 @@ export function registerDirectives(md: MarkdownIt): void {
   registerHeader(md);
   registerFooter(md);
   registerHero(md);
+  registerColumns(md);
+  registerSpacer(md);
+  registerDivider(md);
+  registerSocial(md);
 }

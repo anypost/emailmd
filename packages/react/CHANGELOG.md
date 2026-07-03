@@ -4,7 +4,18 @@ All notable changes to `@emailmd/react` are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0] — Unreleased
+## [0.2.0] — Unreleased
+
+### Added
+- `<EmailPreview emulateColorScheme="light" | "dark" />` — pins the preview to one of the email's color-scheme variants by rewriting its `prefers-color-scheme: dark` rules (`dark` → always apply, `light` → never apply). An iframe otherwise follows the viewer's OS, which would make a toggle a no-op on a dark-mode machine. Exposed in the builder as a single sun/moon toggle next to the device switch — the icon shows the current mode, and it's enabled when the document opts into dark mode.
+- `hasDarkModeStyles(html)` export — detects whether a rendered email contains dark-mode styles.
+- Toolbar support for the emailmd 0.7.0 directives: Columns and Social Links in the Sections menu, Spacer and Divider in Content Blocks.
+- Divider color field in the visual theme editor (`divider_color`).
+
+### Changed
+- The `emailmd` peer dependency is now `>=0.7.0` (the new toolbar insertions rely on the columns/spacer/divider/social directives).
+
+## [0.1.0] — 2026-07-03
 
 Initial release ([#17](https://github.com/anypost/emailmd/issues/17)).
 

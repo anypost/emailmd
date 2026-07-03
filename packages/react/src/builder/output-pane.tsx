@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { RenderWarning } from 'emailmd';
-import { EmailPreview } from '../email-preview.js';
+import { EmailPreview, hasDarkModeStyles } from '../email-preview.js';
 import { Button, Popover, Tip, cx } from './ui.js';
 import { CopyButton } from './copy-button.js';
 import {
@@ -11,8 +11,10 @@ import {
   DownloadIcon,
   InfoIcon,
   MonitorIcon,
+  MoonIcon,
   Share2Icon,
   SmartphoneIcon,
+  SunIcon,
   TriangleAlertIcon,
 } from './icons.js';
 import { writeShareToLocation } from './share.js';
@@ -45,6 +47,10 @@ export function OutputPane({
   const [tab, setTab] = useState<Tab>('preview');
   const [mobile, setMobile] = useState(false);
   const [minified, setMinified] = useState(false);
+  const [darkPreview, setDarkPreview] = useState(false);
+
+  const supportsDark = hasDarkModeStyles(html);
+  const darkActive = darkPreview && supportsDark;
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'preview', label: 'Preview' },
@@ -91,6 +97,27 @@ export function OutputPane({
                   onClick={() => setMobile(true)}
                 >
                   <SmartphoneIcon />
+                </Button>
+              </Tip>
+              <div className="emd-toolbar-separator" />
+              <Tip
+                label={
+                  supportsDark
+                    ? darkActive
+                      ? 'Switch to light mode'
+                      : 'Switch to dark mode'
+                    : 'No dark mode — enable with theme: auto'
+                }
+              >
+                <Button
+                  size="icon-sm"
+                  aria-label={darkActive ? 'Switch to light mode preview' : 'Switch to dark mode preview'}
+                  aria-pressed={darkActive}
+                  disabled={!supportsDark}
+                  className={cx(darkActive && 'emd-btn-active')}
+                  onClick={() => setDarkPreview((d) => !d)}
+                >
+                  {darkActive ? <MoonIcon /> : <SunIcon />}
                 </Button>
               </Tip>
             </>
@@ -147,10 +174,17 @@ export function OutputPane({
       </div>
 
       {tab === 'preview' && (
-        <div className={cx('emd-preview-host', mobile && 'emd-preview-host-mobile')}>
+        <div
+          className={cx(
+            'emd-preview-host',
+            mobile && 'emd-preview-host-mobile',
+            darkActive && 'emd-preview-host-dark'
+          )}
+        >
           <EmailPreview
             html={html}
             device={mobile ? 'mobile' : 'desktop'}
+            emulateColorScheme={supportsDark ? (darkActive ? 'dark' : 'light') : undefined}
             className={cx('emd-preview-frame', mobile && 'emd-preview-frame-mobile')}
           />
         </div>

@@ -837,6 +837,12 @@
   background: var(--emd-surface);
 }
 
+/* Emulated dark mode: match the gutter around the mobile frame to the
+   email's dark body so the preview doesn't sit in a light halo. */
+.emd-preview-host-dark.emd-preview-host-mobile {
+  background: #18181b;
+}
+
 .emd-preview-frame-mobile {
   border-radius: 8px;
   box-shadow: var(--emd-shadow);

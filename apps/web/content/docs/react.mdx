@@ -67,12 +67,15 @@ A sandboxed iframe showing a rendered email.
 | --- | --- | --- | --- |
 | `html` | `string` | — | Rendered email document (`RenderResult.html`) |
 | `device` | `'desktop' \| 'mobile' \| number` | `'desktop'` | `'desktop'` fills the container, `'mobile'` is 375px, or pass a pixel width |
+| `emulateColorScheme` | `'light' \| 'dark'` | — | Pin the preview to one of the email's [color-scheme variants](/docs/theme#automatic-dark-mode) regardless of the viewer's OS; unset follows the OS |
 
 All other iframe props (`className`, `style`, `sandbox`, `title`, …) pass through.
 
+The exported helper `hasDarkModeStyles(html)` tells you whether a rendered email opts into dark mode — useful for showing a dark-preview toggle only when it does something.
+
 ## `<EmailmdBuilder />`
 
-The full [emailmd.dev builder](/builder), as a drop-in component: CodeMirror markdown editor with a formatting toolbar, visual theme editor, emoji and snippet pickers, live preview with device switching, HTML source (pretty/minified with a Gmail-clip meter), plain-text view, render warnings, autosave, download, and optional share links. The builder page on this site is exactly this component.
+The full [emailmd.dev builder](/builder), as a drop-in component: CodeMirror markdown editor with a formatting toolbar, visual theme editor, emoji and snippet pickers, live preview with device switching and a dark-mode toggle (enabled when the email uses `theme: auto`), HTML source (pretty/minified with a Gmail-clip meter), plain-text view, render warnings, autosave, download, and optional share links. The builder page on this site is exactly this component.
 
 ```tsx
 'use client';

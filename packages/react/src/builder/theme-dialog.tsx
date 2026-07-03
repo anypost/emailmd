@@ -28,6 +28,7 @@ const COLOR_FIELDS: { key: string; label: string; camelKey: keyof Theme }[] = [
   { key: 'card_color', label: 'Cards', camelKey: 'cardColor' },
   { key: 'button_color', label: 'Buttons', camelKey: 'buttonColor' },
   { key: 'button_text_color', label: 'Button Text', camelKey: 'buttonTextColor' },
+  { key: 'divider_color', label: 'Dividers', camelKey: 'dividerColor' },
 ];
 
 // Paired so bg/text sit side-by-side in a 2-col grid

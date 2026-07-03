@@ -1,5 +1,5 @@
 import mjml2html from 'mjml';
-import type { Segment } from './segmenter.js';
+import type { ColumnCell, Segment } from './segmenter.js';
 import type { Theme } from './theme.js';
 import type { RenderWarning } from './warnings.js';
 import { escapeHtml, escapeAttrValue, isCssColor, isCssLength, isSafeUrl } from './sanitize.js';
@@ -28,6 +28,12 @@ export interface WrapperMeta {
   strings?: RenderStrings;
   /** When provided, non-fatal content issues are pushed here during segment rendering. */
   warnings?: RenderWarning[];
+  /**
+   * Resolved dark-mode palette. When set, the head gets color-scheme meta tags
+   * and `prefers-color-scheme: dark` (+ Outlook.com `[data-ogsc]`/`[data-ogsb]`)
+   * style overrides.
+   */
+  darkTheme?: Theme;
 }
 
 export type WrapperFn = (segments: Segment[], theme: Theme, meta?: WrapperMeta) => string;
@@ -66,7 +72,60 @@ function resolveLength(value: string | undefined, fallback: string, ctx: Segment
   return fallback;
 }
 
-export function buildHead(theme: Theme, preheader?: string): string {
+type CssRule = [selector: string, declarations: string];
+
+function renderCssRules(rules: CssRule[], prefix = ''): string {
+  return rules
+    .map(([sel, decl]) => {
+      const selector = sel
+        .split(',')
+        .map((s) => (prefix ? `${prefix} ${s.trim()}` : s.trim()))
+        .join(', ');
+      return `${selector} { ${decl} }`;
+    })
+    .join('\n      ');
+}
+
+/**
+ * Dark-mode overrides. The `.emd-*` classes are stable hooks emitted on every
+ * render (body, sections, cards, tables); `!important` is required to beat the
+ * inline styles MJML generates.
+ */
+function buildDarkModeStyles(dark: Theme): string {
+  const backgroundRules: CssRule[] = [
+    ['body, .emd-root, .emd-root > div', `background-color: ${dark.backgroundColor} !important;`],
+    ['.emd-bg, .emd-bg > table', `background: ${dark.contentColor} !important;`],
+    ['.emd-card > table, .emd-card > table > tbody > tr > td', `background-color: ${dark.cardColor} !important;`],
+    ['.emd-hl > table, .emd-hl > table > tbody > tr > td', `background-color: ${dark.brandColor} !important;`],
+    ['.emd-s code, .emd-s pre', `background-color: ${dark.cardColor} !important;`],
+    ['.emd-s mark', `background-color: ${dark.brandColor}33 !important;`],
+  ];
+  const colorRules: CssRule[] = [
+    ['.emd-s div', `color: ${dark.bodyColor} !important;`],
+    ['.emd-s h1, .emd-s h2, .emd-s h3', `color: ${dark.headingColor} !important;`],
+    ['.emd-s div a', `color: ${dark.brandColor} !important;`],
+    ['.emd-hl div', `color: ${dark.buttonTextColor} !important;`],
+    ['.emd-s blockquote', `border-left-color: ${dark.brandColor} !important;`],
+    ['.emd-s p[style*="border-top"]', `border-color: ${dark.dividerColor} !important;`],
+    ['.emd-tbl', `color: ${dark.bodyColor} !important;`],
+    ['.emd-tbl th, .emd-tbl td', `border-color: ${dark.cardColor} !important;`],
+  ];
+
+  return `<mj-style>
+      @media (prefers-color-scheme: dark) {
+      ${renderCssRules(backgroundRules)}
+      ${renderCssRules(colorRules)}
+      }
+      ${renderCssRules(backgroundRules, '[data-ogsb]')}
+      ${renderCssRules(colorRules, '[data-ogsc]')}
+    </mj-style>
+    <mj-raw>
+      <meta name="color-scheme" content="light dark" />
+      <meta name="supported-color-schemes" content="light dark" />
+    </mj-raw>`;
+}
+
+export function buildHead(theme: Theme, preheader?: string, darkTheme?: Theme): string {
   return `<mj-head>
     <mj-attributes>
       <mj-all font-family="${theme.fontFamily}" />
@@ -92,6 +151,7 @@ export function buildHead(theme: Theme, preheader?: string): string {
       dd { margin: 2px 0 0 24px; }
       img { vertical-align: middle; }
     </mj-style>
+    ${darkTheme ? buildDarkModeStyles(darkTheme) : ''}
     ${preheader ? `<mj-preview>${escapeHtml(preheader)}</mj-preview>` : ''}
   </mj-head>`;
 }
@@ -136,7 +196,7 @@ function processInlineImages(html: string): string {
 }
 
 function renderTextSegment(content: string, theme: Theme): string {
-  return `<mj-section background-color="${theme.contentColor}" padding="0 32px">
+  return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="0 32px">
       <mj-column>
         <mj-text>${processInlineImages(content)}</mj-text>
       </mj-column>
@@ -171,8 +231,8 @@ function renderCalloutSegment(segment: Segment, theme: Theme, ctx?: SegmentConte
     ? `<mj-text align="${align}" padding="0" font-size="${theme.fontSize}" color="${textColor}" line-height="${theme.lineHeight}">${processInlineImages(segment.content)}</mj-text>`
     : '';
   const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
-  let mjml = `<mj-section background-color="${theme.contentColor}" padding="8px 32px">
-      <mj-column background-color="${bgColor}" border-radius="${borderRadius}" padding="${padding}">
+  let mjml = `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
+      <mj-column css-class="emd-card" background-color="${bgColor}" border-radius="${borderRadius}" padding="${padding}">
         ${textMjml}${buttonMjml}
       </mj-column>
     </mj-section>`;
@@ -186,7 +246,7 @@ function renderCenteredSegment(segment: Segment, theme: Theme, ctx?: SegmentCont
     ? `<mj-text align="center" font-size="${theme.fontSize}" color="${textColor}">${processInlineImages(segment.content)}</mj-text>`
     : '';
   const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
-  let mjml = `<mj-section background-color="${theme.contentColor}" padding="8px 32px">
+  let mjml = `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
       <mj-column>
         ${textMjml}${buttonMjml}
       </mj-column>
@@ -207,8 +267,8 @@ function renderHighlightSegment(segment: Segment, theme: Theme, ctx?: SegmentCon
     ? `<mj-text align="${align}" padding="0" font-size="${theme.fontSize}" color="${textColor}" font-weight="600">${processInlineImages(segment.content)}</mj-text>`
     : '';
   const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
-  let mjml = `<mj-section background-color="${theme.contentColor}" padding="8px 32px">
-      <mj-column background-color="${bgColor}" border-radius="${borderRadius}" padding="${padding}">
+  let mjml = `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
+      <mj-column css-class="emd-hl" background-color="${bgColor}" border-radius="${borderRadius}" padding="${padding}">
         ${textMjml}${buttonMjml}
       </mj-column>
     </mj-section>`;
@@ -223,7 +283,7 @@ function renderHeaderSegment(segment: Segment, theme: Theme, ctx?: SegmentContex
     ? `<mj-text align="${align}" font-size="13px" color="${textColor}" line-height="1.5">${processInlineImages(segment.content)}</mj-text>`
     : '';
   const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
-  let mjml = `<mj-section padding="32px 32px 24px 32px">
+  let mjml = `<mj-section css-class="emd-s" padding="32px 32px 24px 32px">
       <mj-column>
         ${textMjml}${buttonMjml}
       </mj-column>
@@ -239,7 +299,7 @@ function renderFooterSegment(segment: Segment, theme: Theme, ctx?: SegmentContex
     ? `<mj-text align="${align}" font-size="13px" color="${textColor}" line-height="1.5">${processInlineImages(segment.content)}</mj-text>`
     : '';
   const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
-  let mjml = `<mj-section padding="24px 32px 32px 32px">
+  let mjml = `<mj-section css-class="emd-s" padding="24px 32px 32px 32px">
       <mj-column>
         ${textMjml}${buttonMjml}
       </mj-column>
@@ -248,10 +308,46 @@ function renderFooterSegment(segment: Segment, theme: Theme, ctx?: SegmentContex
   return mjml;
 }
 
-function renderHrSegment(theme: Theme): string {
-  return `<mj-section background-color="${theme.contentColor}" padding="8px 32px">
+function resolveSpacerHeight(value: string | undefined, ctx?: SegmentContext): string {
+  if (!value) return '24px';
+  // A bare number is pixels: ::: spacer 32 → 32px
+  const height = /^\d+$/.test(value) ? `${value}px` : value;
+  if (isCssLength(height)) return height;
+  warn(ctx, `Invalid height "${value}" for spacer — using 24px.`);
+  return '24px';
+}
+
+function renderSpacerSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  const height = resolveSpacerHeight(segment.attrs?.height, ctx);
+  return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="0 32px">
       <mj-column>
-        <mj-divider border-color="${theme.cardColor}" border-width="1px" />
+        <mj-spacer height="${height}" />
+      </mj-column>
+    </mj-section>`;
+}
+
+function dividerMjAttrs(attrs: Record<string, string> | undefined, theme: Theme, ctx?: SegmentContext): string {
+  const color = resolveColor(attrs?.color, theme.dividerColor, ctx, 'divider color');
+  const rawThickness = attrs?.thickness && /^\d+$/.test(attrs.thickness) ? `${attrs.thickness}px` : attrs?.thickness;
+  const thickness = resolveLength(rawThickness, '1px', ctx, 'divider thickness');
+  const parts = [`border-color="${color}"`, `border-width="${thickness}"`];
+  if (attrs?.width) {
+    if (isCssLength(attrs.width)) {
+      parts.push(`width="${attrs.width}"`);
+    } else {
+      warn(ctx, `Invalid width "${attrs.width}" for divider — ignoring.`);
+    }
+  }
+  if (attrs?.align) {
+    parts.push(`align="${resolveAlign(attrs.align, 'center', ctx, 'divider align')}"`);
+  }
+  return parts.join(' ');
+}
+
+function renderHrSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
+      <mj-column>
+        <mj-divider ${dividerMjAttrs(segment.attrs, theme, ctx)} />
       </mj-column>
     </mj-section>`;
 }
@@ -295,7 +391,7 @@ function renderButtonFallback(buttons: Array<Record<string, string>>, theme: The
     return message;
   });
 
-  return `<mj-section background-color="${theme.contentColor}" padding="0 32px">
+  return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="0 32px">
       <mj-column>
         <mj-text font-size="12px" color="${theme.bodyColor}" line-height="1.4" align="center" padding="4px 0 8px 0">${lines.join('<br><br>')}</mj-text>
       </mj-column>
@@ -309,7 +405,7 @@ function renderButtonSegment(segment: Segment, theme: Theme, ctx?: SegmentContex
   const widthAttr = isFullWidth ? ' width="100%"' : '';
   const borderRadius = resolveLength(attrs['border-radius'], theme.borderRadius, ctx, 'button border-radius');
 
-  let mjml = `<mj-section background-color="${theme.contentColor}" padding="8px 32px">
+  let mjml = `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
       <mj-column>
         <mj-button background-color="${bgColor}" color="${textColor}" font-size="16px" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>
       </mj-column>
@@ -332,7 +428,7 @@ function renderButtonGroupSegment(segment: Segment, theme: Theme, ctx?: SegmentC
       </mj-column>`;
   }).join('\n      ');
 
-  let mjml = `<mj-section background-color="${theme.contentColor}" padding="8px 32px">
+  let mjml = `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
       ${columns}
     </mj-section>`;
 
@@ -341,13 +437,11 @@ function renderButtonGroupSegment(segment: Segment, theme: Theme, ctx?: SegmentC
   return mjml;
 }
 
-function renderImageSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
-  const attrs = segment.attrs!;
-
+function buildImageMjAttrs(attrs: Record<string, string>, theme: Theme, ctx?: SegmentContext): string[] {
   const mjAttrs: string[] = [
     `src="${escapeAttrValue(attrs.src)}"`,
     `fluid-on-mobile="true"`,
-    `align="${resolveAlign(segment.attrs?.align, 'center', ctx, 'image align')}"`,
+    `align="${resolveAlign(attrs.align, 'center', ctx, 'image align')}"`,
   ];
 
   if (attrs.alt) mjAttrs.push(`alt="${escapeAttrValue(attrs.alt)}"`);
@@ -366,7 +460,13 @@ function renderImageSegment(segment: Segment, theme: Theme, ctx?: SegmentContext
     mjAttrs.push(`border-radius="${radius}"`);
   }
 
-  return `<mj-section background-color="${theme.contentColor}" padding="8px 32px">
+  return mjAttrs;
+}
+
+function renderImageSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  const mjAttrs = buildImageMjAttrs(segment.attrs!, theme, ctx);
+
+  return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
       <mj-column>
         <mj-image ${mjAttrs.join(' ')} />
       </mj-column>
@@ -398,8 +498,8 @@ function renderHeroSegment(segment: Segment, theme: Theme, ctx?: SegmentContext)
   return mjml;
 }
 
-function renderTableSegment(segment: Segment, theme: Theme): string {
-  let tableHtml = segment.content;
+function styleTableHtml(html: string, theme: Theme): string {
+  let tableHtml = html;
 
   // Strip wrapper tags — mj-table only accepts <tr> rows directly
   tableHtml = tableHtml
@@ -426,11 +526,243 @@ function renderTableSegment(segment: Segment, theme: Theme): string {
     },
   );
 
-  return `<mj-section background-color="${theme.contentColor}" padding="8px 32px">
+  return tableHtml;
+}
+
+function tableMjAttrs(theme: Theme): string {
+  return `css-class="emd-tbl" color="${theme.bodyColor}" font-family="${theme.fontFamily}" font-size="${theme.fontSize}" line-height="${theme.lineHeight}" cellpadding="0" cellspacing="0" width="100%"`;
+}
+
+function renderTableSegment(segment: Segment, theme: Theme): string {
+  const tableHtml = styleTableHtml(segment.content, theme);
+
+  return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
       <mj-column>
-        <mj-table color="${theme.bodyColor}" font-family="${theme.fontFamily}" font-size="${theme.fontSize}" line-height="${theme.lineHeight}" cellpadding="0" cellspacing="0" width="100%">${tableHtml}</mj-table>
+        <mj-table ${tableMjAttrs(theme)}>${tableHtml}</mj-table>
       </mj-column>
     </mj-section>`;
+}
+
+/** Hostname → mj-social-element network name (which selects the icon). */
+const SOCIAL_NETWORKS: Array<{ hosts: RegExp; name: string }> = [
+  { hosts: /(^|\.)facebook\.com$/i, name: 'facebook' },
+  { hosts: /(^|\.)(?:twitter|x)\.com$/i, name: 'x' },
+  { hosts: /(^|\.)instagram\.com$/i, name: 'instagram' },
+  { hosts: /(^|\.)linkedin\.com$/i, name: 'linkedin' },
+  { hosts: /(^|\.)github\.com$/i, name: 'github' },
+  { hosts: /(^|\.)(?:youtube\.com|youtu\.be)$/i, name: 'youtube' },
+  { hosts: /(^|\.)pinterest\.[a-z.]+$/i, name: 'pinterest' },
+  { hosts: /(^|\.)medium\.com$/i, name: 'medium' },
+  { hosts: /(^|\.)vimeo\.com$/i, name: 'vimeo' },
+  { hosts: /(^|\.)dribbble\.com$/i, name: 'dribbble' },
+  { hosts: /(^|\.)soundcloud\.com$/i, name: 'soundcloud' },
+  { hosts: /(^|\.)tumblr\.com$/i, name: 'tumblr' },
+  { hosts: /(^|\.)snapchat\.com$/i, name: 'snapchat' },
+  { hosts: /(^|\.)xing\.com$/i, name: 'xing' },
+];
+
+function socialNetworkForUrl(href: string): string {
+  try {
+    const host = new URL(href).hostname;
+    for (const network of SOCIAL_NETWORKS) {
+      if (network.hosts.test(host)) return network.name;
+    }
+  } catch {
+    // Relative URLs, mailto:, etc. fall through to the generic icon.
+  }
+  return 'web';
+}
+
+const SOCIAL_LINK_RE = /<a\s+([^>]*)>([\s\S]*?)<\/a>/g;
+
+function renderSocialSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  const links: Array<{ href: string; label: string; icon?: string }> = [];
+  const re = new RegExp(SOCIAL_LINK_RE.source, 'g');
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(segment.content)) !== null) {
+    const hrefMatch = match[1].match(/href="([^"]*)"/);
+    if (!hrefMatch) continue;
+    const iconMatch = match[1].match(/\bicon="([^"]*)"/);
+    links.push({
+      href: hrefMatch[1],
+      label: match[2].replace(/<[^>]*>/g, '').trim(),
+      icon: iconMatch?.[1],
+    });
+  }
+
+  if (links.length === 0) {
+    warn(ctx, 'Social block contains no links — nothing to render.');
+    return '';
+  }
+
+  const showLabels = segment.attrs?.labels === 'true';
+  const align = resolveAlign(segment.attrs?.align, 'center', ctx, 'social align');
+  const rawSize = segment.attrs?.['icon-size'];
+  const iconSize = resolveLength(
+    rawSize && /^\d+$/.test(rawSize) ? `${rawSize}px` : rawSize,
+    '24px',
+    ctx,
+    'social icon-size',
+  );
+
+  let iconBase = segment.attrs?.['icon-base'];
+  if (iconBase && !isSafeUrl(iconBase)) {
+    warn(ctx, `Unsafe icon-base URL "${iconBase}" for social — using default icons.`);
+    iconBase = undefined;
+  }
+  if (iconBase && !iconBase.endsWith('/')) iconBase += '/';
+
+  const elements = links.map((link) => {
+    const name = socialNetworkForUrl(link.href);
+    let srcAttr = '';
+    if (link.icon) {
+      if (isSafeUrl(link.icon)) {
+        srcAttr = ` src="${escapeAttrValue(link.icon)}"`;
+      } else {
+        warn(ctx, `Unsafe icon URL "${link.icon}" for social link — using default icon.`);
+      }
+    }
+    if (!srcAttr && iconBase) {
+      srcAttr = ` src="${escapeAttrValue(`${iconBase}${name}.png`)}"`;
+    }
+    const label = showLabels ? link.label : '';
+    // -noshare links to the URL directly; the bare name would wrap it in the
+    // network's share-intent URL.
+    return `<mj-social-element name="${name}-noshare"${srcAttr} href="${escapeAttrValue(link.href)}">${label}</mj-social-element>`;
+  }).join('\n          ');
+
+  return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
+      <mj-column>
+        <mj-social mode="horizontal" align="${align}" icon-size="${iconSize}" font-size="13px" color="${theme.bodyColor}" padding="0">
+          ${elements}
+        </mj-social>
+      </mj-column>
+    </mj-section>`;
+}
+
+const VALIGN_VALUES = new Set(['top', 'middle', 'bottom']);
+
+function resolveValign(value: string | undefined, ctx: SegmentContext | undefined): string | undefined {
+  if (!value) return undefined;
+  if (VALIGN_VALUES.has(value)) return value;
+  warn(ctx, `Invalid vertical alignment "${value}" for column — using "top".`);
+  return undefined;
+}
+
+function resolveColumnWidth(value: string | undefined, ctx?: SegmentContext): string | undefined {
+  if (!value) return undefined;
+  // A bare number is a percentage: width=40 → 40%
+  const width = /^\d+(?:\.\d+)?$/.test(value) ? `${value}%` : value;
+  if (isCssLength(width)) return width;
+  warn(ctx, `Invalid width "${value}" for column — ignoring.`);
+  return undefined;
+}
+
+function renderCellButton(attrs: Record<string, string>, theme: Theme, ctx?: SegmentContext, cellAlign?: string): string {
+  const { bgColor, textColor, border } = resolveButtonColors(attrs, theme, ctx);
+  const widthAttr = attrs.width === 'full' ? ' width="100%"' : '';
+  const borderRadius = resolveLength(attrs['border-radius'], theme.borderRadius, ctx, 'button border-radius');
+  const alignAttr = cellAlign ? ` align="${cellAlign}"` : '';
+  return `<mj-button padding="8px 0"${alignAttr} background-color="${bgColor}" color="${textColor}" font-size="16px" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>`;
+}
+
+function renderCellSegments(cell: ColumnCell, theme: Theme, ctx?: SegmentContext): string {
+  const cellAlign = cell.attrs?.align ? resolveAlign(cell.attrs.align, 'left', ctx, 'column align') : undefined;
+  const textColor = cell.attrs?.color ? resolveColor(cell.attrs.color, theme.bodyColor, ctx, 'column color') : undefined;
+
+  const parts: string[] = [];
+  for (const seg of cell.segments) {
+    switch (seg.type) {
+      case 'text': {
+        const alignAttr = cellAlign ? ` align="${cellAlign}"` : '';
+        const colorAttr = textColor ? ` color="${textColor}"` : '';
+        parts.push(`<mj-text padding="4px 0"${alignAttr}${colorAttr}>${processInlineImages(seg.content)}</mj-text>`);
+        break;
+      }
+      case 'image': {
+        const attrs = { ...seg.attrs! };
+        if (!attrs.align && cellAlign) attrs.align = cellAlign;
+        parts.push(`<mj-image padding="4px 0" ${buildImageMjAttrs(attrs, theme, ctx).join(' ')} />`);
+        break;
+      }
+      case 'button':
+        parts.push(renderCellButton(seg.attrs!, theme, ctx, cellAlign));
+        break;
+      case 'button-group':
+        // No nested groups inside a column — stack the buttons instead.
+        for (const attrs of seg.buttons!) parts.push(renderCellButton(attrs, theme, ctx, cellAlign));
+        break;
+      case 'hr':
+        parts.push(`<mj-divider padding="8px 0" ${dividerMjAttrs(seg.attrs, theme, ctx)} />`);
+        break;
+      case 'spacer':
+        parts.push(`<mj-spacer height="${resolveSpacerHeight(seg.attrs?.height, ctx)}" />`);
+        break;
+      case 'table':
+        parts.push(`<mj-table ${tableMjAttrs(theme)}>${styleTableHtml(seg.content, theme)}</mj-table>`);
+        break;
+      default:
+        break;
+    }
+  }
+  return parts.join('\n        ');
+}
+
+function renderColumnsSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  const cells = segment.cells ?? [];
+  if (cells.length === 0) {
+    warn(ctx, 'Empty columns block — nothing to render.');
+    return '';
+  }
+
+  let gap = 16;
+  if (segment.attrs?.gap !== undefined) {
+    const raw = segment.attrs.gap.replace(/px$/, '');
+    if (/^\d+$/.test(raw)) {
+      gap = parseInt(raw, 10);
+    } else {
+      warn(ctx, `Invalid gap "${segment.attrs.gap}" for columns — using 16px.`);
+    }
+  }
+
+  const last = cells.length - 1;
+  const columnsMjml = cells.map((cell, i) => {
+    const attrs: string[] = [];
+    const width = resolveColumnWidth(cell.attrs?.width, ctx);
+    if (width) attrs.push(`width="${width}"`);
+    const valign = resolveValign(cell.attrs?.valign, ctx);
+    if (valign) attrs.push(`vertical-align="${valign}"`);
+
+    const bg = cell.attrs?.bg ? resolveColor(cell.attrs.bg, theme.cardColor, ctx, 'column bg') : undefined;
+    if (bg) {
+      // mj-column paints its background across its own padding box, so a bg
+      // cell takes a card inset instead of gutter halves; visual separation
+      // comes from its neighbors' gutters.
+      attrs.push(`css-class="emd-card"`, `background-color="${bg}"`, `border-radius="${theme.borderRadius}"`, `padding="${resolvePadding(cell.attrs?.padding)}"`);
+    } else {
+      const left = i === 0 ? 0 : Math.floor(gap / 2);
+      const right = i === last ? 0 : Math.ceil(gap / 2);
+      attrs.push(`padding="0 ${right}px 0 ${left}px"`);
+    }
+
+    return `<mj-column ${attrs.join(' ')}>
+        ${renderCellSegments(cell, theme, ctx)}
+      </mj-column>`;
+  }).join('\n      ');
+
+  // stack=false keeps columns side-by-side on mobile via mj-group.
+  const stack = segment.attrs?.stack !== 'false';
+  const inner = stack ? columnsMjml : `<mj-group>\n      ${columnsMjml}\n      </mj-group>`;
+
+  let mjml = `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
+      ${inner}
+    </mj-section>`;
+
+  const fallbackButtons = cells.flatMap((c) => c.segments.flatMap((s) =>
+    s.type === 'button' ? [s.attrs!] : s.type === 'button-group' ? s.buttons! : []));
+  mjml += renderButtonFallback(fallbackButtons, theme, ctx);
+
+  return mjml;
 }
 
 function segmentToMjml(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
@@ -448,7 +780,7 @@ function segmentToMjml(segment: Segment, theme: Theme, ctx?: SegmentContext): st
     case 'footer':
       return renderFooterSegment(segment, theme, ctx);
     case 'hr':
-      return renderHrSegment(theme);
+      return renderHrSegment(segment, theme, ctx);
     case 'button':
       return renderButtonSegment(segment, theme, ctx);
     case 'button-group':
@@ -459,6 +791,12 @@ function segmentToMjml(segment: Segment, theme: Theme, ctx?: SegmentContext): st
       return renderTableSegment(segment, theme);
     case 'hero':
       return renderHeroSegment(segment, theme, ctx);
+    case 'columns':
+      return renderColumnsSegment(segment, theme, ctx);
+    case 'spacer':
+      return renderSpacerSegment(segment, theme, ctx);
+    case 'social':
+      return renderSocialSegment(segment, theme, ctx);
   }
 }
 

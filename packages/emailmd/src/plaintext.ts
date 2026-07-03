@@ -27,6 +27,14 @@ export function toPlainText(html: string): string {
   text = text.replace(new RegExp(escapeRegExp(MARKER_FOOTER_CLOSE), 'g'), '');
   text = text.replace(/<!--EMAILMD:HERO_OPEN(?:\s+[\w-]+="[^"]*")*-->/g, '');
   text = text.replace(new RegExp(escapeRegExp(MARKER_HERO_CLOSE), 'g'), '');
+  // Columns flatten to sequential content (covers COLUMNS_ and COLUMN_ markers)
+  text = text.replace(/<!--EMAILMD:COLUMNS?_(?:OPEN|CLOSE)(?:\s+[\w-]+="[^"]*")*-->/g, '');
+  // Spacers are purely visual
+  text = text.replace(/<!--EMAILMD:SPACER(?:\s+[\w-]+="[^"]*")*-->/g, '');
+  // Styled dividers read as a rule, same as ---
+  text = text.replace(/<!--EMAILMD:DIVIDER(?:\s+[\w-]+="[^"]*")*-->/g, '\n---\n');
+  // Social blocks flatten to their links
+  text = text.replace(/<!--EMAILMD:SOCIAL_(?:OPEN|CLOSE)(?:\s+[\w-]+="[^"]*")*-->/g, '');
 
   // Convert buttons: <p><a href="url" button="">Text</a></p> → Text: url
   // Handles both single and multiple buttons in one paragraph

@@ -5,15 +5,26 @@ import {
   MARKER_HEADER_CLOSE,
   MARKER_FOOTER_CLOSE,
   MARKER_HERO_CLOSE,
+  MARKER_COLUMNS_CLOSE,
+  MARKER_COLUMN_CLOSE,
+  MARKER_SOCIAL_CLOSE,
 } from './constants.js';
 
-export type SegmentType = 'text' | 'callout' | 'centered' | 'highlight' | 'header' | 'footer' | 'button' | 'button-group' | 'image' | 'hr' | 'table' | 'hero';
+export type SegmentType = 'text' | 'callout' | 'centered' | 'highlight' | 'header' | 'footer' | 'button' | 'button-group' | 'image' | 'hr' | 'table' | 'hero' | 'columns' | 'spacer' | 'social';
+
+/** One cell of a `columns` segment. Cell content is itself segmented. */
+export interface ColumnCell {
+  attrs?: Record<string, string>;
+  segments: Segment[];
+}
 
 export interface Segment {
   type: SegmentType;
   content: string;
   attrs?: Record<string, string>;
   buttons?: Array<Record<string, string>>;
+  /** Present on `columns` segments only. */
+  cells?: ColumnCell[];
 }
 
 const DIRECTIVE_PAIRS: Array<{ open: string; close: string; type: SegmentType }> = [
@@ -30,6 +41,8 @@ const PARAMETERIZED_DIRECTIVES: Array<{
   { re: /<!--EMAILMD:HEADER_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'header', close: MARKER_HEADER_CLOSE },
   { re: /<!--EMAILMD:FOOTER_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'footer', close: MARKER_FOOTER_CLOSE },
   { re: /<!--EMAILMD:HERO_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'hero', close: MARKER_HERO_CLOSE },
+  { re: /<!--EMAILMD:COLUMNS_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'columns', close: MARKER_COLUMNS_CLOSE },
+  { re: /<!--EMAILMD:SOCIAL_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'social', close: MARKER_SOCIAL_CLOSE },
 ];
 
 function parseMarkerAttrs(attrString: string): Record<string, string> {
@@ -344,6 +357,59 @@ function splitOnHr(segments: Segment[]): Segment[] {
   return result;
 }
 
+const SPACER_RE = /<!--EMAILMD:SPACER(?:\s+height="([^"]*)")?-->/;
+const DIVIDER_RE = /<!--EMAILMD:DIVIDER((?:\s+[\w-]+="[^"]*")*)-->/;
+
+function splitOnSpacers(segments: Segment[]): Segment[] {
+  const result: Segment[] = [];
+  for (const seg of segments) {
+    if (seg.type !== 'text') {
+      result.push(seg);
+      continue;
+    }
+    let text = seg.content;
+    let match: RegExpExecArray | null;
+    while ((match = SPACER_RE.exec(text)) !== null) {
+      const before = text.slice(0, match.index);
+      if (before.trim()) {
+        result.push({ type: 'text', content: before });
+      }
+      result.push({ type: 'spacer', content: '', attrs: match[1] ? { height: match[1] } : undefined });
+      text = text.slice(match.index + match[0].length);
+    }
+    if (text.trim()) {
+      result.push({ type: 'text', content: text });
+    }
+  }
+  return result;
+}
+
+// `::: divider` is a styled hr: it produces the same segment type, with attrs.
+function splitOnDividers(segments: Segment[]): Segment[] {
+  const result: Segment[] = [];
+  for (const seg of segments) {
+    if (seg.type !== 'text') {
+      result.push(seg);
+      continue;
+    }
+    let text = seg.content;
+    let match: RegExpExecArray | null;
+    while ((match = DIVIDER_RE.exec(text)) !== null) {
+      const before = text.slice(0, match.index);
+      if (before.trim()) {
+        result.push({ type: 'text', content: before });
+      }
+      const attrs = parseMarkerAttrs(match[1]);
+      result.push({ type: 'hr', content: '', attrs: Object.keys(attrs).length > 0 ? attrs : undefined });
+      text = text.slice(match.index + match[0].length);
+    }
+    if (text.trim()) {
+      result.push({ type: 'text', content: text });
+    }
+  }
+  return result;
+}
+
 const TABLE_RE = /<table>[\s\S]*?<\/table>/;
 
 function splitOnTables(segments: Segment[]): Segment[] {
@@ -385,11 +451,60 @@ function stripOrphanMarkers(segments: Segment[]): Segment[] {
   );
 }
 
+const COLUMN_OPEN_RE = /<!--EMAILMD:COLUMN_OPEN((?:\s+[\w-]+="[^"]*")*)-->/g;
+
+/**
+ * Run the standard sub-segmentation passes over one column cell's content, so
+ * buttons, images, tables, and rules inside a cell keep their positions.
+ * Markers of directives nested inside the cell are orphans (nested directives
+ * are unsupported) and get stripped, leaving their inner content as text.
+ */
+function segmentCellContent(content: string, buttons: Segment[]): Segment[] {
+  const base: Segment[] = [{ type: 'text', content }];
+  const withButtons = splitOnButtonPlaceholders(base, buttons);
+  const withImages = splitOnImages(withButtons);
+  const withTables = splitOnTables(withImages);
+  return stripOrphanMarkers(splitOnDividers(splitOnSpacers(splitOnHr(withTables))));
+}
+
+/**
+ * Parse the inner COLUMN markers of each `columns` segment into structured
+ * cells. A columns block with no `::: column` children degrades to a single
+ * cell holding all of its content.
+ */
+function parseColumnCells(segments: Segment[], buttons: Segment[]): Segment[] {
+  return segments.map((seg) => {
+    if (seg.type !== 'columns') return seg;
+
+    const cells: ColumnCell[] = [];
+    const re = new RegExp(COLUMN_OPEN_RE.source, 'g');
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(seg.content)) !== null) {
+      const afterOpen = seg.content.slice(match.index + match[0].length);
+      const closePos = afterOpen.indexOf(MARKER_COLUMN_CLOSE);
+      const inner = closePos === -1 ? afterOpen : afterOpen.slice(0, closePos);
+      const attrs = parseMarkerAttrs(match[1]);
+      cells.push({
+        attrs: Object.keys(attrs).length > 0 ? attrs : undefined,
+        segments: segmentCellContent(inner, buttons),
+      });
+      if (closePos === -1) break;
+      re.lastIndex = match.index + match[0].length + closePos + MARKER_COLUMN_CLOSE.length;
+    }
+
+    if (cells.length === 0 && seg.content.trim()) {
+      cells.push({ segments: segmentCellContent(seg.content, buttons) });
+    }
+
+    return { ...seg, content: '', cells };
+  });
+}
+
 export function segment(html: string): Segment[] {
   const { html: htmlWithPlaceholders, buttons } = extractButtons(html);
-  const segments = splitOnDirectives(htmlWithPlaceholders);
+  const segments = parseColumnCells(splitOnDirectives(htmlWithPlaceholders), buttons);
   const withButtons = splitOnButtonPlaceholders(segments, buttons);
   const withImages = splitOnImages(withButtons);
   const withTables = splitOnTables(withImages);
-  return stripOrphanMarkers(splitOnHr(withTables));
+  return stripOrphanMarkers(splitOnDividers(splitOnSpacers(splitOnHr(withTables))));
 }

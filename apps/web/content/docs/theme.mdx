@@ -15,9 +15,9 @@ const { html } = await render(markdown, {
 });
 ```
 
-## Dark Mode
+## Dark Theme
 
-A built-in dark theme is available. Pass it directly to flip all colors at once:
+A built-in dark theme is available. Pass it directly to render the email dark for everyone:
 
 ```typescript
 import { render, darkTheme } from 'emailmd';
@@ -34,6 +34,45 @@ const { html } = await render(markdown, {
 ```
 
 You can also activate it per-email via frontmatter — see [Frontmatter](/docs/frontmatter).
+
+## Automatic Dark Mode
+
+To render light by default but adapt to the reader's dark-mode preference, opt in with `darkTheme`:
+
+```typescript
+// Built-in dark palette
+const { html } = await render(markdown, { darkTheme: true });
+
+// Or override parts of it
+const { html } = await render(markdown, {
+  darkTheme: { brandColor: '#22d3ee' },
+});
+```
+
+Or per-email in frontmatter with `theme: auto`:
+
+```markdown
+---
+theme: auto
+---
+```
+
+```markdown
+---
+theme: auto
+dark:
+  background_color: "#111827"
+  content_color: "#1f2937"
+---
+```
+
+The `dark:` map tunes the dark variant (and implies `auto` on its own). Explicitly pinning `theme: light` or `theme: dark` renders static even when the rendering app passes `darkTheme` — the author's pinned appearance wins.
+
+This emits `color-scheme` meta tags, a `prefers-color-scheme: dark` media query, and `[data-ogsc]`/`[data-ogsb]` selectors for Outlook.com. **Client support varies:** Apple Mail and Outlook honor these overrides; Gmail ignores them and applies its own automatic color inversion regardless. Buttons keep their configured colors in both modes — pick button colors that work on light and dark backgrounds.
+
+Dark mode is palette-based: custom per-block colors (`bg=`/`color=` on callouts and columns, divider colors) are normalized to the dark palette so text stays readable. To tune how a specific accent looks in dark mode, adjust the corresponding key in the `dark:` map rather than the block parameter.
+
+The overrides target stable `emd-*` CSS classes that emailmd emits on every render (`emd-root`, `emd-s`, `emd-bg`, `emd-card`, `emd-hl`, `emd-tbl`), which you can also target from a custom wrapper.
 
 ## Web Fonts
 
@@ -74,6 +113,7 @@ The same thing works from markdown with a nested `fonts:` map in frontmatter. Se
 | `dangerTextColor` | `#ffffff` | *(same)* | Danger button text |
 | `warningColor` | `#d97706` | *(same)* | Warning button background |
 | `warningTextColor` | `#ffffff` | *(same)* | Warning button text |
+| `dividerColor` | `#f4f4f5` | `#27272a` | Horizontal rule (`---`) color |
 | `fontFamily` | `Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif` | *(same)* | Font stack |
 | `fontSize` | `16px` | *(same)* | Base font size |
 | `lineHeight` | `1.6` | *(same)* | Base line height |

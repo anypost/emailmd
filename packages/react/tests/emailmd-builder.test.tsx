@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { EmailmdBuilder, DEFAULT_TEMPLATE } from '../src/index.js';
 
 beforeEach(() => {
@@ -63,6 +63,47 @@ Hi
     await waitFor(() => {
       const frame = screen.getByTitle('Email preview') as HTMLIFrameElement;
       expect(frame.getAttribute('srcDoc')).toContain('Saved draft content');
+    });
+  });
+
+  it('disables the dark-mode toggle when the email has no dark styles', async () => {
+    render(<EmailmdBuilder autoSave={false} debounceMs={0} defaultValue="# Plain" />);
+
+    await waitFor(() => {
+      const frame = screen.getByTitle('Email preview') as HTMLIFrameElement;
+      expect(frame.getAttribute('srcDoc')).toContain('Plain');
+    });
+    const toggle = screen.getByRole('button', {
+      name: 'Switch to dark mode preview',
+    }) as HTMLButtonElement;
+    expect(toggle.disabled).toBe(true);
+  });
+
+  it('toggles the preview between pinned light and dark variants', async () => {
+    const md = '---\ntheme: auto\n---\n# Adaptive';
+    render(<EmailmdBuilder autoSave={false} debounceMs={0} defaultValue={md} />);
+
+    const frame = () => screen.getByTitle('Email preview') as HTMLIFrameElement;
+    // Sun state pins light: dark rules neutralized even on a dark-mode OS.
+    await waitFor(() => {
+      expect(frame().getAttribute('srcDoc')).toContain('@media not all');
+    });
+
+    const toggle = screen.getByRole('button', { name: 'Switch to dark mode preview' });
+    expect((toggle as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(toggle);
+
+    await waitFor(() => {
+      expect(frame().getAttribute('srcDoc')).toContain('@media all');
+      expect(frame().getAttribute('srcDoc')).not.toContain('prefers-color-scheme');
+    });
+    // Icon and label flipped to the moon/dark state.
+    const darkToggle = screen.getByRole('button', { name: 'Switch to light mode preview' });
+    expect(darkToggle.getAttribute('aria-pressed')).toBe('true');
+
+    fireEvent.click(darkToggle);
+    await waitFor(() => {
+      expect(frame().getAttribute('srcDoc')).toContain('@media not all');
     });
   });
 

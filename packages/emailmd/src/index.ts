@@ -8,7 +8,7 @@ export { buildHead, segmentsToMjml } from './mjml.js';
 export { defaultWrapper } from './wrappers/default.js';
 export { escapeHtml, escapeAttrValue, isCssColor, isCssLength, isSafeUrl } from './sanitize.js';
 
-import { mergeTheme, resolveBaseTheme, type Theme } from './theme.js';
+import { mergeTheme, resolveBaseTheme, darkTheme as darkBaseTheme, type Theme } from './theme.js';
 import { extractFrontmatter, frontmatterToThemeOverrides, frontmatterToFonts } from './frontmatter.js';
 import { parseMarkdown } from './parser.js';
 import { segment } from './segmenter.js';
@@ -47,6 +47,13 @@ export interface RenderOptions {
   beautify?: boolean;
   /** Overridable output strings, for localization. See {@link RenderStrings}. */
   strings?: RenderStrings;
+  /**
+   * Opt into automatic dark mode (`prefers-color-scheme` + Outlook.com
+   * support). `true` uses the built-in dark palette; a partial theme merges
+   * over it. Frontmatter `dark:` overrides merge on top, and an explicitly
+   * pinned frontmatter `theme: light`/`theme: dark` renders static instead.
+   */
+  darkTheme?: true | Partial<Theme>;
 }
 
 /** Object returned by {@link render}. */
@@ -140,16 +147,50 @@ export async function render(markdown: string, options?: RenderOptions): Promise
     });
   }
 
-  if (meta.theme !== undefined && meta.theme !== 'light' && meta.theme !== 'dark') {
+  if (meta.theme !== undefined && meta.theme !== 'light' && meta.theme !== 'dark' && meta.theme !== 'auto') {
     warnings.push({
       stage: 'theme',
-      message: `Unknown theme "${String(meta.theme)}" — using default. Valid values: "light", "dark".`,
+      message: `Unknown theme "${String(meta.theme)}" — using default. Valid values: "light", "dark", "auto".`,
     });
   }
   const baseTheme = resolveBaseTheme(meta.theme as string | undefined);
   const frontmatterOverrides = frontmatterToThemeOverrides(meta);
   const merged = mergeTheme({ ...options?.theme, ...frontmatterOverrides }, baseTheme);
   const theme = sanitizeTheme(merged, baseTheme, warnings);
+
+  // Automatic dark mode is on when the author asks for `theme: auto` (a bare
+  // `dark:` override map implies it) or the rendering app passes `darkTheme`.
+  // An explicitly pinned `theme: light`/`theme: dark` always renders static.
+  let darkThemeResolved: Theme | undefined;
+  {
+    const fmDark = meta.dark;
+    const fmDarkValid = fmDark === undefined
+      || (typeof fmDark === 'object' && fmDark !== null && !Array.isArray(fmDark));
+    if (!fmDarkValid) {
+      warnings.push({
+        stage: 'theme',
+        message: 'Invalid "dark" frontmatter — expected a map of theme keys. Use "theme: auto" to enable automatic dark mode.',
+      });
+    }
+    const hasDarkOverrides = fmDarkValid && fmDark !== undefined;
+    const pinned = meta.theme === 'light' || meta.theme === 'dark';
+    if (pinned && hasDarkOverrides) {
+      warnings.push({
+        stage: 'theme',
+        message: `"dark" overrides are ignored because the theme is pinned to "${String(meta.theme)}". Use "theme: auto" for automatic dark mode.`,
+      });
+    }
+    const requested = meta.theme === 'auto' || hasDarkOverrides || options?.darkTheme !== undefined;
+    if (requested && !pinned) {
+      const optDark = options?.darkTheme;
+      const optOverrides = typeof optDark === 'object' ? optDark : undefined;
+      const fmOverrides = hasDarkOverrides
+        ? frontmatterToThemeOverrides(fmDark as Record<string, unknown>)
+        : undefined;
+      const mergedDark = mergeTheme({ ...optOverrides, ...fmOverrides }, darkBaseTheme);
+      darkThemeResolved = sanitizeTheme(mergedDark, darkBaseTheme, warnings);
+    }
+  }
 
   const parsedHtml = parseMarkdown(content);
   const segments = segment(parsedHtml);
@@ -161,6 +202,7 @@ export async function render(markdown: string, options?: RenderOptions): Promise
     frontmatter: meta,
     strings: options?.strings,
     warnings,
+    darkTheme: darkThemeResolved,
   };
 
   const frontmatterFonts = frontmatterToFonts(meta);

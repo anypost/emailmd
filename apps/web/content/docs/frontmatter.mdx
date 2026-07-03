@@ -46,7 +46,30 @@ brand_color: "#e11d48"
 # Dark email with a custom brand color
 ```
 
-Valid values: `light` (default), `dark`.
+Valid values: `light` (default), `dark`, `auto`.
+
+## Automatic Dark Mode
+
+`theme: dark` renders the email dark for everyone. `theme: auto` renders light by default but adapts to readers whose mail client is in dark mode:
+
+```markdown
+---
+theme: auto
+---
+```
+
+To tune the dark variant, override parts of the built-in dark palette with a `dark:` map (same `snake_case` keys as the light theme). A `dark:` map on its own implies `theme: auto`:
+
+```markdown
+---
+theme: auto
+dark:
+  background_color: "#111827"
+  content_color: "#1f2937"
+---
+```
+
+Explicitly pinning `theme: light` or `theme: dark` renders static — it overrides the [`darkTheme` render option](/docs/theme#automatic-dark-mode) when the sending app enables dark mode globally. See [Theme → Automatic Dark Mode](/docs/theme#automatic-dark-mode) for client support notes.
 
 ## Custom Fonts
 
@@ -72,7 +95,7 @@ When both the `fonts:` frontmatter and the `fonts` [render option](/docs/api-ref
 | Key | Description |
 |-----|-------------|
 | `preheader` | Inbox preview text (hidden in email body) |
-| `theme` | Base theme — `light` or `dark` |
+| `theme` | Appearance — `light`, `dark`, or `auto` (adapts to the reader's dark mode) |
 | `brand_color` | Links, highlights, accents |
 | `heading_color` | Heading text color |
 | `body_color` | Body text color |
@@ -89,12 +112,14 @@ When both the `fonts:` frontmatter and the `fonts` [render option](/docs/api-ref
 | `danger_text_color` | Danger button text |
 | `warning_color` | Warning button background |
 | `warning_text_color` | Warning button text |
+| `divider_color` | Horizontal rule (`---`) color |
 | `font_family` | Font stack |
 | `font_size` | Base font size |
 | `line_height` | Base line height |
 | `content_width` | Email content width |
 | `border_radius` | Border radius for buttons, callouts, highlights |
 | `fonts` | Nested map of custom web fonts: family name → stylesheet URL |
+| `dark` | Map of dark-palette overrides for `theme: auto` (implies `auto` when present) |
 
 Frontmatter values are validated before rendering: theme values containing markup characters fall back to the base theme, font entries with unsafe URLs are skipped, and the preheader is HTML-escaped in the output. Invalid values never break the render — they surface on [`warnings`](/docs/api-reference#renderwarning) instead.
 
