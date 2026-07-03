@@ -12,9 +12,29 @@ Get started with your new account today.
 :::
 ```
 
-The URL after `hero` is required and specifies the background image. All content inside the directive is overlaid on top of it.
+The URL after `hero` specifies the background image. All content inside the directive is overlaid on top of it.
 
-Text is centered and rendered in white for contrast against the background image.
+Text is centered and rendered in the theme's `button_text_color` (white in the default theme) for contrast against the background image.
+
+### Background Color Fallback
+
+The hero always has a solid background color behind the image, defaulting to the theme's `button_color`. Many email clients block remote images until the reader opts in, so the fallback keeps the overlaid text readable — the theme's button color pair is already contrast-tested. Override it with `bg=`:
+
+```markdown
+::: hero https://example.com/hero.jpg bg=#1f2937
+# Welcome
+Readable even before the image loads.
+:::
+```
+
+The URL is optional: omit it and the hero renders as a solid banner. In emails with dark mode enabled, image-less heroes switch to the dark theme's button colors; heroes with an image keep their light colors, since the image itself doesn't change in dark mode.
+
+```markdown
+::: hero
+# No image needed
+A solid banner in the theme's button colors.
+:::
+```
 
 ### Custom Text Color
 

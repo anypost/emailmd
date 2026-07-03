@@ -96,6 +96,43 @@ describe('hero directive', async () => {
     expect(html).toContain('https://example.com/hero.jpg');
     expect(html).toMatch(/h1[^>]*style="color: #20ffff"/);
   });
+
+  it('inlines the default hero text color on headings', async () => {
+    const { html } = await render('::: hero https://example.com/hero.jpg\n# Welcome\n:::');
+    // Without this, the head's h1 color rule wins over the mj-text color
+    expect(html).toMatch(/h1[^>]*style="color: #fafafa"/);
+  });
+
+  it('renders a fallback background color behind the image', async () => {
+    const { html } = await render('::: hero https://example.com/hero.jpg\n# Welcome\n:::');
+    // Default buttonColor keeps the buttonTextColor overlay readable when
+    // the image is blocked or missing
+    expect(html).toContain('#18181b');
+    expect(html).toContain('emd-hero');
+    expect(html).not.toContain('emd-hero-solid');
+  });
+
+  it('accepts a custom bg param', async () => {
+    const { html } = await render('::: hero https://example.com/hero.jpg bg=#123456\n# Welcome\n:::');
+    expect(html).toContain('#123456');
+  });
+
+  it('renders a solid banner when no image URL is given', async () => {
+    const { html } = await render('::: hero\n# Welcome\nNo image here.\n:::');
+    expect(html).toContain('emd-hero-solid');
+    expect(html).toContain('#18181b');
+    expect(html).not.toMatch(/background:[^;"]*url\(/);
+    expect(html).toMatch(/h1[^>]*style="color: #fafafa"/);
+  });
+
+  it('dark mode restyles solid heroes but not image heroes', async () => {
+    const doc = (body: string) => `---\ntheme: auto\n---\n${body}`;
+    const solid = await render(doc('::: hero\n# Welcome\n:::'));
+    expect(solid.html).toContain('.emd-hero-solid');
+    // Dark buttonColor / buttonTextColor pair
+    expect(solid.html).toMatch(/\.emd-hero-solid[^}]*#fafafa !important/);
+    expect(solid.html).toMatch(/\.emd-hero-solid div[^}]*#18181b !important/);
+  });
 });
 
 describe('callout directive with params', async () => {
