@@ -6,7 +6,7 @@ description: Responsive, centered email images with width, alignment, and more.
 Block images (standalone paragraph) are automatically rendered as responsive, centered email images:
 
 ```markdown
-![Hero banner](https://example.com/hero.jpg)
+![Hero banner](https://picsum.photos/seed/banner/1200/500)
 ```
 
 ## Width
@@ -14,7 +14,7 @@ Block images (standalone paragraph) are automatically rendered as responsive, ce
 Control image width with the attrs syntax:
 
 ```markdown
-![Product](https://example.com/product.jpg){width="400"}
+![Product](https://picsum.photos/seed/product/800/600){width="400"}
 ```
 
 ## Alignment
@@ -22,13 +22,13 @@ Control image width with the attrs syntax:
 Images are centered by default. Override with:
 
 ```markdown
-![Photo](https://example.com/photo.jpg){align="left"}
+![Photo](https://picsum.photos/seed/photo/600/400){align="left"}
 ```
 
 ## Rounded Corners
 
 ```markdown
-![Avatar](https://example.com/avatar.jpg){width="80" border-radius="50%"}
+![Avatar](https://picsum.photos/seed/avatar/160/160){width="80" border-radius="50%"}
 ```
 
 ## Captions
@@ -36,7 +36,7 @@ Images are centered by default. Override with:
 Add a `caption` to render a small, muted line under the image. It follows the image's alignment and appears after the image label in the plain-text version:
 
 ```markdown
-![Signups chart](https://example.com/chart.png){caption="Figure 1 — signups by week"}
+![Signups chart](https://picsum.photos/seed/chart/800/450){caption="Figure 1 — signups by week"}
 ```
 
 Captions are plain text — markdown and HTML inside them are not processed.
@@ -46,7 +46,7 @@ Captions are plain text — markdown and HTML inside them are not processed.
 Wrap an image in a link to make it clickable:
 
 ```markdown
-[![Shop banner](https://example.com/banner.jpg)](https://example.com/shop)
+[![Shop banner](https://picsum.photos/seed/shop/1200/400)](https://example.com/shop)
 ```
 
 ## Inline Images
@@ -54,7 +54,7 @@ Wrap an image in a link to make it clickable:
 Images mixed with text in a paragraph are rendered inline:
 
 ```markdown
-Feature one with icon ![check](https://example.com/check.png) included.
+Feature one with icon ![check](https://placehold.co/20x20.png) included.
 ```
 
 ### Vertical Alignment
@@ -62,7 +62,7 @@ Feature one with icon ![check](https://example.com/check.png) included.
 Inline images default to `vertical-align: middle`, centering them with adjacent text. Override per image with `valign`:
 
 ```markdown
-Top-aligned ![icon](https://example.com/icon.png){valign="top"} icon.
+Top-aligned ![icon](https://placehold.co/20x20.png){valign="top"} icon.
 ```
 
 Supported values: `top`, `middle`, `bottom`, `baseline`, `text-top`, `text-bottom`.
@@ -72,7 +72,7 @@ Supported values: `top`, `middle`, `bottom`, `baseline`, `text-top`, `text-botto
 Use `float` to wrap text around an image instead of flowing beneath it:
 
 ```markdown
-![Plant](https://example.com/plant.jpg){width="80" float="left"} **Monstera Deliciosa, 6" pot** Easy care · Bright indirect light · $42.00
+![Plant](https://picsum.photos/seed/plant/160/160){width="80" float="left"} **Monstera Deliciosa, 6" pot** Easy care · Bright indirect light · $42.00
 ```
 
 Supported values: `left`, `right`. Appropriate margin is added automatically.
@@ -84,5 +84,42 @@ Supported values: `left`, `right`. Appropriate margin is added automatically.
 Control inline image dimensions with `width` and `height`:
 
 ```markdown
-A small ![icon](https://example.com/icon.png){width="20" height="20"} icon.
+A small ![icon](https://placehold.co/40x40.png){width="20" height="20"} icon.
 ```
+
+## Formats and Retina Sizing
+
+Stick to **PNG, JPEG, and GIF** — every email client renders them. The formats to avoid:
+
+- **SVG** is stripped by Gmail, Outlook, and most other clients.
+- **`data:` URIs** are stripped by Gmail's image proxy and clients like it — always host images at a URL.
+- **WebP and AVIF** work in Apple Mail and Gmail, but Outlook desktop and some older clients show a broken image.
+
+`lint()` flags all of these under the `image-format` rule.
+
+For crisp images on high-DPI screens, use the standard email retina technique: serve an image with **twice the pixels** you display and set the rendered size with `width`:
+
+```markdown
+![Product](https://example.com/product-800.jpg){width="400"}
+```
+
+The photo examples on this page follow this pattern (an 800×600 source displayed at 400).
+
+## Placeholder Images
+
+While drafting, use placeholder services so every image actually renders — the examples on this page follow this convention, so they all work if you paste them into the [builder](/builder):
+
+- **Photos:** `https://picsum.photos/seed/<name>/<width>/<height>` — a random but stable photo. The same seed always returns the same image, so pick a new seed name for each distinct image.
+- **Logos, icons, and flat graphics:** `https://placehold.co/<width>x<height>.png?text=Logo` — a solid box with optional label. The `.png` extension matters: the service defaults to SVG, which most email clients won't display.
+- **Hero backgrounds:** random photos make overlaid text unreadable when they're too bright. Route the photo through the [wsrv.nl](https://wsrv.nl) image proxy with a dark duotone filter, which remaps the photo's full tonal range between two dark colors — light text stays readable no matter which photo the seed produces:
+
+```markdown
+::: hero https://wsrv.nl/?url=picsum.photos/seed/hero/1200/600&filt=duotone&start=111827&stop=4b5563
+# Always readable
+The photo's brightest pixel is only as light as `stop`.
+:::
+```
+
+Swap `start`/`stop` (darkest and lightest hex colors, no `#`) to tint toward your brand. For a light background with dark text instead, use light colors and set `color=` on the hero.
+
+Placeholders are for drafts — replace them with real, self-hosted assets before sending. `lint()` flags images on known placeholder hosts as a reminder.

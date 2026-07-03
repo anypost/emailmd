@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button, Modal, Tip, cx } from './ui.js';
 import { CheckIcon, CodeIcon, CopyIcon } from './icons.js';
+import { randomizeImageSeeds } from './editor-commands.js';
 
 const SNIPPETS: { label: string; description: string; content: string }[] = [
   {
@@ -23,7 +24,7 @@ Your confirmation code.
   {
     label: 'Hero',
     description: 'Full-width background image with overlay text',
-    content: `::: hero https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=1200
+    content: `::: hero https://wsrv.nl/?url=picsum.photos/seed/hero/1200/600&filt=duotone&start=111827&stop=4b5563
 # Welcome aboard
 Get started with your new account today.
 :::`,
@@ -32,7 +33,7 @@ Get started with your new account today.
     label: 'Header',
     description: 'Top section for logo or brand image',
     content: `::: header
-![Logo](https://example.com/logo.png){width="150"}
+![Logo](https://placehold.co/300x100.png?text=Logo){width="150"}
 :::`,
   },
   {
@@ -83,7 +84,7 @@ Thanks for reading.
   {
     label: 'Image',
     description: 'Responsive image with optional width',
-    content: `![Banner](https://example.com/image.jpg){width="400"}`,
+    content: `![Banner](https://picsum.photos/seed/banner/800/400){width="400"}`,
   },
   {
     label: 'Task List',
@@ -108,7 +109,7 @@ export function SnippetsDialog({ onInsert }: { onInsert: (text: string) => void 
   const [copied, setCopied] = useState(false);
 
   function handleInsert() {
-    onInsert(SNIPPETS[selected].content);
+    onInsert(randomizeImageSeeds(SNIPPETS[selected].content));
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }

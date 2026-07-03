@@ -125,13 +125,13 @@ describe('hero directive', async () => {
     expect(html).toMatch(/h1[^>]*style="color: #fafafa"/);
   });
 
-  it('dark mode restyles solid heroes but not image heroes', async () => {
-    const doc = (body: string) => `---\ntheme: auto\n---\n${body}`;
-    const solid = await render(doc('::: hero\n# Welcome\n:::'));
-    expect(solid.html).toContain('.emd-hero-solid');
-    // Dark buttonColor / buttonTextColor pair
-    expect(solid.html).toMatch(/\.emd-hero-solid[^}]*#fafafa !important/);
-    expect(solid.html).toMatch(/\.emd-hero-solid div[^}]*#18181b !important/);
+  it('dark mode leaves hero colors alone', async () => {
+    // Hero text/bg are a self-contained pair (contrast never depends on the
+    // surrounding email), so the dark overrides must not recolor them
+    const { html } = await render('---\ntheme: auto\n---\n::: hero bg=#7c3aed\n# Welcome\n:::');
+    expect(html).toContain('emd-hero-solid');
+    expect(html).toContain('#7c3aed');
+    expect(html).not.toMatch(/\.emd-hero[^{]*\{/);
   });
 });
 

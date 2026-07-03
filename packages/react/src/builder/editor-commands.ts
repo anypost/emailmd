@@ -1,6 +1,17 @@
 import type { EditorView } from '@codemirror/view';
 
 /**
+ * Give each inserted snippet its own picsum seed, so repeated insertions get
+ * different placeholder photos while the document itself stays deterministic.
+ */
+export function randomizeImageSeeds(text: string): string {
+  return text.replace(
+    /picsum\.photos\/seed\/[\w-]+/g,
+    () => `picsum.photos/seed/${Math.random().toString(36).slice(2, 8)}`
+  );
+}
+
+/**
  * Wrap the current selection with prefix/suffix. If nothing is selected,
  * inserts prefix + placeholder + suffix and selects the placeholder.
  */
@@ -97,16 +108,20 @@ export function wrapAsLink(view: EditorView, kind: 'link' | 'image'): void {
   const { from, to } = view.state.selection.main;
   const selected = view.state.sliceDoc(from, to);
   const bang = kind === 'image' ? '!' : '';
+  // Links need the user's URL, but images start life as a working placeholder
+  // photo — still selected, so typing a real URL replaces it.
+  const url =
+    kind === 'image' ? randomizeImageSeeds('https://picsum.photos/seed/img/600/400') : 'url';
 
   if (selected) {
-    const replacement = `${bang}[${selected}](url)`;
+    const replacement = `${bang}[${selected}](${url})`;
     const urlStart = from + bang.length + 1 + selected.length + 2;
     view.dispatch({
       changes: { from, to, insert: replacement },
-      selection: { anchor: urlStart, head: urlStart + 3 },
+      selection: { anchor: urlStart, head: urlStart + url.length },
     });
     view.focus();
   } else {
-    wrapSelection(view, `${bang}[`, '](url)', kind === 'image' ? 'alt text' : 'link text');
+    wrapSelection(view, `${bang}[`, `](${url})`, kind === 'image' ? 'alt text' : 'link text');
   }
 }

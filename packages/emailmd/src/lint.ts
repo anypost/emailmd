@@ -53,6 +53,51 @@ const SPAM_PHRASES = [
 /** Opening delimiters of pass-through template tokens — URLs containing them are the app's responsibility. */
 const TEMPLATE_DELIMITERS = ['{{', '{%', '${', '%%', '[['];
 
+/** Hosts that serve draft placeholder images (see the Placeholder Images docs). */
+const PLACEHOLDER_HOSTS = [
+  'picsum.photos',
+  'placehold.co',
+  'via.placeholder.com',
+  'placekitten.com',
+  'dummyimage.com',
+  'wsrv.nl',
+];
+
+function placeholderHost(url: string): string | undefined {
+  try {
+    const host = new URL(url).hostname;
+    return PLACEHOLDER_HOSTS.find((h) => host === h || host.endsWith(`.${h}`));
+  } catch {
+    return undefined;
+  }
+}
+
+/** Image formats that email clients can't reliably display. */
+function imageFormatIssue(url: string): Pick<LintFinding, 'severity' | 'message'> | undefined {
+  if (hasTemplateToken(url)) return undefined;
+  if (url.startsWith('data:')) {
+    return {
+      severity: 'warning',
+      message: 'Image uses a data: URI — Gmail and other proxying clients strip embedded images; host it at a URL instead.',
+    };
+  }
+  const path = url.split(/[?#]/)[0].toLowerCase();
+  if (path.endsWith('.svg')) {
+    return {
+      severity: 'warning',
+      message: 'Image is an SVG — most email clients (Gmail, Outlook, …) won\'t render it; use PNG or JPEG.',
+    };
+  }
+  if (path.endsWith('.webp') || path.endsWith('.avif')) {
+    const fmt = path.endsWith('.webp') ? 'WebP' : 'AVIF';
+    return {
+      severity: 'suggestion',
+      message: `Image is ${fmt} — Outlook desktop and some older clients show a broken image; PNG or JPEG is safer.`,
+    };
+  }
+  return undefined;
+}
+
 // Bare instance (no directive/attr plugins): lint only needs links, images,
 // and line maps, and must not share state with the render parser.
 const md = new MarkdownIt({ html: true, linkify: true });
@@ -106,6 +151,19 @@ export async function lint(markdown: string, options?: LintOptions): Promise<Lin
             line,
           });
         }
+        const ph = placeholderHost(src);
+        if (ph) {
+          findings.push({
+            rule: 'placeholder-image',
+            severity: 'suggestion',
+            message: `Image is a ${ph} placeholder — replace it with a real asset before sending.`,
+            line,
+          });
+        }
+        const fmt = imageFormatIssue(src);
+        if (fmt) {
+          findings.push({ rule: 'image-format', ...fmt, line });
+        }
       }
 
       if (child.type === 'link_open') {
@@ -131,6 +189,34 @@ export async function lint(markdown: string, options?: LintOptions): Promise<Lin
           });
         }
       }
+    }
+  }
+
+  // --- Hero background placeholders (directive lines are opaque to the bare parser) ---
+  const contentLines = content.split('\n');
+  let inFence = false;
+  for (let i = 0; i < contentLines.length; i++) {
+    if (/^ {0,3}(`{3,}|~{3,})/.test(contentLines[i])) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+    const hero = contentLines[i].match(/^ {0,3}:{3,}\s*hero\s+(.*)$/);
+    if (!hero) continue;
+    // Mirrors the hero directive's token split: key=value tokens are params, the rest is the URL.
+    const url = hero[1].split(/\s+/).find((t) => t && !/^[\w-]+=/.test(t));
+    const ph = url ? placeholderHost(url) : undefined;
+    if (ph) {
+      findings.push({
+        rule: 'placeholder-image',
+        severity: 'suggestion',
+        message: `Hero background is a ${ph} placeholder — replace it with a real asset before sending.`,
+        line: i + 1 + lineOffset,
+      });
+    }
+    const fmt = url ? imageFormatIssue(url) : undefined;
+    if (fmt) {
+      findings.push({ rule: 'image-format', ...fmt, line: i + 1 + lineOffset });
     }
   }
 

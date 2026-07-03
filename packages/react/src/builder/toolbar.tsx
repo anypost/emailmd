@@ -33,6 +33,7 @@ import {
   insertAtCursor,
   insertBlock,
   prefixLines,
+  randomizeImageSeeds,
   wrapAsLink,
   wrapSelection,
 } from './editor-commands.js';
@@ -324,7 +325,7 @@ export function Toolbar({ getView, value, onChange, onReset, lastSaved }: Toolba
                 onSelect={withView((v) =>
                   insertBlock(
                     v,
-                    `::: header\n![Logo](https://example.com/logo.png){width="150"}\n:::`,
+                    `::: header\n![Logo](https://placehold.co/300x100.png?text=Logo){width="150"}\n:::`,
                     'Logo'
                   )
                 )}
@@ -348,7 +349,9 @@ export function Toolbar({ getView, value, onChange, onReset, lastSaved }: Toolba
                 onSelect={withView((v) =>
                   insertBlock(
                     v,
-                    `::: hero https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=1200\n# Hero Title\nSubtitle text.\n:::`,
+                    randomizeImageSeeds(
+                      `::: hero https://wsrv.nl/?url=picsum.photos/seed/hero/1200/600&filt=duotone&start=111827&stop=4b5563\n# Hero Title\nSubtitle text.\n:::`
+                    ),
                     'Hero Title'
                   )
                 )}

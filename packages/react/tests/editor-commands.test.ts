@@ -82,10 +82,17 @@ describe('editor commands', () => {
     expect(selOf(view)).toBe('url');
   });
 
-  it('wrapAsLink for images prefixes a bang', () => {
+  it('wrapAsLink for images prefixes a bang and selects a placeholder photo URL', () => {
     const view = makeView('logo', 0, 4);
     wrapAsLink(view, 'image');
-    expect(docOf(view)).toBe('![logo](url)');
-    expect(selOf(view)).toBe('url');
+    expect(docOf(view)).toMatch(/^!\[logo\]\(https:\/\/picsum\.photos\/seed\/\w+\/600\/400\)$/);
+    expect(selOf(view)).toMatch(/^https:\/\/picsum\.photos\/seed\/\w+\/600\/400$/);
+  });
+
+  it('wrapAsLink for images without a selection inserts a working image and selects the alt text', () => {
+    const view = makeView('', 0);
+    wrapAsLink(view, 'image');
+    expect(docOf(view)).toMatch(/^!\[alt text\]\(https:\/\/picsum\.photos\/seed\/\w+\/600\/400\)$/);
+    expect(selOf(view)).toBe('alt text');
   });
 });

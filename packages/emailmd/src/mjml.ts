@@ -183,7 +183,6 @@ function buildDarkModeStyles(dark: Theme): string {
     ['.emd-s code, .emd-s pre', `background-color: ${dark.cardColor} !important;`],
     ['.emd-s mark', `background-color: ${dark.brandColor}33 !important;`],
     ['.emd-acc td', `background-color: ${dark.contentColor} !important;`],
-    ['.emd-hero-solid, .emd-hero-solid > table', `background-color: ${dark.buttonColor} !important;`],
   ];
   const colorRules: CssRule[] = [
     ['.emd-s div', `color: ${dark.bodyColor} !important;`],
@@ -197,7 +196,6 @@ function buildDarkModeStyles(dark: Theme): string {
     ['.emd-acc table', `border-color: ${dark.dividerColor} !important;`],
     ['.emd-acc .mj-accordion-title td', `color: ${dark.headingColor} !important;`],
     ['.emd-acc .mj-accordion-content td', `color: ${dark.bodyColor} !important;`],
-    ['.emd-hero-solid div, .emd-hero-solid h1, .emd-hero-solid h2, .emd-hero-solid h3', `color: ${dark.buttonTextColor} !important;`],
     ...codeTokenRules(codePaletteFor(dark.cardColor), true),
   ];
 
@@ -594,9 +592,8 @@ function renderHeroSegment(segment: Segment, theme: Theme, ctx?: SegmentContext)
     textMjml = `<mj-text align="center" color="${heroColor}">${content}</mj-text>`;
   }
   const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
-  // Image-less heroes get a modifier class so dark mode can restyle them; a
-  // background photo doesn't change in dark mode, so recoloring the overlay
-  // text against it would break contrast.
+  // Hero colors are a self-contained pair, so dark mode leaves them alone;
+  // the emd-hero/emd-hero-solid classes are hooks for custom wrapper CSS.
   const cssClass = url ? 'emd-hero' : 'emd-hero emd-hero-solid';
   const bgImage = url ? ` background-url="${escapeAttrValue(url)}" background-size="cover" background-repeat="no-repeat"` : '';
   let mjml = `<mj-section css-class="${cssClass}" background-color="${bgColor}"${bgImage} padding="40px 32px">

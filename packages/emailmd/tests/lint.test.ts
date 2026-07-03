@@ -45,6 +45,60 @@ describe('lint', async () => {
     expect(f?.message).toContain('click here');
   });
 
+  it('flags placeholder-host images as suggestions', async () => {
+    const findings = await lint(`${CLEAN}\n\n![Banner](https://picsum.photos/seed/banner/800/400)`);
+    const f = findings.find((x) => x.rule === 'placeholder-image');
+    expect(f?.severity).toBe('suggestion');
+    expect(f?.message).toContain('picsum.photos');
+    expect(f?.line).toBe(11);
+  });
+
+  it('flags placeholder hero backgrounds, with the source line', async () => {
+    const doc = `${CLEAN}\n\n::: hero https://wsrv.nl/?url=picsum.photos/seed/hero/1200/600&filt=duotone&start=111827&stop=4b5563 bg=#1f2937\n# Hi\n:::`;
+    const findings = await lint(doc);
+    const f = findings.find((x) => x.rule === 'placeholder-image');
+    expect(f?.message).toContain('wsrv.nl');
+    expect(f?.line).toBe(11);
+  });
+
+  it('does not flag real image hosts or hero examples inside code fences', async () => {
+    const doc = `${CLEAN}\n\n![Real](https://imgs.example.org/photo.jpg)\n\n\`\`\`markdown\n::: hero https://picsum.photos/seed/x/1200/600\n:::\n\`\`\``;
+    const findings = await lint(doc);
+    expect(rules(findings)).not.toContain('placeholder-image');
+  });
+
+  it('warns on SVG and data: URI images', async () => {
+    const doc = `${CLEAN}\n\n![Logo](https://example.com/logo.svg?v=2)\n\n![Pixel](data:image/png;base64,iVBORw0KGgo=)`;
+    const findings = await lint(doc);
+    const fmt = findings.filter((x) => x.rule === 'image-format');
+    expect(fmt).toHaveLength(2);
+    expect(fmt.every((f) => f.severity === 'warning')).toBe(true);
+    expect(fmt[0].message).toContain('SVG');
+    expect(fmt[1].message).toContain('data: URI');
+  });
+
+  it('suggests safer formats for WebP and AVIF images', async () => {
+    const findings = await lint(`${CLEAN}\n\n![A](https://example.com/a.webp)\n\n![B](https://example.com/b.avif)`);
+    const fmt = findings.filter((x) => x.rule === 'image-format');
+    expect(fmt.map((f) => f.severity)).toEqual(['suggestion', 'suggestion']);
+    expect(fmt[0].message).toContain('WebP');
+    expect(fmt[1].message).toContain('AVIF');
+  });
+
+  it('flags SVG hero backgrounds but not template-token image URLs', async () => {
+    const doc = `${CLEAN}\n\n::: hero https://example.com/bg.svg\n# Hi\n:::\n\n![T]({{logo_url}})`;
+    const findings = await lint(doc);
+    const fmt = findings.filter((x) => x.rule === 'image-format');
+    expect(fmt).toHaveLength(1);
+    expect(fmt[0].message).toContain('SVG');
+    expect(fmt[0].line).toBe(11);
+  });
+
+  it('does not flag standard image formats', async () => {
+    const findings = await lint(`${CLEAN}\n\n![A](https://example.com/a.png)\n\n![B](https://example.com/b.jpg)\n\n![C](https://example.com/c.gif)`);
+    expect(rules(findings)).not.toContain('image-format');
+  });
+
   it('suggests a preheader when missing', async () => {
     const findings = await lint('# Hi\n\n[Unsubscribe](https://example.com/u)');
     expect(rules(findings)).toContain('preheader-missing');

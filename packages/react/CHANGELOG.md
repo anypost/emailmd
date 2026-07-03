@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 - The `emailmd` peer dependency is now `>=0.7.0` (the new toolbar insertions rely on the columns/spacer/divider/social directives, and the `lint` option on `lint()`).
 - The warnings banner counts all findings, so its plural summary now reads "N warnings" instead of "N render warnings".
+- Toolbar and snippet insertions now use working placeholder images instead of dead `example.com` URLs and a hotlinked Unsplash photo: photos come from picsum.photos, logos from placehold.co, and hero backgrounds route through a dark wsrv.nl duotone filter so the overlay text stays readable (see the Placeholder Images docs). Each insertion gets a fresh random picsum seed — repeated inserts produce different photos, but the URL is stable once in the document. The toolbar Image button likewise inserts a working placeholder photo instead of a dead `url` slot (the URL stays selected when wrapping a selection, so typing a real one replaces it); the Link button keeps the `url` slot, since links need a real destination.
 
 ## [0.1.0] — 2026-07-03
 

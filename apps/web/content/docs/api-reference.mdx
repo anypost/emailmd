@@ -131,6 +131,8 @@ The rules:
 | `preheader-length`  | suggestion | Preheader longer than ~100 characters (inbox previews truncate)         |
 | `unsubscribe`       | suggestion | No unsubscribe link anywhere in the rendered output                     |
 | `spam-words`        | suggestion | Common spam-filter trigger phrases ("act now", "100% free", …)          |
+| `placeholder-image` | suggestion | Images or hero backgrounds on placeholder hosts (picsum.photos, placehold.co, wsrv.nl, …) |
+| `image-format`      | warning / suggestion | SVG and `data:` images (stripped by most clients — warning); WebP/AVIF (broken in Outlook desktop — suggestion) |
 
 Template tokens are respected throughout: a `{{tracking_url}}` link is never flagged insecure, and `[Unsubscribe]({{unsubscribe_url}})` satisfies the unsubscribe check. The [CLI](/docs/cli) exposes this as `emailmd lint`, and the [builder](/docs/react) surfaces findings live with its `lint` prop.
 
