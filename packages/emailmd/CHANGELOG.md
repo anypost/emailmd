@@ -29,7 +29,10 @@ Layout and appearance features ahead of 1.0.
 - `WrapperMeta.lang` / `WrapperMeta.dir` (validated frontmatter values), so custom wrappers can emit them on their `<mjml>` tag. `buildHead` takes an optional fourth `dir` parameter and `SegmentContext` a `dir` field, so custom wrappers get the same RTL alignment flipping.
 
 ### Fixed
+- Accordion expand/collapse markers are now `+`/`−` text glyphs colored with the theme's `heading_color`, replacing MJML's default icons — white PNGs hotlinked from imgur that were invisible on light themes (collapsed panels looked inert) and pulled a third-party host into every email. Custom `icon-wrapped`/`icon-unwrapped` images are untouched.
+- Unitless numeric theme lengths (`border_radius: 12`, `font_size: 15`, `content_width: 640` — YAML numbers or bare-number strings, in frontmatter or the `theme` render option) now coerce to `px` instead of emitting invalid CSS like `border-radius: 12` that clients silently drop. Numeric `line_height` stays unitless, which is valid CSS.
 - Headings inside a hero now actually render in the hero text color. The docs promised white text "including headings", but the head's global `h1`–`h3` color rules beat the inherited hero color, so default-colored headings rendered in `heading_color` — typically near-black over a photo. The hero color is now inlined on headings whether or not a custom `color=` is set.
+- Content now sits vertically centered inside padded boxes. Block elements carry bottom-only margins, so the last block in a callout, highlight, hero, accordion panel, or `bg=` column stacked its margin on the box's bottom padding — a callout ending in a heading showed twice as much space below the text as above it. The final block's bottom margin is now zeroed inline. Paragraphs also get an explicit `p { margin: 0 0 16px 0 }` head rule instead of inheriting each client's default, so their spacing is deterministic too.
 
 ## [0.6.0] — 2026-07-02
 

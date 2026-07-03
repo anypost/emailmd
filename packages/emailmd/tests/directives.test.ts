@@ -94,13 +94,13 @@ describe('hero directive', async () => {
   it('accepts color param before URL', async () => {
     const { html } = await render('::: hero color=#20ffff https://example.com/hero.jpg\n# Welcome\n:::');
     expect(html).toContain('https://example.com/hero.jpg');
-    expect(html).toMatch(/h1[^>]*style="color: #20ffff"/);
+    expect(html).toMatch(/h1[^>]*style="color: #20ffff[;"]/);
   });
 
   it('inlines the default hero text color on headings', async () => {
     const { html } = await render('::: hero https://example.com/hero.jpg\n# Welcome\n:::');
     // Without this, the head's h1 color rule wins over the mj-text color
-    expect(html).toMatch(/h1[^>]*style="color: #fafafa"/);
+    expect(html).toMatch(/h1[^>]*style="color: #fafafa[;"]/);
   });
 
   it('renders a fallback background color behind the image', async () => {
@@ -409,5 +409,47 @@ describe('callout and highlight padding presets', async () => {
     const pads = await effectivePaddings('::: highlight compact\nPad probe\n:::', 'Pad probe');
     expect(pads).toContain('12px 16px');
     expect(pads[pads.length - 1]).toBe('0');
+  });
+});
+
+describe('trailing block margins inside boxes', async () => {
+  // The head styles give blocks bottom-only margins, so the last block in a
+  // padded box gets margin-bottom: 0 inlined — otherwise the box's bottom
+  // inset reads larger than its top.
+  it('zeroes the margin of a heading that ends a callout', async () => {
+    const { html } = await render('::: callout center compact\n# DFY-X7U\n:::');
+    expect(html).toMatch(/<h1 style="margin-bottom: 0">DFY-X7U<\/h1>/);
+  });
+
+  it('zeroes only the last block, balancing nested lists', async () => {
+    const { html } = await render('::: callout\nIntro line\n\n- one\n  - nested\n- two\n:::');
+    const zeroed = [...html.matchAll(/<(\w+)[^>]*style="[^"]*margin-bottom: 0[^"]*"/g)];
+    expect(zeroed).toHaveLength(1);
+    expect(zeroed[0][1]).toBe('ul');
+    // the outer list, not the nested one — everything after it is its own content
+    expect(html.slice(html.indexOf(zeroed[0][0]))).toContain('two');
+  });
+
+  it('merges with the inlined hero heading color', async () => {
+    const { html } = await render('::: hero bg=#7c3aed\n# Solo heading\n:::');
+    expect(html).toMatch(/<h1 style="color: #fafafa; margin-bottom: 0">/);
+  });
+
+  it('zeroes the last paragraph in accordion panels and bg columns', async () => {
+    const { html } = await render(
+      '::: accordion\n### Q?\nBody text.\n:::\n\n:::: columns\n::: column bg=#ffffff\nCard text.\n:::\n::::',
+    );
+    expect(html).toMatch(/<p style="margin-bottom: 0">Body text.<\/p>/);
+    expect(html).toMatch(/<p style="margin-bottom: 0">Card text.<\/p>/);
+  });
+
+  it('leaves plain sections and bg-less columns alone', async () => {
+    const { html } = await render('Just a paragraph.\n\n:::: columns\n::: column\nColumn text.\n:::\n::::');
+    expect(html).not.toMatch(/style="[^"]*margin-bottom: 0/);
+  });
+
+  it('sets an explicit paragraph margin in the head styles', async () => {
+    const { html } = await render('Hello');
+    expect(html).toMatch(/p\s*\{\s*margin:\s*0 0 16px 0;\s*\}/);
   });
 });

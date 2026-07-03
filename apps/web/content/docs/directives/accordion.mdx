@@ -23,7 +23,7 @@ Collapsing is interactive in WebKit-based clients (Apple Mail, iOS Mail) and som
 
 ## Custom Icons
 
-The expand/collapse icons default to the MJML set (served from imgur). For production email we recommend self-hosting — point `icon-wrapped` (collapsed state) and `icon-unwrapped` (expanded state) at your own images:
+By default the expand/collapse markers are `+` / `−` text glyphs colored with the theme's `heading_color`, so they stay visible on any background with no external images. To use your own icons instead, point `icon-wrapped` (collapsed state) and `icon-unwrapped` (expanded state) at self-hosted images:
 
 ```markdown
 ::: accordion icon-wrapped=https://cdn.example.com/plus.png icon-unwrapped=https://cdn.example.com/minus.png

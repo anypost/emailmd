@@ -94,16 +94,22 @@ export interface RenderResult {
 /** Opening delimiters of the template-tag syntaxes preserved by the parser and MJML's templateSyntax pass. */
 const TEMPLATE_DELIMITERS = ['{{', '{%', '${', '%%', '[['];
 
+/** Theme keys that hold CSS lengths, where a bare number means pixels. */
+const PX_THEME_KEYS = new Set<keyof Theme>(['borderRadius', 'fontSize', 'contentWidth']);
+
 /**
  * Replace theme values that could break out of a CSS or attribute context
  * with the base theme's value for that key, collecting a warning per repair.
- * Non-string values (e.g. `line_height: 1.6` from YAML) are coerced to strings.
+ * Non-string values (e.g. `line_height: 1.6` from YAML) are coerced to strings,
+ * and unitless numbers on length keys (e.g. `border_radius: 12`) get `px` —
+ * otherwise they'd emit invalid CSS that clients silently drop.
  */
 function sanitizeTheme(theme: Theme, base: Theme, warnings: RenderWarning[]): Theme {
   const safe = { ...theme };
   for (const key of Object.keys(base) as Array<keyof Theme>) {
     const value = safe[key];
-    const str = typeof value === 'string' ? value : String(value);
+    let str = typeof value === 'string' ? value : String(value);
+    if (PX_THEME_KEYS.has(key) && /^\d+(?:\.\d+)?$/.test(str)) str = `${str}px`;
     if (!isSafeThemeValue(str)) {
       warnings.push({
         stage: 'theme',

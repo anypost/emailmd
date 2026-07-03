@@ -1,8 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Template } from "@/lib/templates";
+import { screenshotVersions } from "@/lib/screenshot-manifest";
 
 export function TemplateCard({ template }: { template: Template }) {
+  const version = screenshotVersions[template.id];
   return (
     <Link
       href={`/builder?template=${template.id}`}
@@ -10,7 +12,7 @@ export function TemplateCard({ template }: { template: Template }) {
     >
       <div className="relative h-75 overflow-hidden border-b border-border bg-white">
         <Image
-          src={template.image ?? "https://imgs.emailmd.dev/ss/invoice.png"}
+          src={template.image ?? `/ss/${template.id}.png${version ? `?v=${version}` : ""}`}
           alt={template.title}
           fill
           className="object-cover object-top"

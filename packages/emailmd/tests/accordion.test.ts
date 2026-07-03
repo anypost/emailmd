@@ -73,6 +73,18 @@ A.
     expect(result.warnings?.some((w) => w.message.includes('icon-wrapped'))).toBe(true);
   });
 
+  it('replaces the default imgur toggle icons with theme-colored glyphs', async () => {
+    const { html } = await render(FAQ);
+    expect(html).not.toContain('i.imgur.com');
+    expect(html).toMatch(/<span class="mj-accordion-more"[^>]*color:\s*#09090b[^>]*>\+<\/span>/);
+    expect(html).toMatch(/<span class="mj-accordion-less"[^>]*>−<\/span>/);
+  });
+
+  it('colors the toggle glyphs with the dark heading color on dark themes', async () => {
+    const { html } = await render(`---\ntheme: dark\n---\n\n${FAQ}`);
+    expect(html).toMatch(/<span class="mj-accordion-more"[^>]*color:\s*#fafafa/);
+  });
+
   it('strips inline tags from titles', async () => {
     const md = `::: accordion
 ### A **bold** question?

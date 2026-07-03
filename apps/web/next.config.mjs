@@ -6,6 +6,17 @@ const withMDX = createMDX();
 const config = {
   reactStrictMode: true,
   images: {
+    localPatterns: [
+      // Gallery screenshots carry a ?v=<hash> cache-buster (omitting `search` allows any query).
+      {
+        pathname: '/ss/**',
+      },
+      // Every other local image, no query string (the default behavior).
+      {
+        pathname: '/**',
+        search: '',
+      },
+    ],
     remotePatterns: [
       {
         protocol: 'https',

@@ -96,6 +96,24 @@ describe('frontmatterToThemeOverrides', async () => {
   });
 });
 
+describe('numeric theme lengths', async () => {
+  it('appends px to unitless border_radius, font_size and content_width', async () => {
+    const md = `---\nborder_radius: 14\nfont_size: 15\ncontent_width: 640\n---\n\n::: callout\nHi\n:::`;
+    const { html, warnings } = await render(md);
+    expect(warnings).toBeUndefined();
+    expect(html).toMatch(/border-radius:\s*14px/);
+    expect(html).toMatch(/font-size:\s*15px/);
+    expect(html).toMatch(/640px/);
+    // The old behavior emitted the bare number, which clients drop as invalid CSS.
+    expect(html).not.toMatch(/border-radius:\s*14[^p]/);
+  });
+
+  it('keeps numeric line_height unitless', async () => {
+    const { html } = await render(`---\nline_height: 1.8\n---\n\nHello`);
+    expect(html).toMatch(/line-height:\s*1.8/);
+  });
+});
+
 describe('render() warnings', async () => {
   it('surfaces invalid frontmatter as a warning without throwing', async () => {
     const input = `---
@@ -222,7 +240,7 @@ dir: rtl
 
   it('flips directive default alignment', async () => {
     const { html } = await render(RTL_DOC);
-    expect(html).toMatch(/text-align:right[^>]*>\s*<p>ملاحظة/);
+    expect(html).toMatch(/text-align:right[^>]*>\s*<p[^>]*>ملاحظة/);
   });
 
   it('flips blockquote bars and list indents', async () => {
@@ -234,7 +252,7 @@ dir: rtl
   it('keeps explicit alignment overrides', async () => {
     const md = `---\ndir: rtl\n---\n\n::: callout center\nوسط\n:::`;
     const { html } = await render(md);
-    expect(html).toMatch(/text-align:center[^>]*>\s*<p>وسط/);
+    expect(html).toMatch(/text-align:center[^>]*>\s*<p[^>]*>وسط/);
   });
 
   it('does not flip ltr documents', async () => {

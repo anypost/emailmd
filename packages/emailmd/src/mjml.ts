@@ -227,6 +227,7 @@ export function buildHead(theme: Theme, preheader?: string, darkTheme?: Theme, d
       h1 { font-size: 32px; font-weight: 700; color: ${theme.headingColor}; margin: 0 0 12px 0; }
       h2 { font-size: 24px; font-weight: 700; color: ${theme.headingColor}; margin: 0 0 10px 0; }
       h3 { font-size: 20px; font-weight: 600; color: ${theme.headingColor}; margin: 0 0 8px 0; }
+      p { margin: 0 0 16px 0; }
       a { color: ${theme.brandColor}; }
       blockquote { border-${start}: 3px solid ${theme.brandColor}; padding-${start}: 16px; margin: 0; }
       blockquote blockquote { border-color: ${theme.cardColor}; }
@@ -312,6 +313,43 @@ function renderEmbeddedButtons(buttons: Array<Record<string, string>>, theme: Th
   }).join('\n        ');
 }
 
+/** Block elements the head styles give a bottom-only margin. */
+const TRAILING_MARGIN_TAGS = /^(?:h[1-6]|p|ul|ol|dl|blockquote|table)$/;
+
+/**
+ * Inline margin-bottom:0 on the final top-level block element, so content
+ * sits symmetrically inside a padded box (callout, highlight, hero, …) —
+ * without this, the last block's bottom margin stacks on the box padding.
+ */
+function zeroTrailingBlockMargin(html: string): string {
+  const trimmed = html.trimEnd();
+  const close = trimmed.match(/<\/([a-z][a-z0-9]*)>$/);
+  if (!close || !TRAILING_MARGIN_TAGS.test(close[1])) return html;
+  const tag = close[1];
+  // Find the opening tag matching the final close — same-tag nesting
+  // (e.g. lists in lists) must balance, so walk the pairs backwards.
+  const re = new RegExp(`<${tag}(?=[\\s/>])|</${tag}>`, 'g');
+  const tokens: Array<{ index: number; open: boolean }> = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(trimmed)) !== null) tokens.push({ index: m.index, open: m[0][1] !== '/' });
+  let depth = 0;
+  let openIndex = -1;
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    depth += tokens[i].open ? -1 : 1;
+    if (depth === 0) {
+      openIndex = tokens[i].index;
+      break;
+    }
+  }
+  if (openIndex === -1) return html;
+  const tagEnd = trimmed.indexOf('>', openIndex);
+  const openTag = trimmed.slice(openIndex, tagEnd + 1);
+  const styled = openTag.includes('style="')
+    ? openTag.replace(/style="([^"]*)"/, 'style="$1; margin-bottom: 0"')
+    : `${openTag.slice(0, -1)} style="margin-bottom: 0">`;
+  return trimmed.slice(0, openIndex) + styled + trimmed.slice(tagEnd + 1);
+}
+
 function renderCalloutSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
   const align = resolveAlign(segment.attrs?.align, startAlign(ctx), ctx, 'callout align');
   const bgColor = resolveColor(segment.attrs?.bg, theme.cardColor, ctx, 'callout bg');
@@ -321,7 +359,7 @@ function renderCalloutSegment(segment: Segment, theme: Theme, ctx?: SegmentConte
   // padding="0" overrides mj-text's built-in 10px 25px default, so the card
   // column's padding preset is the full effective inset.
   const textMjml = segment.content
-    ? `<mj-text align="${align}" padding="0" font-size="${theme.fontSize}" color="${textColor}" line-height="${theme.lineHeight}">${processInlineImages(segment.content)}</mj-text>`
+    ? `<mj-text align="${align}" padding="0" font-size="${theme.fontSize}" color="${textColor}" line-height="${theme.lineHeight}">${zeroTrailingBlockMargin(processInlineImages(segment.content))}</mj-text>`
     : '';
   const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
   let mjml = `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
@@ -357,7 +395,7 @@ function renderHighlightSegment(segment: Segment, theme: Theme, ctx?: SegmentCon
   // padding="0" overrides mj-text's built-in 10px 25px default, so the card
   // column's padding preset is the full effective inset.
   const textMjml = segment.content
-    ? `<mj-text align="${align}" padding="0" font-size="${theme.fontSize}" color="${textColor}" font-weight="600">${processInlineImages(segment.content)}</mj-text>`
+    ? `<mj-text align="${align}" padding="0" font-size="${theme.fontSize}" color="${textColor}" font-weight="600">${zeroTrailingBlockMargin(processInlineImages(segment.content))}</mj-text>`
     : '';
   const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
   let mjml = `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
@@ -589,7 +627,7 @@ function renderHeroSegment(segment: Segment, theme: Theme, ctx?: SegmentContext)
     // The head's h1-h3 color rules beat the color inherited from mj-text, so
     // the hero text color must be inlined on headings.
     content = content.replace(/<(h[1-3])([\s>])/g, `<$1 style="color: ${heroColor}"$2`);
-    textMjml = `<mj-text align="center" color="${heroColor}">${content}</mj-text>`;
+    textMjml = `<mj-text align="center" color="${heroColor}">${zeroTrailingBlockMargin(content)}</mj-text>`;
   }
   const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
   // Hero colors are a self-contained pair, so dark mode leaves them alone;
@@ -662,7 +700,7 @@ function renderAccordionSegment(segment: Segment, theme: Theme, ctx?: SegmentCon
     .map(
       (panel) => `<mj-accordion-element background-color="${theme.contentColor}">
             <mj-accordion-title color="${theme.headingColor}" font-size="${theme.fontSize}" font-family="${theme.fontFamily}" padding="12px 4px">${escapeAttrValue(panel.title)}</mj-accordion-title>
-            <mj-accordion-text color="${theme.bodyColor}" font-size="${theme.fontSize}" font-family="${theme.fontFamily}" line-height="${theme.lineHeight}" padding="0 4px 12px">${panel.body}</mj-accordion-text>
+            <mj-accordion-text color="${theme.bodyColor}" font-size="${theme.fontSize}" font-family="${theme.fontFamily}" line-height="${theme.lineHeight}" padding="0 4px 12px">${zeroTrailingBlockMargin(panel.body)}</mj-accordion-text>
           </mj-accordion-element>`,
     )
     .join('\n          ');
@@ -850,7 +888,7 @@ function renderCellButton(attrs: Record<string, string>, theme: Theme, ctx?: Seg
   return `<mj-button padding="8px 0"${alignAttr} background-color="${bgColor}" color="${textColor}" font-size="16px" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>`;
 }
 
-function renderCellSegments(cell: ColumnCell, theme: Theme, ctx?: SegmentContext): string {
+function renderCellSegments(cell: ColumnCell, theme: Theme, ctx?: SegmentContext, card = false): string {
   const cellAlign = cell.attrs?.align ? resolveAlign(cell.attrs.align, startAlign(ctx), ctx, 'column align') : undefined;
   const textColor = cell.attrs?.color ? resolveColor(cell.attrs.color, theme.bodyColor, ctx, 'column color') : undefined;
 
@@ -860,7 +898,9 @@ function renderCellSegments(cell: ColumnCell, theme: Theme, ctx?: SegmentContext
       case 'text': {
         const alignAttr = cellAlign ? ` align="${cellAlign}"` : '';
         const colorAttr = textColor ? ` color="${textColor}"` : '';
-        parts.push(`<mj-text padding="4px 0"${alignAttr}${colorAttr}>${processInlineImages(seg.content)}</mj-text>`);
+        const content = processInlineImages(seg.content);
+        const trimmed = card && seg === cell.segments[cell.segments.length - 1] ? zeroTrailingBlockMargin(content) : content;
+        parts.push(`<mj-text padding="4px 0"${alignAttr}${colorAttr}>${trimmed}</mj-text>`);
         break;
       }
       case 'image': {
@@ -932,7 +972,7 @@ function renderColumnsSegment(segment: Segment, theme: Theme, ctx?: SegmentConte
     }
 
     return `<mj-column ${attrs.join(' ')}>
-        ${renderCellSegments(cell, theme, ctx)}
+        ${renderCellSegments(cell, theme, ctx, Boolean(bg))}
       </mj-column>`;
   }).join('\n      ');
 
@@ -1015,6 +1055,21 @@ export interface MjmlCompileError {
   formattedMessage?: string;
 }
 
+/**
+ * MJML's default accordion toggle icons are white PNGs hotlinked from imgur —
+ * invisible on light themes (so collapsed panels look inert) and a third-party
+ * image host in every email. Swap them for theme-colored text glyphs carrying
+ * the same classes, so MJML's checkbox CSS toggles them identically. Custom
+ * icon URLs set via icon-wrapped=/icon-unwrapped= are left untouched.
+ */
+function themeAccordionIcons(html: string, theme: Theme): string {
+  return html.replace(/<img[^>]*class="mj-accordion-(more|less)"[^>]*\/?>/g, (tag, kind: string) => {
+    if (!tag.includes('src="https://i.imgur.com/')) return tag;
+    const glyph = kind === 'more' ? '+' : '−';
+    return `<span class="mj-accordion-${kind}" style="display:none;width:32px;height:32px;font-size:24px;line-height:32px;text-align:center;color:${escapeAttrValue(theme.headingColor)};">${glyph}</span>`;
+  });
+}
+
 export async function renderMjml(
   segments: Segment[],
   theme: Theme,
@@ -1031,5 +1086,5 @@ export async function renderMjml(
     ...(mjmlOptions?.sanitizeStyles !== undefined ? { sanitizeStyles: mjmlOptions.sanitizeStyles } : {}),
     ...(mjmlOptions?.beautify !== undefined ? { beautify: mjmlOptions.beautify } : {}),
   });
-  return { html, errors: errors ?? [] };
+  return { html: html.includes('mj-accordion-ico') ? themeAccordionIcons(html, theme) : html, errors: errors ?? [] };
 }
