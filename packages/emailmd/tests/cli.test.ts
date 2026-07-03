@@ -166,6 +166,49 @@ describe('cli', () => {
     });
   });
 
+  describe('--partials', () => {
+    const PARTIALS_DIR = resolve(__dirname, 'fixtures/partials');
+
+    it('loads partials from a directory, subdirectories as name prefixes', () => {
+      const input = '# Hi\n\n::: include signoff team="Acme"\n\n::: include blocks/legal';
+      const { stdout, status } = run(['--partials', PARTIALS_DIR], input);
+      expect(status).toBe(0);
+      expect(stdout).toContain('The Acme Team');
+      expect(stdout).toContain('https://example.com/unsub');
+    });
+
+    it('works with the -p shorthand', () => {
+      const { stdout, status } = run(['-p', PARTIALS_DIR], '::: include signoff team="Acme"');
+      expect(status).toBe(0);
+      expect(stdout).toContain('The Acme Team');
+    });
+
+    it('accepts a single .md file, named by its basename', () => {
+      const file = resolve(PARTIALS_DIR, 'blocks/legal.md');
+      const { stdout, status } = run(['--partials', file], '::: include legal');
+      expect(status).toBe(0);
+      expect(stdout).toContain('https://example.com/unsub');
+    });
+
+    it('is repeatable and merges sources, later paths winning on collisions', () => {
+      const override = resolve(__dirname, 'fixtures/partials-override/signoff.md');
+      const { stdout, status } = run(
+        ['-p', PARTIALS_DIR, '-p', override],
+        '::: include signoff\n\n::: include blocks/legal',
+      );
+      expect(status).toBe(0);
+      expect(stdout).toContain('The Override Team');
+      expect(stdout).not.toContain('{{team}}');
+      expect(stdout).toContain('https://example.com/unsub');
+    });
+
+    it('exits with code 1 if a path does not exist', () => {
+      const { stderr, status } = run(['--partials', 'no-such-dir'], '# Hi');
+      expect(status).toBe(1);
+      expect(stderr).toContain('cannot read partials path');
+    });
+  });
+
   describe('error handling', () => {
     it('exits with code 1 if the file does not exist', () => {
       const { stderr, status } = run(['nonexistent.md']);

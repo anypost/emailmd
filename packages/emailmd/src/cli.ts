@@ -1,4 +1,5 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
+import { basename, join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { render } from './index.js';
 
@@ -20,6 +21,10 @@ Options:
   -t, --text        Output plain text instead of HTML
   -m, --minify      Minify the HTML output
   -b, --beautify    Pretty-print the HTML output (ignored with --minify)
+  -p, --partials <path>  Partials for "::: include <name>" — a directory of
+                    .md files (subdirectories become name prefixes:
+                    blocks/legal) or a single .md file. Repeatable;
+                    later paths win on name collisions.
   -h, --help        Show this help message
   -v, --version     Show version number
 
@@ -29,8 +34,38 @@ Examples:
   emailmd input.md --text
   emailmd input.md --minify -o output.html
   emailmd input.md --beautify
+  emailmd input.md --partials ./partials
+  emailmd input.md -p ./partials -p ./extra/legal.md
   echo "# Hello" | emailmd
 `.trimStart();
+
+/**
+ * Load every `.md` file under a directory as a partial. The name is the
+ * path relative to the directory without the extension, always `/`-separated
+ * (`blocks/legal.md` → `blocks/legal`).
+ */
+function loadPartialsDir(dir: string, prefix = ''): Record<string, string> {
+  const partials: Record<string, string> = {};
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      Object.assign(partials, loadPartialsDir(full, `${prefix}${entry.name}/`));
+    } else if (entry.isFile() && entry.name.endsWith('.md')) {
+      partials[`${prefix}${entry.name.slice(0, -3)}`] = readFileSync(full, 'utf-8');
+    }
+  }
+  return partials;
+}
+
+/**
+ * Load one `--partials` argument: a directory of `.md` files, or a single
+ * file whose name is its basename without the `.md` extension.
+ */
+function loadPartialsPath(path: string): Record<string, string> {
+  if (statSync(path).isDirectory()) return loadPartialsDir(path);
+  const name = basename(path).replace(/\.md$/, '');
+  return { [name]: readFileSync(path, 'utf-8') };
+}
 
 function readStdin(): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -51,6 +86,7 @@ async function main(): Promise<void> {
         text: { type: 'boolean', short: 't', default: false },
         minify: { type: 'boolean', short: 'm', default: false },
         beautify: { type: 'boolean', short: 'b', default: false },
+        partials: { type: 'string', short: 'p', multiple: true },
         help: { type: 'boolean', short: 'h', default: false },
         version: { type: 'boolean', short: 'v', default: false },
       },
@@ -105,7 +141,22 @@ async function main(): Promise<void> {
   const text = values.text === true;
   const outputPath = typeof values.output === 'string' ? values.output : undefined;
 
-  const result = await render(markdown, { minify, beautify });
+  let partials: Record<string, string> | undefined;
+  if (Array.isArray(values.partials)) {
+    partials = {};
+    for (const path of values.partials) {
+      try {
+        Object.assign(partials, loadPartialsPath(path));
+      } catch (err: unknown) {
+        const detail = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`emailmd: cannot read partials path '${path}': ${detail}\n`);
+        process.exitCode = 1;
+        return;
+      }
+    }
+  }
+
+  const result = await render(markdown, { minify, beautify, partials });
   const output = text ? result.text : result.html;
 
   if (outputPath) {

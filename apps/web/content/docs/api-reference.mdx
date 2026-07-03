@@ -35,6 +35,7 @@ const { html, text, meta } = await render("# Hello");
   strings?: RenderStrings;
   darkTheme?: true | Partial<Theme>;
   breaks?: boolean;
+  partials?: Record<string, string>;
 }
 ```
 
@@ -51,6 +52,7 @@ const { html, text, meta } = await render("# Hello");
 | `strings`         | `RenderStrings`                               | Override output strings for localization. See [`RenderStrings`](#renderstrings).        |
 | `darkTheme`       | `true \| Partial<Theme>`                      | Opt into [automatic dark mode](/docs/theme#automatic-dark-mode). `true` = built-in dark palette; a partial theme merges over it. Overridden by a pinned frontmatter `theme: light`/`dark`. |
 | `breaks`          | `boolean`                                     | Render single newlines as `<br>`. Frontmatter `breaks:` wins per document. Default `false`. |
+| `partials`        | `Record<string, string>`                      | Named markdown [partials](/docs/partials) spliced in at `::: include <name>` lines.     |
 
 ## `RenderResult`
 

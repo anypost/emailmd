@@ -4,6 +4,7 @@ export type { Segment, SegmentType } from './segmenter.js';
 export type { RenderWarning } from './warnings.js';
 export { defaultTheme, lightTheme, darkTheme, mergeTheme, resolveBaseTheme } from './theme.js';
 export { extractFrontmatter, frontmatterToThemeOverrides, frontmatterToFonts } from './frontmatter.js';
+export { expandPartials } from './partials.js';
 export { buildHead, segmentsToMjml } from './mjml.js';
 export { defaultWrapper } from './wrappers/default.js';
 export { escapeHtml, escapeAttrValue, isCssColor, isCssLength, isSafeUrl } from './sanitize.js';
@@ -15,6 +16,7 @@ import { segment } from './segmenter.js';
 import { renderMjml, type WrapperFn, type WrapperMeta, type RenderStrings } from './mjml.js';
 import { resolveWrapper } from './wrappers/index.js';
 import { toPlainText } from './plaintext.js';
+import { expandPartials } from './partials.js';
 import type { RenderWarning } from './warnings.js';
 import { isSafeThemeValue, isSafeUrl } from './sanitize.js';
 
@@ -60,6 +62,13 @@ export interface RenderOptions {
    * per document. Default: `false` (standard markdown).
    */
   breaks?: boolean;
+  /**
+   * Named markdown partials spliced in wherever the document says
+   * `::: include <name>`. Parameters on the include line (`key="value"`)
+   * fill `{{key}}` placeholders inside the partial; tokens for keys that
+   * were not passed stay untouched for the sending app's template layer.
+   */
+  partials?: Record<string, string>;
 }
 
 /** Object returned by {@link render}. */
@@ -144,7 +153,7 @@ function sanitizeFonts(fonts: Record<string, string> | undefined, warnings: Rend
 export async function render(markdown: string, options?: RenderOptions): Promise<RenderResult> {
   const warnings: RenderWarning[] = [];
 
-  const { meta, content, error: frontmatterError } = extractFrontmatter(markdown);
+  const { meta, content: rawContent, error: frontmatterError } = extractFrontmatter(markdown);
   if (frontmatterError) {
     warnings.push({
       stage: 'frontmatter',
@@ -152,6 +161,10 @@ export async function render(markdown: string, options?: RenderOptions): Promise
       cause: frontmatterError,
     });
   }
+
+  // Runs with an empty map too, so a stray include still warns and is
+  // dropped instead of rendering as a literal ":::" paragraph.
+  const content = expandPartials(rawContent, options?.partials ?? {}, warnings);
 
   if (meta.theme !== undefined && meta.theme !== 'light' && meta.theme !== 'dark' && meta.theme !== 'auto') {
     warnings.push({

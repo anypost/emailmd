@@ -35,6 +35,7 @@ If no file is given, the CLI reads from stdin.
 | `-t, --text`       | Output plain text instead of HTML                 |
 | `-m, --minify`     | Minify the HTML output                            |
 | `-b, --beautify`   | Pretty-print the HTML output (ignored with `-m`)  |
+| `-p, --partials <path>` | [Partials](/docs/partials) for `::: include <name>` — a directory of `.md` files or a single file. Repeatable. |
 | `-h, --help`       | Show help                                         |
 | `-v, --version`    | Show version number                               |
 
@@ -68,6 +69,13 @@ Pretty-print the HTML output (handy for reading it straight in the terminal):
 
 ```bash
 emailmd input.md --beautify
+```
+
+Load [partials](/docs/partials) from a directory — each `.md` file becomes a partial named after its path relative to the directory, so `partials/blocks/legal.md` is included as `::: include blocks/legal`. Individual files work too (named by basename), and the flag is repeatable with later paths winning on name collisions:
+
+```bash
+emailmd input.md --partials ./partials
+emailmd input.md -p ./partials -p ./extra/legal.md
 ```
 
 Pipe from another command:

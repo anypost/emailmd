@@ -13,6 +13,7 @@
     "tables",
     "emoji",
     "directives",
+    "partials",
     "---Advanced---",
     "cli",
     "react",
