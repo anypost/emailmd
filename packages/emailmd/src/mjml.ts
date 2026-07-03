@@ -3,6 +3,7 @@ import type { ColumnCell, Segment } from './segmenter.js';
 import type { Theme } from './theme.js';
 import type { RenderWarning } from './warnings.js';
 import { escapeHtml, escapeAttrValue, isCssColor, isCssLength, isSafeUrl } from './sanitize.js';
+import { EMPTY_TABLE_HEADER_RE } from './constants.js';
 
 /**
  * Overridable output strings, for localization.
@@ -500,6 +501,9 @@ function renderHeroSegment(segment: Segment, theme: Theme, ctx?: SegmentContext)
 
 function styleTableHtml(html: string, theme: Theme): string {
   let tableHtml = html;
+
+  // An all-empty header row means "headerless table" — drop the row.
+  tableHtml = tableHtml.replace(EMPTY_TABLE_HEADER_RE, '');
 
   // Strip wrapper tags — mj-table only accepts <tr> rows directly
   tableHtml = tableHtml

@@ -209,17 +209,36 @@ export function Toolbar({ getView, value, onChange, onReset, lastSaved }: Toolba
           icon={<SquareCodeIcon />}
           onClick={withView((v) => wrapSelection(v, '```\n', '\n```', 'code'))}
         />
-        <ToolbarButton
-          tooltip="Table"
-          icon={<TableIcon />}
-          onClick={withView((v) =>
-            insertBlock(
-              v,
-              '| Column 1 | Column 2 | Column 3 |\n| :------- | :------: | -------: |\n| Cell     | Cell     | Cell     |',
-              'Column 1'
-            )
+        <ToolbarMenu tooltip="Table" icon={<TableIcon />}>
+          {(close) => (
+            <>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) =>
+                  insertBlock(
+                    v,
+                    '| Column 1 | Column 2 | Column 3 |\n| :------- | :------: | -------: |\n| Cell     | Cell     | Cell     |',
+                    'Column 1'
+                  )
+                )}
+              >
+                Table
+              </MenuItem>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) =>
+                  insertBlock(
+                    v,
+                    '|          |          |\n| :------- | :------- |\n| Cell     | Cell     |\n| Cell     | Cell     |',
+                    'Cell'
+                  )
+                )}
+              >
+                Headerless Table
+              </MenuItem>
+            </>
           )}
-        />
+        </ToolbarMenu>
       </div>
 
       {/* Row 2: links, media, directives + utilities */}

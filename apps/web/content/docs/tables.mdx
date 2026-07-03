@@ -25,6 +25,19 @@ Control column alignment using colons in the separator row — left-align with `
 | **Total**                |       | **$60.00** |
 ```
 
+## Headerless Tables
+
+Leave every cell in the header row empty and the row is dropped entirely — no bold header, no header border, just data rows:
+
+```markdown
+|          |          |
+| :------- | :------- |
+| Shipping | 3–5 days |
+| Returns  | 30 days  |
+```
+
+The delimiter row is still required (that's what makes it a table in GFM), and column alignment set there still applies. This is a common markdown convention: in editors that don't support it, the table simply shows an empty header row instead of breaking.
+
 ## Automatic Styling
 
 Tables are automatically styled with your theme colors:

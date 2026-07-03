@@ -14,3 +14,9 @@ export const MARKER_HERO_CLOSE = '<!--EMAILMD:HERO_CLOSE-->';
 export const MARKER_COLUMNS_CLOSE = '<!--EMAILMD:COLUMNS_CLOSE-->';
 export const MARKER_COLUMN_CLOSE = '<!--EMAILMD:COLUMN_CLOSE-->';
 export const MARKER_SOCIAL_CLOSE = '<!--EMAILMD:SOCIAL_CLOSE-->';
+
+/**
+ * A table header row whose cells are all empty (`| | |`) opts the table out of
+ * having a header: the row is dropped from both the HTML and plain-text output.
+ */
+export const EMPTY_TABLE_HEADER_RE = /<thead>\s*<tr>\s*(?:<th[^>]*>\s*<\/th>\s*)+<\/tr>\s*<\/thead>\s*/;

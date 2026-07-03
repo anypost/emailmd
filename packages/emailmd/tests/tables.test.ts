@@ -10,6 +10,11 @@ const ALIGNED_TABLE = `| Left | Center | Right |
 | :--- | :----: | ----: |
 | a | b | c |`;
 
+const HEADERLESS_TABLE = `|       |    |
+| ----- | -- |
+| Alice | 30 |
+| Bob   | 25 |`;
+
 describe('table support', async () => {
   describe('basic rendering', async () => {
     it('renders a simple table with all data visible', async () => {
@@ -72,6 +77,37 @@ describe('table support', async () => {
     });
   });
 
+  describe('headerless tables', async () => {
+    it('drops an all-empty header row', async () => {
+      const { html } = await render(HEADERLESS_TABLE);
+      expect(html).toContain('Alice');
+      expect(html).toContain('30');
+      expect(html).not.toContain('<th');
+    });
+
+    it('keeps column alignment from the delimiter row', async () => {
+      const md = '|   |   |\n| :--- | ---: |\n| a | b |';
+      const { html } = await render(md);
+      expect(html).toContain('text-align:left');
+      expect(html).toContain('text-align:right');
+    });
+
+    it('keeps the header row when any header cell has content', async () => {
+      const md = '| Name |   |\n| ---- | --- |\n| Alice | 30 |';
+      const { html } = await render(md);
+      expect(html).toContain('<th');
+      expect(html).toContain('Name');
+    });
+
+    it('only affects the table with the empty header when mixed', async () => {
+      const md = `${SIMPLE_TABLE}\n\n${HEADERLESS_TABLE}`;
+      const { html } = await render(md);
+      expect(html).toContain('<th');
+      expect(html).toContain('Name');
+      expect(html).toContain('Alice');
+    });
+  });
+
   describe('with surrounding content', async () => {
     it('renders text before and after a table', async () => {
       const md = `# Welcome
@@ -114,6 +150,16 @@ describe('table plain text output', async () => {
   it('contains no HTML tags', async () => {
     const { text } = await render(SIMPLE_TABLE);
     expect(text).not.toMatch(/<[^>]+>/);
+  });
+
+  it('drops the empty header row and separator for headerless tables', async () => {
+    const { text } = await render(HEADERLESS_TABLE);
+    expect(text).toContain('Alice');
+    expect(text).toContain('30');
+    expect(text).not.toContain('---');
+    // The empty header row itself is gone — the first table line is data.
+    const lines = text.split('\n').filter((l) => l.trim());
+    expect(lines[0]).toContain('Alice');
   });
 
   it('aligns columns with padding', async () => {

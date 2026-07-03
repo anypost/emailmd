@@ -5,6 +5,7 @@ import {
   MARKER_HEADER_CLOSE,
   MARKER_FOOTER_CLOSE,
   MARKER_HERO_CLOSE,
+  EMPTY_TABLE_HEADER_RE,
 } from './constants.js';
 
 /**
@@ -248,6 +249,10 @@ function processListItems(html: string, listType: string, depth: number): string
 function convertTables(html: string): string {
   const tableRe = /<table>[\s\S]*?<\/table>/gi;
   return html.replace(tableRe, (tableHtml) => {
+    // An all-empty header row means "headerless table" — drop the row.
+    const headerless = EMPTY_TABLE_HEADER_RE.test(tableHtml);
+    if (headerless) tableHtml = tableHtml.replace(EMPTY_TABLE_HEADER_RE, '');
+
     const rows: string[][] = [];
     const rowRe = /<tr>([\s\S]*?)<\/tr>/gi;
     let rowMatch: RegExpExecArray | null;
@@ -278,7 +283,7 @@ function convertTables(html: string): string {
     });
 
     // Insert separator after header row
-    if (lines.length > 1) {
+    if (!headerless && lines.length > 1) {
       const separator = colWidths.map((w) => '-'.repeat(w)).join('   ');
       lines.splice(1, 0, separator);
     }
