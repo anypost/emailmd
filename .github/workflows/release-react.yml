@@ -1,0 +1,51 @@
+name: Release @emailmd/react
+
+on:
+  push:
+    tags: ['react-v*']
+
+permissions:
+  contents: write # create the GitHub Release
+  id-token: write # npm trusted publishing (OIDC) + provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing requires npm >= 11.5.1
+      - name: Update npm
+        run: npm install -g npm@latest
+
+      - name: Verify tag matches package version
+        run: |
+          PKG_VERSION=$(node -p "require('./packages/react/package.json').version")
+          TAG_VERSION="${GITHUB_REF_NAME#react-v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match package version $PKG_VERSION" >&2
+            exit 1
+          fi
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build -w emailmd -w @emailmd/react
+
+      - name: Test
+        run: npm test -w @emailmd/react
+
+      - name: Publish to npm
+        working-directory: packages/react
+        run: npm publish --provenance
+
+      - name: Create GitHub Release
+        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

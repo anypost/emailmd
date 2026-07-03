@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { CopyButton } from "@/components/builder/copy-button";
+import { CopyButton } from "@/components/copy-button";
 
 
 const btnClass =

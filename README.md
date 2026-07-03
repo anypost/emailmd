@@ -51,6 +51,14 @@ echo "# Hello" | emailmd
 
 Run `emailmd --help` for all options.
 
+## React
+
+[`@emailmd/react`](https://www.emailmd.dev/docs/react) provides a live-preview hook (`useEmailmd`), an `<EmailPreview />` iframe component, and `<EmailmdBuilder />` — the full [builder](https://www.emailmd.dev/builder) as a drop-in component for your own app.
+
+```bash
+npm install @emailmd/react emailmd
+```
+
 ## Learn More
 
 - [Docs](https://www.emailmd.dev/docs) — full syntax reference, theming, frontmatter, directives, and API

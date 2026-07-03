@@ -23,8 +23,8 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Build library
-        run: npm run build -w emailmd
+      - name: Build libraries
+        run: npm run build -w emailmd -w @emailmd/react
 
-      - name: Test library
-        run: npm test -w emailmd
+      - name: Test libraries
+        run: npm test -w emailmd -w @emailmd/react

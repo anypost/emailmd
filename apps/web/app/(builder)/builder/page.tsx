@@ -1,4 +1,4 @@
-import { BuilderClient } from "@/components/builder/builder-client";
+import { BuilderClient } from "@/components/builder-client";
 import { getTemplateById } from "@/lib/templates";
 
 export const metadata = {

@@ -1,9 +1,13 @@
-import { useEffect, useRef } from "react";
-import { saveDraft } from "@/lib/storage";
+import { useEffect, useRef } from 'react';
+import { saveDraft } from './storage.js';
 
 export function useAutoSave(
   markdown: string,
-  { enabled = true, onSave }: { enabled?: boolean; onSave?: () => void } = {}
+  {
+    enabled = true,
+    storageKey,
+    onSave,
+  }: { enabled?: boolean; storageKey: string; onSave?: () => void }
 ) {
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -12,11 +16,11 @@ export function useAutoSave(
 
     clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => {
-      if (saveDraft(markdown)) {
+      if (saveDraft(storageKey, markdown)) {
         onSave?.();
       }
     }, 1000);
 
     return () => clearTimeout(timeoutRef.current);
-  }, [markdown, enabled, onSave]);
+  }, [markdown, enabled, storageKey, onSave]);
 }
