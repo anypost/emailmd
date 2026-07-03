@@ -12,7 +12,7 @@ export const templates: Template[] = [
     id: "welcome",
     title: "Welcome Email",
     category: "Onboarding",
-    author: "Email.md",
+    author: "emailmd",
     image: "https://imgs.emailmd.dev/ss/welcome.png",
     markdown: `---
 preheader: "Your next adventure starts now"
@@ -78,7 +78,7 @@ StageDive HQ · 123 Market St · San Francisco, CA 94105
     id: "password-reset",
     title: "Password Reset",
     category: "Security",
-    author: "Email.md",
+    author: "emailmd",
     image: "https://imgs.emailmd.dev/ss/reset_password.png?2",
     markdown: `---
 preheader: "Let's get you back in"
@@ -119,7 +119,7 @@ You're receiving this because a password reset was requested for this email addr
     id: "order-confirmation",
     title: "Order Confirmation",
     category: "E-Commerce",
-    author: "Email.md",
+    author: "emailmd",
     image: "https://imgs.emailmd.dev/ss/order_confirmation.png",
     markdown: `---
 preheader: "Your order is on its way"
@@ -195,7 +195,7 @@ You received this email because you ordered from [rooted.co](https://example.com
     id: "newsletter",
     title: "Monthly Newsletter",
     category: "Marketing",
-    author: "Email.md",
+    author: "emailmd",
     image: "https://imgs.emailmd.dev/ss/newsletter.png",
     markdown: `---
 preheader: "We made new stuff. Come look."
@@ -267,7 +267,7 @@ SMALL BATCH. BIG ENERGY.
     id: "invoice",
     title: "Invoice",
     category: "Billing",
-    author: "Email.md",
+    author: "emailmd",
     image: "https://imgs.emailmd.dev/ss/invoice.png?2",
     markdown: `---
 preheader: "Invoice #NEB-2026-0217 from Nebula"
@@ -320,7 +320,7 @@ Need to change your plan or have a question about this bill? Just reply to this 
     id: "review-roundup",
     title: "Review Roundup",
     category: "Marketing",
-    author: "Email.md",
+    author: "emailmd",
     image: "https://imgs.emailmd.dev/ss/reviews.png",
     markdown: `---
 preheader: "Our customers said WHAT?"
@@ -406,7 +406,7 @@ Unreasonably good protein bars.
     id: "rate-support",
     title: "Rate Your Support",
     category: "Feedback",
-    author: "Email.md",
+    author: "emailmd",
     image: "https://imgs.emailmd.dev/ss/rate_support.png",
     markdown: `---
 preheader: "Be honest — we can take it."
@@ -461,7 +461,7 @@ Your feedback shapes what we build, how we respond, and — crucially — who ge
     id: "confirm-email",
     title: "Confirm Email",
     category: "Onboarding",
-    author: "Email.md",
+    author: "emailmd",
     image: "https://imgs.emailmd.dev/ss/confirm_email.png",
     markdown: `---
 preheader: "Confirm your email address"

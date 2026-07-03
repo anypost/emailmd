@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Email.md - Responsive Emails, Written in Markdown",
+  title: "emailmd - Responsive Emails, Written in Markdown",
   description:
     "Turn markdown into responsive, email-safe HTML that renders perfectly across every client.",
 };

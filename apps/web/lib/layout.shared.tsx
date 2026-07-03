@@ -9,7 +9,7 @@ export function baseOptions(): BaseLayoutProps {
             fontFamily: "var(--font-audiowide)",
           }}
         >
-          _Email.md_
+          _emailmd_
         </span>
       ),
     },

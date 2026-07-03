@@ -6,9 +6,9 @@ export async function GET() {
   const pages = source.getPages();
 
   const lines = [
-    '# Email.md',
+    '# emailmd',
     '',
-    '> Email.md converts markdown to email-safe HTML that works everywhere.',
+    '> emailmd converts markdown to email-safe HTML that works everywhere.',
     '',
     `## Docs (${pages.length} pages)`,
     '',

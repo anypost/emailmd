@@ -2,7 +2,7 @@ import { BuilderClient } from "@/components/builder-client";
 import { getTemplateById } from "@/lib/templates";
 
 export const metadata = {
-  title: "Builder - Email.md",
+  title: "Builder - emailmd",
   description:
     "Build responsive email templates with markdown in real-time.",
 };

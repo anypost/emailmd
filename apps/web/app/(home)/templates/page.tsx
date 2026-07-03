@@ -2,9 +2,9 @@ import { templates } from "@/lib/templates";
 import { TemplateCard } from "@/components/templates/template-card";
 
 export const metadata = {
-  title: "Templates - Email.md",
+  title: "Templates - emailmd",
   description:
-    "Open source email templates built with Email.md. Pick a template and customize it in the builder.",
+    "Open source email templates built with emailmd. Pick a template and customize it in the builder.",
 };
 
 export default function TemplatesPage() {
@@ -15,7 +15,7 @@ export default function TemplatesPage() {
           Templates
         </h1>
         <p className="mt-4 text-lg text-muted-foreground">
-          Open source templates built with Email.md. Pick one to open it in the
+          Open source templates built with emailmd. Pick one to open it in the
           builder and customize it to your needs.
         </p>
       </div>

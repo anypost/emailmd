@@ -1,10 +1,10 @@
-# Email.md
+# emailmd
 
 ### Write markdown. Ship emails. No HTMHELL.
 
-Email.md converts markdown into responsive, email-safe HTML that works across Gmail, Outlook, Apple Mail, Yahoo, and every other client.
+emailmd converts markdown into responsive, email-safe HTML that works across Gmail, Outlook, Apple Mail, Yahoo, and every other client.
 
-![Email.md](https://imgs.emailmd.dev/ss/github_splash.png?1)
+![emailmd](https://imgs.emailmd.dev/ss/github_splash.png?1)
 
 ## Install
 
@@ -33,7 +33,7 @@ Thanks for signing up.
 
 ## CLI
 
-Email.md also ships with a command-line interface.
+emailmd also ships with a command-line interface.
 
 ```bash
 # Render to HTML
@@ -59,7 +59,7 @@ Run `emailmd --help` for all options.
 
 ## AI
 
-Email.md is just markdown, so AI is great at writing templates. Feed the full docs to your AI tool:
+emailmd is just markdown, so AI is great at writing templates. Feed the full docs to your AI tool:
 
 ```
 https://www.emailmd.dev/llms-full.txt
@@ -69,7 +69,7 @@ https://www.emailmd.dev/llms-full.txt
 
 Contributions are welcome! Feel free to open an [issue](https://github.com/anypost/emailmd/issues) or submit a [pull request](https://github.com/anypost/emailmd/pulls).
 
-> Email.md is under active development. The API may change between minor versions until we hit 1.0.
+> emailmd is under active development. The API may change between minor versions until we hit 1.0.
 
 ## Acknowledgements
 
