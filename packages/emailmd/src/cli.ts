@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { parseArgs } from 'node:util';
-import { render } from './index.js';
+import { render, lint, type LintFinding } from './index.js';
 
 const { version } = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), 'utf-8'),
@@ -12,9 +12,15 @@ emailmd v${version} — Render markdown into email-safe HTML
 
 Usage:
   emailmd [file] [options]
+  emailmd lint [file] [options]
 
 Arguments:
   file              Markdown file to render (reads stdin if omitted)
+
+Commands:
+  lint              Check the email for deliverability, accessibility, and
+                    readability problems instead of rendering it. Exits 1
+                    when warnings are found (--strict: suggestions too).
 
 Options:
   -o, --output <f>  Write output to file instead of stdout
@@ -25,6 +31,7 @@ Options:
                     .md files (subdirectories become name prefixes:
                     blocks/legal) or a single .md file. Repeatable;
                     later paths win on name collisions.
+  --strict          Lint only: exit non-zero on suggestions as well
   -h, --help        Show this help message
   -v, --version     Show version number
 
@@ -36,6 +43,7 @@ Examples:
   emailmd input.md --beautify
   emailmd input.md --partials ./partials
   emailmd input.md -p ./partials -p ./extra/legal.md
+  emailmd lint input.md
   echo "# Hello" | emailmd
 `.trimStart();
 
@@ -87,6 +95,7 @@ async function main(): Promise<void> {
         minify: { type: 'boolean', short: 'm', default: false },
         beautify: { type: 'boolean', short: 'b', default: false },
         partials: { type: 'string', short: 'p', multiple: true },
+        strict: { type: 'boolean', default: false },
         help: { type: 'boolean', short: 'h', default: false },
         version: { type: 'boolean', short: 'v', default: false },
       },
@@ -110,16 +119,19 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (positionals.length > 1) {
-    process.stderr.write(`emailmd: expected at most one positional argument, got ${positionals.length}\nRun 'emailmd --help' for usage.\n`);
+  const isLint = positionals[0] === 'lint';
+  const fileArgs = isLint ? positionals.slice(1) : positionals;
+
+  if (fileArgs.length > 1) {
+    process.stderr.write(`emailmd: expected at most one positional argument, got ${fileArgs.length}\nRun 'emailmd --help' for usage.\n`);
     process.exitCode = 1;
     return;
   }
 
   let markdown: string;
 
-  if (positionals.length === 1) {
-    const file = positionals[0];
+  if (fileArgs.length === 1) {
+    const file = fileArgs[0];
     try {
       markdown = readFileSync(file, 'utf-8');
     } catch (err: unknown) {
@@ -154,6 +166,26 @@ async function main(): Promise<void> {
         return;
       }
     }
+  }
+
+  if (isLint) {
+    const findings = await lint(markdown, { partials });
+    if (findings.length === 0) {
+      process.stdout.write('No problems found.\n');
+      return;
+    }
+    const lineWidth = Math.max(...findings.map((f) => String(f.line ?? '').length), 1);
+    for (const f of findings) {
+      const line = String(f.line ?? '-').padStart(lineWidth);
+      process.stdout.write(`  ${line}  ${f.severity.padEnd(10)}  ${f.message}  (${f.rule})\n`);
+    }
+    const warningCount = findings.filter((f: LintFinding) => f.severity === 'warning').length;
+    const suggestionCount = findings.length - warningCount;
+    process.stdout.write(`\n${findings.length} problem${findings.length === 1 ? '' : 's'} (${warningCount} warning${warningCount === 1 ? '' : 's'}, ${suggestionCount} suggestion${suggestionCount === 1 ? '' : 's'})\n`);
+    if (warningCount > 0 || (values.strict === true && findings.length > 0)) {
+      process.exitCode = 1;
+    }
+    return;
   }
 
   const result = await render(markdown, { minify, beautify, partials });

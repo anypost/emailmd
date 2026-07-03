@@ -52,7 +52,16 @@ Hi
     render(<EmailmdBuilder autoSave={false} debounceMs={0} defaultValue={md} />);
 
     await waitFor(() => {
-      expect(screen.getByText(/render warnings/)).toBeTruthy();
+      expect(screen.getByText(/\d+ warnings/)).toBeTruthy();
+    });
+  });
+
+  it('surfaces lint findings in the warnings banner when lint is on', async () => {
+    const md = '---\npreheader: Hi\n---\n\n![](https://example.com/a.png)\n\n[Unsubscribe](https://example.com/u)';
+    render(<EmailmdBuilder autoSave={false} debounceMs={0} defaultValue={md} lint />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/alt text/)).toBeTruthy();
     });
   });
 

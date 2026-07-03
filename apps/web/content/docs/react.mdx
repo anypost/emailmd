@@ -41,6 +41,7 @@ Options extend [`RenderOptions`](/docs/api-reference#renderoptions) — `theme`,
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `debounceMs` | `number` | `150` | Wait after the last keystroke before re-rendering. `0` renders immediately. |
+| `lint` | `boolean` | `false` | Run [`lint()`](/docs/api-reference#lintmarkdown-options) alongside each render; findings land in `lintFindings`. |
 
 The returned object:
 
@@ -50,6 +51,7 @@ The returned object:
 | `text` | `string` | Plain-text MIME part |
 | `meta` | `object` | Frontmatter metadata |
 | `warnings` | `RenderWarning[]` | Non-fatal issues; empty when clean |
+| `lintFindings` | `LintFinding[]` | Lint results when the `lint` option is on; empty otherwise |
 | `error` | `Error \| null` | Set if `render()` threw; previous output is retained |
 | `isRendering` | `boolean` | True while an updated render is in flight |
 
@@ -98,6 +100,7 @@ Give the parent element a height — the builder fills it.
 | `share` | `boolean` | `false` | Read `#md=` URL fragments on mount and show a share-link button |
 | `colorScheme` | `'light' \| 'dark'` | `'light'` | UI scheme |
 | `renderOptions` | `RenderOptions` | — | Passed through to `render()` for the preview |
+| `lint` | `boolean` | `false` | Run [`lint()`](/docs/api-reference#lintmarkdown-options) on each render and surface findings in the warnings banner |
 | `debounceMs` | `number` | `150` | Typing → re-render debounce |
 | `className` | `string` | — | Extra class on the root element |
 

@@ -92,10 +92,12 @@ Hello`;
     expect(html).toContain('const x = 1;');
   });
 
-  it('renders fenced code blocks with language class', async () => {
+  it('renders fenced code blocks with language class and highlighting', async () => {
     const { html } = await render('```typescript\nconst x: number = 1;\n```');
     expect(html).toContain('<pre');
-    expect(html).toContain('const x: number = 1;');
+    expect(html).toContain('language-typescript');
+    // Highlighting splits the line into token spans; the text survives intact.
+    expect(html.replace(/<[^>]+>/g, '')).toContain('const x: number = 1;');
   });
 
   it('renders a blockquote with left border styling', async () => {

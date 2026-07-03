@@ -97,6 +97,43 @@ Warnings never stop the render — `html`/`text` output always contains a workin
 | `content`     | A directive or button value was invalid — an unknown color, alignment, length, or unsafe URL — and was dropped or replaced with the theme default. |
 | `mjml`        | The MJML compiler reported a validation error (at the default `soft` level).                          |
 
+## `lint(markdown, options?)`
+
+Check an email for deliverability, accessibility, and readability problems. Unlike [render warnings](#renderwarning) (things emailmd had to repair), lint findings flag content that renders fine but is likely to hurt the email in practice. Returns a `Promise<LintFinding[]>`, sorted by source line:
+
+```typescript
+import { lint } from 'emailmd';
+
+const findings = await lint(markdown, { partials });
+// [{ rule: 'image-alt', severity: 'warning',
+//    message: 'Image is missing alt text — …', line: 12 }]
+```
+
+```typescript
+interface LintFinding {
+  rule: string;                          // machine-readable rule id
+  severity: 'warning' | 'suggestion';    // warning = likely real problem
+  message: string;
+  line?: number;                         // 1-based line in the source markdown
+}
+```
+
+The rules:
+
+| Rule                | Severity   | Checks                                                                 |
+| ------------------- | ---------- | ---------------------------------------------------------------------- |
+| `image-alt`         | warning    | Images without alt text                                                 |
+| `insecure-link`     | warning    | Links or image sources using `http://`                                  |
+| `gmail-clip`        | warning    | Minified HTML over 102KB — Gmail clips the message                      |
+| `render`            | warning    | Render warnings, folded in so one call surfaces everything              |
+| `link-text`         | suggestion | Generic link text ("click here", "here", "link")                        |
+| `preheader-missing` | suggestion | No `preheader` in frontmatter                                           |
+| `preheader-length`  | suggestion | Preheader longer than ~100 characters (inbox previews truncate)         |
+| `unsubscribe`       | suggestion | No unsubscribe link anywhere in the rendered output                     |
+| `spam-words`        | suggestion | Common spam-filter trigger phrases ("act now", "100% free", …)          |
+
+Template tokens are respected throughout: a `{{tracking_url}}` link is never flagged insecure, and `[Unsubscribe]({{unsubscribe_url}})` satisfies the unsubscribe check. The [CLI](/docs/cli) exposes this as `emailmd lint`, and the [builder](/docs/react) surfaces findings live with its `lint` prop.
+
 ## Input validation
 
 All user-supplied values that end up in the HTML are escaped and/or validated before interpolation:

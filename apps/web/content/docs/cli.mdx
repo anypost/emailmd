@@ -23,9 +23,10 @@ npm install -g emailmd
 
 ```bash
 emailmd [file] [options]
+emailmd lint [file] [options]
 ```
 
-If no file is given, the CLI reads from stdin.
+If no file is given, the CLI reads from stdin. The `lint` command checks the email instead of rendering it — see [Linting](#linting) below.
 
 ## Options
 
@@ -36,6 +37,7 @@ If no file is given, the CLI reads from stdin.
 | `-m, --minify`     | Minify the HTML output                            |
 | `-b, --beautify`   | Pretty-print the HTML output (ignored with `-m`)  |
 | `-p, --partials <path>` | [Partials](/docs/partials) for `::: include <name>` — a directory of `.md` files or a single file. Repeatable. |
+| `--strict`         | `lint` only: exit non-zero on suggestions as well |
 | `-h, --help`       | Show help                                         |
 | `-v, --version`    | Show version number                               |
 
@@ -84,3 +86,21 @@ Pipe from another command:
 echo "# Hello" | emailmd
 curl -s https://example.com/template.md | emailmd -o email.html
 ```
+
+## Linting
+
+`emailmd lint` checks the email for deliverability, accessibility, and readability problems — missing alt text, `http://` links, Gmail's 102KB clip limit, generic link text, spam-trigger phrases, and more (see the [lint rules](/docs/api-reference#lintmarkdown-options)) — instead of rendering it:
+
+```bash
+emailmd lint input.md
+emailmd lint input.md --partials ./partials
+```
+
+```
+   5  warning     Image is missing alt text — screen readers and blocked-image clients show nothing.  (image-alt)
+  12  suggestion  Link text "click here" says nothing out of context — describe the destination instead.  (link-text)
+
+2 problems (1 warning, 1 suggestion)
+```
+
+The exit code is `1` when warnings are found, so it slots into CI; suggestions alone exit `0` unless you pass `--strict`.

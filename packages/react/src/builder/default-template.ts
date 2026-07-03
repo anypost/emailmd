@@ -14,7 +14,7 @@ Thanks for signing up. We're excited to have you on board.
 [Get Started](https://example.com){button}
 
 ::: callout
-**Quick tip:** Email.md turns this markdown into responsive, email-safe HTML that works in every client.
+**Quick tip:** emailmd turns this markdown into responsive, email-safe HTML that works in every client.
 :::
 
 Need help? Reply to this email or visit our [docs](https://example.com/docs).

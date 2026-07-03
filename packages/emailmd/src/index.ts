@@ -5,6 +5,8 @@ export type { RenderWarning } from './warnings.js';
 export { defaultTheme, lightTheme, darkTheme, mergeTheme, resolveBaseTheme } from './theme.js';
 export { extractFrontmatter, frontmatterToThemeOverrides, frontmatterToFonts } from './frontmatter.js';
 export { expandPartials } from './partials.js';
+export { lint } from './lint.js';
+export type { LintFinding, LintOptions } from './lint.js';
 export { buildHead, segmentsToMjml } from './mjml.js';
 export { defaultWrapper } from './wrappers/default.js';
 export { escapeHtml, escapeAttrValue, isCssColor, isCssLength, isSafeUrl } from './sanitize.js';

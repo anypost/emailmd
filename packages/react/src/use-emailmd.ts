@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { render } from 'emailmd';
-import type { RenderOptions, RenderResult, RenderWarning } from 'emailmd';
+import { render, lint } from 'emailmd';
+import type { RenderOptions, RenderResult, RenderWarning, LintFinding } from 'emailmd';
 
 /** Options for the {@link useEmailmd} hook. Extends emailmd's {@link RenderOptions}. */
 export interface UseEmailmdOptions extends RenderOptions {
@@ -11,6 +11,11 @@ export interface UseEmailmdOptions extends RenderOptions {
    * Set to `0` to render immediately on every change. Default: `150`.
    */
   debounceMs?: number;
+  /**
+   * Run emailmd's `lint()` alongside each render and expose the findings as
+   * `lintFindings`. Adds one extra (minified) render per update. Default: `false`.
+   */
+  lint?: boolean;
 }
 
 /** State returned by {@link useEmailmd}. */
@@ -23,6 +28,8 @@ export interface UseEmailmdResult {
   meta: RenderResult['meta'];
   /** Non-fatal warnings from the last render. Empty when the render was clean. */
   warnings: RenderWarning[];
+  /** Findings from `lint()` when the `lint` option is on. Empty otherwise. */
+  lintFindings: LintFinding[];
   /**
    * Error thrown by the last render, or `null`. When set, `html`/`text`/`meta`
    * retain their values from the last successful render.
@@ -37,6 +44,7 @@ interface RenderedState {
   text: string;
   meta: RenderResult['meta'];
   warnings: RenderWarning[];
+  lintFindings: LintFinding[];
   error: Error | null;
 }
 
@@ -45,6 +53,7 @@ const INITIAL_STATE: RenderedState = {
   text: '',
   meta: {},
   warnings: [],
+  lintFindings: [],
   error: null,
 };
 
@@ -85,15 +94,19 @@ export function useEmailmd(markdown: string, options: UseEmailmdOptions = {}): U
     setIsRendering(true);
 
     const run = async () => {
-      const { debounceMs: _debounce, ...renderOptions } = optionsRef.current;
+      const { debounceMs: _debounce, lint: lintEnabled, ...renderOptions } = optionsRef.current;
       try {
         const result = await render(markdown, renderOptions);
+        const lintFindings = lintEnabled
+          ? await lint(markdown, { partials: renderOptions.partials })
+          : [];
         if (generationRef.current !== generation) return;
         setState({
           html: result.html,
           text: result.text,
           meta: result.meta,
           warnings: result.warnings ?? [],
+          lintFindings,
           error: null,
         });
       } catch (err) {

@@ -12,9 +12,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Toolbar support for the emailmd 0.7.0 directives: Columns and Social Links in the Sections menu; Spacer, Divider, and Accordion (FAQ) in Content Blocks.
 - The Table toolbar button is now a menu with Table and Headerless Table snippets.
 - Divider color field in the visual theme editor (`divider_color`).
+- `useEmailmd` `lint` option — runs emailmd's `lint()` alongside each render and returns the findings as `lintFindings` on the hook result.
+- `<EmailmdBuilder lint />` — surfaces lint findings live in the warnings banner (labeled `Lint`/`Lint suggestion`, with source lines), merged with render warnings.
+
+### Fixed
+- The default template said "Email.md" in body text, which linkify auto-linked to `http://email.md` (`.md` is a real TLD) in the rendered output. It now says "emailmd". Found by the new linter.
 
 ### Changed
-- The `emailmd` peer dependency is now `>=0.7.0` (the new toolbar insertions rely on the columns/spacer/divider/social directives).
+- The `emailmd` peer dependency is now `>=0.7.0` (the new toolbar insertions rely on the columns/spacer/divider/social directives, and the `lint` option on `lint()`).
+- The warnings banner counts all findings, so its plural summary now reads "N warnings" instead of "N render warnings".
 
 ## [0.1.0] — 2026-07-03
 

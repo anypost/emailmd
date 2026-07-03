@@ -209,6 +209,44 @@ describe('cli', () => {
     });
   });
 
+  describe('lint', () => {
+    const CLEAN = '---\npreheader: Hi\n---\n\n# Hello\n\n[Unsubscribe](https://example.com/u)';
+
+    it('reports no problems for a clean email and exits 0', () => {
+      const { stdout, status } = run(['lint'], CLEAN);
+      expect(status).toBe(0);
+      expect(stdout).toContain('No problems found');
+    });
+
+    it('prints findings with lines, rules, and a summary', () => {
+      const { stdout, status } = run(['lint'], `${CLEAN}\n\n![](https://example.com/a.png)`);
+      expect(stdout).toContain('image-alt');
+      expect(stdout).toContain('alt text');
+      expect(stdout).toMatch(/\d+ problems? \(\d+ warnings?, \d+ suggestions?\)/);
+      expect(status).toBe(1);
+    });
+
+    it('exits 0 on suggestions only, 1 with --strict', () => {
+      const suggestionsOnly = `${CLEAN}\n\n[click here](https://example.com/x)`;
+      expect(run(['lint'], suggestionsOnly).status).toBe(0);
+      expect(run(['lint', '--strict'], suggestionsOnly).status).toBe(1);
+    });
+
+    it('resolves includes via --partials when linting', () => {
+      const { stdout, status } = run(
+        ['lint', '-p', resolve(__dirname, 'fixtures/partials')],
+        '---\npreheader: Hi\n---\n\n# Hello\n\n::: include blocks/legal',
+      );
+      expect(status).toBe(0);
+      expect(stdout).toContain('No problems found');
+    });
+
+    it('lints a file argument', () => {
+      const { stdout } = run(['lint', FIXTURE]);
+      expect(stdout).toMatch(/No problems found|problems? \(/);
+    });
+  });
+
   describe('error handling', () => {
     it('exits with code 1 if the file does not exist', () => {
       const { stderr, status } = run(['nonexistent.md']);

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import type { RenderWarning } from 'emailmd';
 import { EmailPreview, hasDarkModeStyles } from '../email-preview.js';
 import { Button, Popover, Tip, cx } from './ui.js';
 import { CopyButton } from './copy-button.js';
@@ -25,12 +24,18 @@ type Tab = 'preview' | 'html' | 'text';
 const GMAIL_CLIP_BYTES = 102 * 1024;
 const GMAIL_WARN_BYTES = 90 * 1024;
 
+/** Anything banner-shaped: render warnings and lint findings both qualify. */
+export interface BannerWarning {
+  stage: string;
+  message: string;
+}
+
 interface OutputPaneProps {
   markdown: string;
   html: string;
   minifiedHtml: string;
   text: string;
-  warnings: RenderWarning[];
+  warnings: BannerWarning[];
   error: Error | null;
   share?: boolean;
 }
@@ -242,7 +247,7 @@ function WarningsBanner({
   warnings,
   error,
 }: {
-  warnings: RenderWarning[];
+  warnings: BannerWarning[];
   error: Error | null;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -278,7 +283,7 @@ function WarningsBanner({
             </>
           ) : (
             <>
-              {warnings.length} render warnings — <strong>{capitalize(first.stage)}:</strong>{' '}
+              {warnings.length} warnings — <strong>{capitalize(first.stage)}:</strong>{' '}
               {first.message}
             </>
           )}

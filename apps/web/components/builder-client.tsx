@@ -21,6 +21,7 @@ export function BuilderClient({
     <EmailmdBuilder
       defaultValue={initialMarkdown}
       share
+      lint
       colorScheme={resolvedTheme === "dark" ? "dark" : "light"}
     />
   );

@@ -7,8 +7,13 @@ import mark from 'markdown-it-mark';
 import sub from 'markdown-it-sub';
 import sup from 'markdown-it-sup';
 import { registerDirectives } from './directives/index.js';
+import { highlightCode } from './highlight.js';
 
-const md = new MarkdownIt({ html: true, linkify: true });
+const md = new MarkdownIt({
+  html: true,
+  linkify: true,
+  highlight: highlightCode,
+});
 md.use(attrs);
 md.use(taskLists);
 md.use(emoji);

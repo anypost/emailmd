@@ -38,6 +38,11 @@ export interface EmailmdBuilderProps {
   colorScheme?: 'light' | 'dark';
   /** Options passed through to emailmd's `render()` for the preview. */
   renderOptions?: RenderOptions;
+  /**
+   * Run emailmd's `lint()` on every render and surface the findings in the
+   * warnings banner. Default: `false`.
+   */
+  lint?: boolean;
   /** Debounce between typing and re-render, in ms. Default: `150`. */
   debounceMs?: number;
   className?: string;
@@ -61,6 +66,7 @@ export function EmailmdBuilder({
   share = false,
   colorScheme = 'light',
   renderOptions,
+  lint = false,
   debounceMs,
   className,
 }: EmailmdBuilderProps) {
@@ -120,13 +126,22 @@ export function EmailmdBuilder({
     onSave: handleSave,
   });
 
-  const pretty = useEmailmd(markdown, { ...renderOptions, debounceMs });
+  const pretty = useEmailmd(markdown, { ...renderOptions, debounceMs, lint });
   const minified = useEmailmd(markdown, {
     ...renderOptions,
     minify: true,
     sanitizeStyles: true,
     debounceMs,
   });
+
+  // Lint findings share the render-warnings banner, labeled by severity.
+  const bannerWarnings = [
+    ...pretty.warnings,
+    ...pretty.lintFindings.map((f) => ({
+      stage: f.severity === 'warning' ? 'lint' : 'lint suggestion',
+      message: f.line !== undefined ? `Line ${f.line}: ${f.message}` : f.message,
+    })),
+  ];
 
   return (
     <div
@@ -170,7 +185,7 @@ export function EmailmdBuilder({
         html={pretty.html}
         minifiedHtml={minified.html}
         text={pretty.text}
-        warnings={pretty.warnings}
+        warnings={bannerWarnings}
         error={pretty.error}
         share={share}
       />

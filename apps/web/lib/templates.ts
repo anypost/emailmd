@@ -185,7 +185,7 @@ We'll tell you exactly when your plant arrives so it's not sitting on the porch.
 **ROOTED CO.**
 675 Greenhouse Ave · Portland, OR 97201
 
-You received this email because you ordered from rooted.co
+You received this email because you ordered from [rooted.co](https://example.com)
 
 [Unsubscribe](https://example.com/unsub)
 :::

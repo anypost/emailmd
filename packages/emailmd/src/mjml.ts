@@ -99,6 +99,77 @@ function renderCssRules(rules: CssRule[], prefix = ''): string {
 }
 
 /**
+ * Syntax-highlighting token colors (GitHub-flavored palettes). Fenced code
+ * blocks carry `hljs-*` classed spans (see highlight.ts); the palette is
+ * picked by the luminance of the code-block background so a dark card gets
+ * readable tokens even under `theme: dark`.
+ */
+interface CodePalette {
+  keyword: string;
+  string: string;
+  comment: string;
+  number: string;
+  title: string;
+  tag: string;
+  attr: string;
+  variable: string;
+}
+
+const LIGHT_CODE_PALETTE: CodePalette = {
+  keyword: '#cf222e',
+  string: '#0a3069',
+  comment: '#6e7781',
+  number: '#0550ae',
+  title: '#8250df',
+  tag: '#116329',
+  attr: '#0550ae',
+  variable: '#953800',
+};
+
+const DARK_CODE_PALETTE: CodePalette = {
+  keyword: '#ff7b72',
+  string: '#a5d6ff',
+  comment: '#8b949e',
+  number: '#79c0ff',
+  title: '#d2a8ff',
+  tag: '#7ee787',
+  attr: '#79c0ff',
+  variable: '#ffa657',
+};
+
+/** Perceived-brightness check for hex colors; non-hex values count as light. */
+function isDarkBackground(color: string): boolean {
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color.trim());
+  if (!hex) return false;
+  let h = hex[1];
+  if (h.length === 3) h = h.replace(/./g, (c) => c + c);
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return 0.299 * r + 0.587 * g + 0.114 * b < 128;
+}
+
+function codePaletteFor(codeBackground: string): CodePalette {
+  return isDarkBackground(codeBackground) ? DARK_CODE_PALETTE : LIGHT_CODE_PALETTE;
+}
+
+function codeTokenRules(p: CodePalette, important = false): CssRule[] {
+  const imp = important ? ' !important' : '';
+  return [
+    ['pre .hljs-keyword, pre .hljs-doctag, pre .hljs-template-tag, pre .hljs-selector-tag, pre .hljs-deletion', `color: ${p.keyword}${imp};`],
+    ['pre .hljs-string, pre .hljs-regexp, pre .hljs-quote, pre .hljs-attribute', `color: ${p.string}${imp};`],
+    ['pre .hljs-comment', `color: ${p.comment}${imp};`],
+    ['pre .hljs-number, pre .hljs-literal, pre .hljs-meta, pre .hljs-operator, pre .hljs-selector-attr, pre .hljs-selector-pseudo', `color: ${p.number}${imp};`],
+    ['pre .hljs-title, pre .hljs-section, pre .hljs-type, pre .hljs-class, pre .hljs-selector-class, pre .hljs-selector-id', `color: ${p.title}${imp};`],
+    ['pre .hljs-name, pre .hljs-tag, pre .hljs-addition', `color: ${p.tag}${imp};`],
+    ['pre .hljs-attr, pre .hljs-property, pre .hljs-params', `color: ${p.attr}${imp};`],
+    ['pre .hljs-built_in, pre .hljs-variable, pre .hljs-template-variable, pre .hljs-symbol, pre .hljs-bullet, pre .hljs-subst', `color: ${p.variable}${imp};`],
+    ['pre .hljs-emphasis', `font-style: italic${imp};`],
+    ['pre .hljs-strong', `font-weight: 700${imp};`],
+  ];
+}
+
+/**
  * Dark-mode overrides. The `.emd-*` classes are stable hooks emitted on every
  * render (body, sections, cards, tables); `!important` is required to beat the
  * inline styles MJML generates.
@@ -125,6 +196,7 @@ function buildDarkModeStyles(dark: Theme): string {
     ['.emd-acc table', `border-color: ${dark.dividerColor} !important;`],
     ['.emd-acc .mj-accordion-title td', `color: ${dark.headingColor} !important;`],
     ['.emd-acc .mj-accordion-content td', `color: ${dark.bodyColor} !important;`],
+    ...codeTokenRules(codePaletteFor(dark.cardColor), true),
   ];
 
   return `<mj-style>
@@ -170,6 +242,7 @@ export function buildHead(theme: Theme, preheader?: string, darkTheme?: Theme, d
       dt { font-weight: 700; margin-top: 8px; }
       dd { margin: ${rtl ? '2px 24px 0 0' : '2px 0 0 24px'}; }
       img { vertical-align: middle; }
+      ${renderCssRules(codeTokenRules(codePaletteFor(theme.cardColor)))}
     </mj-style>
     ${darkTheme ? buildDarkModeStyles(darkTheme) : ''}
     ${preheader ? `<mj-preview>${escapeHtml(preheader)}</mj-preview>` : ''}
