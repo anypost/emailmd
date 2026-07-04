@@ -36,6 +36,16 @@
         "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
       }
+    },
+    "./mcp": {
+      "import": {
+        "types": "./dist/mcp.d.ts",
+        "default": "./dist/mcp.js"
+      },
+      "require": {
+        "types": "./dist/mcp.d.cts",
+        "default": "./dist/mcp.cjs"
+      }
     }
   },
   "files": [
@@ -53,6 +63,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "highlight.js": "^11.11.1",
     "js-yaml": "^4.1.0",
     "markdown-it": "^14.1.0",
@@ -65,7 +76,8 @@
     "markdown-it-sup": "^2.0.0",
     "markdown-it-task-lists": "^2.1.1",
     "mjml": "^5.4.0",
-    "mjml-browser": "^5.4.0"
+    "mjml-browser": "^5.4.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",

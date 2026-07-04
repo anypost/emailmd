@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { CopyButton } from "@/components/copy-button";
+import { McpInstallButtons } from "@/components/mcp-install";
 
 
 const btnClass =
@@ -98,6 +99,28 @@ export default function Page() {
             <span>npm install emailmd</span>
             <CopyButton text="npm install emailmd" />
           </div>
+        </div>
+      </section>
+
+      {/* MCP */}
+      <section className="container mx-auto max-w-screen-lg px-4 pb-24 text-center">
+        <div className="mx-auto max-w-2xl space-y-4">
+          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+            Or Let Your AI Write the Email
+          </h2>
+          <p className="mx-auto max-w-xl text-muted-foreground">
+            The emailmd MCP server gives any AI assistant the tools to write,
+            lint, and render emails, with a live preview link for every draft.
+            One click to connect:
+          </p>
+          <McpInstallButtons />
+          <p className="text-sm text-muted-foreground">
+            Or run it locally with{" "}
+            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">
+              npx emailmd mcp
+            </code>
+            . See the <Link href="/docs/mcp" className="underline underline-offset-4 hover:text-foreground">MCP docs</Link>.
+          </p>
         </div>
       </section>
 

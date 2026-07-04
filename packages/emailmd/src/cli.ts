@@ -13,6 +13,7 @@ emailmd v${version} — Render markdown into email-safe HTML
 Usage:
   emailmd [file] [options]
   emailmd lint [file] [options]
+  emailmd mcp [options]
 
 Arguments:
   file              Markdown file to render (reads stdin if omitted)
@@ -21,6 +22,9 @@ Commands:
   lint              Check the email for deliverability, accessibility, and
                     readability problems instead of rendering it. Exits 1
                     when warnings are found (--strict: suggestions too).
+  mcp               Run the emailmd MCP server on stdio, exposing render,
+                    lint, and read_docs tools to AI clients. --partials
+                    preloads partials for every render/lint call.
 
 Options:
   -o, --output <f>  Write output to file instead of stdout
@@ -44,6 +48,7 @@ Examples:
   emailmd input.md --partials ./partials
   emailmd input.md -p ./partials -p ./extra/legal.md
   emailmd lint input.md
+  emailmd mcp --partials ./partials
   echo "# Hello" | emailmd
 `.trimStart();
 
@@ -119,6 +124,34 @@ async function main(): Promise<void> {
     return;
   }
 
+  let partials: Record<string, string> | undefined;
+  if (Array.isArray(values.partials)) {
+    partials = {};
+    for (const path of values.partials) {
+      try {
+        Object.assign(partials, loadPartialsPath(String(path)));
+      } catch (err: unknown) {
+        const detail = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`emailmd: cannot read partials path '${path}': ${detail}\n`);
+        process.exitCode = 1;
+        return;
+      }
+    }
+  }
+
+  if (positionals[0] === 'mcp') {
+    if (positionals.length > 1) {
+      process.stderr.write(`emailmd: 'mcp' takes no arguments\nRun 'emailmd --help' for usage.\n`);
+      process.exitCode = 1;
+      return;
+    }
+    const { createEmailmdMcpServer } = await import('./mcp.js');
+    const { StdioServerTransport } = await import('@modelcontextprotocol/sdk/server/stdio.js');
+    // stdout is the protocol channel from here on; nothing else may write to it.
+    await createEmailmdMcpServer({ partials }).connect(new StdioServerTransport());
+    return;
+  }
+
   const isLint = positionals[0] === 'lint';
   const fileArgs = isLint ? positionals.slice(1) : positionals;
 
@@ -152,21 +185,6 @@ async function main(): Promise<void> {
   const beautify = values.beautify === true;
   const text = values.text === true;
   const outputPath = typeof values.output === 'string' ? values.output : undefined;
-
-  let partials: Record<string, string> | undefined;
-  if (Array.isArray(values.partials)) {
-    partials = {};
-    for (const path of values.partials) {
-      try {
-        Object.assign(partials, loadPartialsPath(path));
-      } catch (err: unknown) {
-        const detail = err instanceof Error ? err.message : String(err);
-        process.stderr.write(`emailmd: cannot read partials path '${path}': ${detail}\n`);
-        process.exitCode = 1;
-        return;
-      }
-    }
-  }
 
   if (isLint) {
     const findings = await lint(markdown, { partials });

@@ -1,0 +1,69 @@
+---
+title: MCP Server
+description: Give any AI assistant the tools to write, lint, and render emailmd emails.
+---
+
+emailmd ships a [Model Context Protocol](https://modelcontextprotocol.io) server. Connect it to Claude, ChatGPT, Cursor, or any other MCP client and the assistant can render markdown to email-safe HTML, lint drafts for deliverability problems, look up these docs, and hand you a live preview link for every draft. Instead of writing an email *about* emailmd syntax and hoping it works, your AI writes one, checks it, and shows you the result.
+
+## Connect a Client
+
+<McpInstallButtons />
+
+The hosted server speaks Streamable HTTP at:
+
+```
+https://www.emailmd.dev/api/mcp
+```
+
+It is stateless and unauthenticated: every request is independent, and nothing you render is stored. Markdown and partial inputs are capped at 256KB each, far beyond any legitimate email (Gmail clips at 102KB).
+
+- **Claude Code**: `claude mcp add --transport http emailmd https://www.emailmd.dev/api/mcp`
+- **Claude.ai and Claude Desktop**: Customize → Connectors → Add custom connector, then paste the URL above.
+- **ChatGPT**: Settings → Apps & Connectors → Create (requires developer mode), then paste the URL above.
+- **Cursor and VS Code**: use the one-click buttons, or add the server to your MCP config:
+
+```json
+{
+  "mcpServers": {
+    "emailmd": {
+      "url": "https://www.emailmd.dev/api/mcp"
+    }
+  }
+}
+```
+
+## Run It Locally
+
+The same server ships inside the [CLI](/docs/cli) and runs over stdio, so rendering happens entirely on your machine:
+
+```bash
+npx emailmd mcp
+```
+
+For Claude Code:
+
+```bash
+claude mcp add emailmd -- npx emailmd mcp
+```
+
+The local server accepts the CLI's `--partials` flag, preloading [partials](/docs/partials) for every render and lint call:
+
+```bash
+npx emailmd mcp --partials ./partials
+```
+
+## Tools
+
+| Tool | What it does |
+| --- | --- |
+| `render` | Renders emailmd markdown and returns the complete HTML document, the plain-text MIME part, frontmatter metadata, render warnings, the output size in bytes, and a `previewUrl` |
+| `lint` | Runs [`lint()`](/docs/linting) and returns the findings with a summary, without rendering |
+| `read_docs` | Fetches these docs from emailmd.dev, so the assistant can look up syntax it hasn't used before |
+
+The `previewUrl` on every render is a [builder](/builder) share link. The markdown travels deflate-compressed in the URL fragment, so it never reaches the server; opening the link shows the email in a live preview with device switching and a dark-mode toggle.
+
+The server also carries instructions that teach the assistant the emailmd workflow (write, lint, render, share the preview) and the syntax that goes beyond standard markdown, so even a client that never calls `read_docs` starts from a working baseline.
+
+## Versioning
+
+The MCP server versions with the `emailmd` package: the hosted endpoint runs the latest release, and `npx emailmd mcp` runs whatever version is installed. Tool names and result shapes follow the same [stability policy](/docs/stability) as the API.

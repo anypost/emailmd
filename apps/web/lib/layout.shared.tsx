@@ -1,4 +1,5 @@
 import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
+import { McpInstallMenu } from "@/components/mcp-install";
 
 export function baseOptions(): BaseLayoutProps {
   return {
@@ -26,6 +27,11 @@ export function baseOptions(): BaseLayoutProps {
       {
         text: "Docs",
         url: "/docs",
+      },
+      {
+        type: "custom",
+        secondary: true,
+        children: <McpInstallMenu />,
       },
     ],
   };

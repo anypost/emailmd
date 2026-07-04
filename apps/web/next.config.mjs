@@ -5,6 +5,9 @@ const withMDX = createMDX();
 /** @type {import('next').NextConfig} */
 const config = {
   reactStrictMode: true,
+  // The MCP route imports emailmd server-side; keep it (and mjml underneath)
+  // resolved from node_modules instead of bundled.
+  serverExternalPackages: ['emailmd'],
   images: {
     localPatterns: [
       // Gallery screenshots carry a ?v=<hash> cache-buster (omitting `search` allows any query).

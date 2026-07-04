@@ -24,9 +24,10 @@ npm install -g emailmd
 ```bash
 emailmd [file] [options]
 emailmd lint [file] [options]
+emailmd mcp [options]
 ```
 
-If no file is given, the CLI reads from stdin. The `lint` command checks the email instead of rendering it; see [Linting](#linting) below.
+If no file is given, the CLI reads from stdin. The `lint` command checks the email instead of rendering it; see [Linting](#linting) below. The `mcp` command runs the [MCP server](/docs/mcp) for AI clients; see [MCP Server](#mcp-server) below.
 
 ## Options
 
@@ -104,3 +105,12 @@ emailmd lint input.md --partials ./partials
 ```
 
 The exit code is `1` when warnings are found, so it slots into CI; suggestions alone exit `0` unless you pass `--strict`.
+
+## MCP Server
+
+`emailmd mcp` runs the [MCP server](/docs/mcp) over stdio, giving a local AI client tools to render, lint, and look up docs. `--partials` preloads [partials](/docs/partials) for every render and lint call:
+
+```bash
+emailmd mcp
+emailmd mcp --partials ./partials
+```

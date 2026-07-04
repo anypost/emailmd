@@ -45,11 +45,13 @@ Prefer a visual starting point? The [builder](/builder) renders your markdown to
 - **Frontmatter.** Per-email [theme overrides and metadata](/docs/frontmatter) that live with the content.
 - **Linting.** [Deliverability and accessibility checks](/docs/linting) that catch problems before you send.
 - **Plain text.** An automatic `text/plain` version alongside every render.
-- **Tooling.** A [CLI](/docs/cli), a drop-in [React builder](/docs/react), and reusable [partials](/docs/partials).
+- **Tooling.** A [CLI](/docs/cli), a drop-in [React builder](/docs/react), an [MCP server](/docs/mcp) for AI assistants, and reusable [partials](/docs/partials).
 
 ## AI-Friendly by Design
 
-Because it's just markdown, AI tools are a natural fit. Language models are great at writing markdown, so you can describe the email you want and get a working, production-ready template in seconds. To give your AI tool full knowledge of emailmd's syntax and features, feed it the complete docs:
+Because it's just markdown, AI tools are a natural fit. Language models are great at writing markdown, so you can describe the email you want and get a working, production-ready template in seconds.
+
+The [MCP server](/docs/mcp) closes the loop: connect it to Claude, ChatGPT, Cursor, or any other MCP client and the assistant doesn't just write the email, it lints the draft, renders the final HTML, and hands you a live preview link. For AI tools without MCP support, feed them the complete docs instead:
 
 ```
 https://www.emailmd.dev/llms-full.txt

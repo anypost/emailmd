@@ -13,7 +13,7 @@ export async function GET() {
     `## Docs (${pages.length} pages)`,
     '',
     ...pages.map(
-      (page) => `- [${page.data.title}](https://emailmd.dev${page.url})`,
+      (page) => `- [${page.data.title}](https://www.emailmd.dev${page.url})`,
     ),
   ];
 

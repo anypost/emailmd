@@ -16,6 +16,7 @@
     "frontmatter",
     "---Tooling---",
     "react",
+    "mcp",
     "linting",
     "cli",
     "partials",
