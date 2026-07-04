@@ -7,5 +7,6 @@ export default defineConfig({
     // Builder smoke tests mount CodeMirror + run full mjml renders; give them
     // headroom when the machine is under parallel load.
     testTimeout: 15000,
+    setupFiles: ['./tests/setup.ts'],
   },
 });
