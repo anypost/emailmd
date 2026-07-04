@@ -952,29 +952,70 @@ function renderColumnsSegment(segment: Segment, theme: Theme, ctx?: SegmentConte
   }
 
   const last = cells.length - 1;
-  const columnsMjml = cells.map((cell, i) => {
+  const widths = cells.map((cell) => resolveColumnWidth(cell.attrs?.width, ctx));
+  const bgs = cells.map((cell) =>
+    cell.attrs?.bg ? resolveColor(cell.attrs.bg, theme.cardColor, ctx, 'column bg') : undefined);
+
+  // Boundary i sits between cell i and i+1. Plain neighbors split the gap as
+  // padding halves, but mj-column paints its background across its padding
+  // box, so a boundary touching a bg card gets a real spacer column instead.
+  const spacerAfter = cells.map((_, i) => i < last && gap > 0 && Boolean(bgs[i] || bgs[i + 1]));
+
+  // Once spacer columns join the row, every content column needs an explicit
+  // width: MJML otherwise splits 100% evenly across all siblings, spacers
+  // included. Percentages are computed against the section's inner width and
+  // always floored — inline-block columns wrap if the row exceeds 100%.
+  const pct = (n: number) => Math.floor(n * 100) / 100;
+  let spacerWidthPct = 0;
+  let fillWidthPct: number | undefined;
+  if (spacerAfter.some(Boolean)) {
+    const innerPx = (parseInt(theme.contentWidth, 10) || 600) - 64; // section padding is 32px per side
+    spacerWidthPct = pct((gap / innerPx) * 100);
+    const spacerTotal = spacerAfter.filter(Boolean).length * spacerWidthPct;
+    const explicitTotal = widths.reduce((sum, w) =>
+      w ? sum + (w.endsWith('px') ? (parseFloat(w) / innerPx) * 100 : parseFloat(w)) : sum, 0);
+    const flexible = widths.filter((w) => !w).length;
+    if (flexible > 0) {
+      fillWidthPct = pct((100 - spacerTotal - explicitTotal) / flexible);
+      if (fillWidthPct <= 0) {
+        warn(ctx, 'Column widths plus gaps exceed 100% — layout may overflow.');
+        fillWidthPct = 1;
+      }
+    }
+  }
+
+  const parts: string[] = [];
+  cells.forEach((cell, i) => {
     const attrs: string[] = [];
-    const width = resolveColumnWidth(cell.attrs?.width, ctx);
+    const width = widths[i] ?? (fillWidthPct !== undefined ? `${pct(fillWidthPct)}%` : undefined);
     if (width) attrs.push(`width="${width}"`);
     const valign = resolveValign(cell.attrs?.valign, ctx);
     if (valign) attrs.push(`vertical-align="${valign}"`);
 
-    const bg = cell.attrs?.bg ? resolveColor(cell.attrs.bg, theme.cardColor, ctx, 'column bg') : undefined;
+    const bg = bgs[i];
     if (bg) {
-      // mj-column paints its background across its own padding box, so a bg
-      // cell takes a card inset instead of gutter halves; visual separation
-      // comes from its neighbors' gutters.
+      // A bg cell takes a card inset instead of gutter halves; separation from
+      // its neighbors comes from the spacer columns.
       attrs.push(`css-class="emd-card"`, `background-color="${bg}"`, `border-radius="${theme.borderRadius}"`, `padding="${resolvePadding(cell.attrs?.padding)}"`);
     } else {
-      const left = i === 0 ? 0 : Math.floor(gap / 2);
-      const right = i === last ? 0 : Math.ceil(gap / 2);
+      const left = i === 0 || spacerAfter[i - 1] ? 0 : Math.floor(gap / 2);
+      const right = i === last || spacerAfter[i] ? 0 : Math.ceil(gap / 2);
       attrs.push(`padding="0 ${right}px 0 ${left}px"`);
     }
 
-    return `<mj-column ${attrs.join(' ')}>
+    parts.push(`<mj-column ${attrs.join(' ')}>
         ${renderCellSegments(cell, theme, ctx, Boolean(bg))}
-      </mj-column>`;
-  }).join('\n      ');
+      </mj-column>`);
+
+    if (spacerAfter[i]) {
+      // The inner mj-spacer keeps the gap when columns stack on mobile: the
+      // spacer column becomes a full-width, gap-tall row between the cards.
+      parts.push(`<mj-column css-class="emd-gap" width="${pct(spacerWidthPct)}%">
+        <mj-spacer height="${gap}px" />
+      </mj-column>`);
+    }
+  });
+  const columnsMjml = parts.join('\n      ');
 
   // stack=false keeps columns side-by-side on mobile via mj-group.
   const stack = segment.attrs?.stack !== 'false';

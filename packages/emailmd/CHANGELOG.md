@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] — 2026-07-04
+
+### Fixed
+- Columns `gap` now works between `bg` cards. Card columns paint their background across their padding box, so they never carried gutter padding — adjacent cards rendered flush and `gap` was silently ignored. Boundaries touching a card now get a real spacer column of exactly `gap` pixels (with explicit widths on the content columns so MJML's equal split doesn't count the spacer, and an Outlook-safe fixed-width cell). The spacer holds a `gap`-tall `mj-spacer`, so stacked cards on mobile gain matching vertical separation. A plain column next to a card also drops its half-gutter in favor of the spacer, so mixed pairs get the full gap instead of half. Plain-only columns render exactly as before; `gap=0` keeps cards flush. Warns when explicit widths plus gaps exceed 100%.
+
 ## [0.7.0] — 2026-07-04
 
 Layout and appearance features ahead of 1.0.
