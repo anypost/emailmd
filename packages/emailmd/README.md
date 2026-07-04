@@ -59,7 +59,17 @@ Run `emailmd --help` for all options.
 
 ## AI
 
-emailmd is just markdown, so AI is great at writing templates. Feed the full docs to your AI tool:
+emailmd is just markdown, so AI is great at writing templates. Connect the MCP server and your assistant can write, lint, and render emails, with a live preview link for every draft:
+
+```bash
+# Hosted (Streamable HTTP)
+https://www.emailmd.dev/api/mcp
+
+# Or run it locally over stdio
+npx emailmd mcp
+```
+
+See the [MCP docs](https://www.emailmd.dev/docs/mcp) for per-client setup. Prefer plain context? Feed the full docs to your AI tool:
 
 ```
 https://www.emailmd.dev/llms-full.txt

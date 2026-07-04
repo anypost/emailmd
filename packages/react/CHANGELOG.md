@@ -4,7 +4,7 @@ All notable changes to `@emailmd/react` are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] — Unreleased
+## [0.2.0] — 2026-07-04
 
 ### Added
 - `<EmailPreview emulateColorScheme="light" | "dark" />` — pins the preview to one of the email's color-scheme variants by rewriting its `prefers-color-scheme: dark` rules (`dark` → always apply, `light` → never apply). An iframe otherwise follows the viewer's OS, which would make a toggle a no-op on a dark-mode machine. Exposed in the builder as a single sun/moon toggle next to the device switch — the icon shows the current mode, and it's enabled when the document opts into dark mode.
