@@ -35,7 +35,7 @@ Place multiple buttons on the same line to render them side-by-side:
 [Get Started](https://example.com){button} [Learn More](https://example.com/more){button.secondary}
 ```
 
-Buttons on separate lines (separated by a blank line) stack vertically as usual. MJML handles responsive stacking automatically — side-by-side on desktop, stacked on mobile.
+Buttons on separate lines (separated by a blank line) stack vertically as usual. MJML handles responsive stacking automatically: side-by-side on desktop, stacked on mobile.
 
 ## Full-Width Buttons
 
@@ -75,7 +75,7 @@ Add a fallback URL below a button for accessibility. Some email clients block or
 
 This renders a small muted text below the button: *"If you're having trouble clicking the button, copy and paste this URL into your browser."*
 
-Works with button groups too — only buttons with `fallback` show their URL:
+Works with button groups too; only buttons with `fallback` show their URL:
 
 ```markdown
 [Accept](https://example.com/accept){button fallback} [Decline](https://example.com/decline){button.secondary}
@@ -91,7 +91,7 @@ Override the default fallback message with `fallback="custom text"` to support d
 
 The custom text is rendered before the URL link. When no value is provided (`fallback` without `="..."`), the default English message is used.
 
-To change the default message globally — instead of per button — pass `strings.buttonFallback` to `render()`. It supports `{text}` and `{url}` placeholders:
+To change the default message globally instead of per button, pass `strings.buttonFallback` to `render()`. It supports `{text}` and `{url}` placeholders:
 
 ```typescript
 await render(md, {

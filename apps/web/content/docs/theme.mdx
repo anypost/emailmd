@@ -33,7 +33,7 @@ const { html } = await render(markdown, {
 });
 ```
 
-You can also activate it per-email via frontmatter — see [Frontmatter](/docs/frontmatter).
+You can also activate it per-email via frontmatter; see [Frontmatter](/docs/frontmatter).
 
 ## Automatic Dark Mode
 
@@ -66,9 +66,9 @@ dark:
 ---
 ```
 
-The `dark:` map tunes the dark variant (and implies `auto` on its own). Explicitly pinning `theme: light` or `theme: dark` renders static even when the rendering app passes `darkTheme` — the author's pinned appearance wins.
+The `dark:` map tunes the dark variant (and implies `auto` on its own). Explicitly pinning `theme: light` or `theme: dark` renders static even when the rendering app passes `darkTheme`: the author's pinned appearance wins.
 
-This emits `color-scheme` meta tags, a `prefers-color-scheme: dark` media query, and `[data-ogsc]`/`[data-ogsb]` selectors for Outlook.com. **Client support varies:** Apple Mail and Outlook honor these overrides; Gmail ignores them and applies its own automatic color inversion regardless. Buttons keep their configured colors in both modes — pick button colors that work on light and dark backgrounds.
+This emits `color-scheme` meta tags, a `prefers-color-scheme: dark` media query, and `[data-ogsc]`/`[data-ogsb]` selectors for Outlook.com. **Client support varies:** Apple Mail and Outlook honor these overrides; Gmail ignores them and applies its own automatic color inversion regardless. Buttons keep their configured colors in both modes, so pick button colors that work on light and dark backgrounds.
 
 Dark mode is palette-based: custom per-block colors (`bg=`/`color=` on callouts and columns, divider colors) are normalized to the dark palette so text stays readable. To tune how a specific accent looks in dark mode, adjust the corresponding key in the `dark:` map rather than the block parameter.
 
@@ -89,7 +89,7 @@ const { html } = await render(markdown, {
 });
 ```
 
-The font family still has to be named in `fontFamily` to actually apply — `fonts` only ships the stylesheet link. MJML drops unused entries automatically.
+The font family still has to be named in `fontFamily` to actually apply; `fonts` only ships the stylesheet link. MJML drops unused entries automatically.
 
 The same thing works from markdown with a nested `fonts:` map in frontmatter. See [Frontmatter → Custom Fonts](/docs/frontmatter#custom-fonts).
 
@@ -120,4 +120,4 @@ The same thing works from markdown with a nested `fonts:` map in frontmatter. Se
 | `contentWidth` | `600px` | *(same)* | Email width |
 | `borderRadius` | `8px` | *(same)* | Border radius for buttons, callouts, highlights |
 
-The dark theme inverts the color palette — light text on dark backgrounds — while keeping the same typography settings. You can import `darkTheme` directly or activate it per-email via [frontmatter](/docs/frontmatter).
+The dark theme inverts the color palette (light text on dark backgrounds) while keeping the same typography settings. You can import `darkTheme` directly or activate it per-email via [frontmatter](/docs/frontmatter).

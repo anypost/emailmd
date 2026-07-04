@@ -29,7 +29,7 @@ The `preheader` field sets the preview text that email clients show in the inbox
 
 ```markdown
 ---
-preheader: "Your order has shipped — track it now"
+preheader: "Your order has shipped. Track it now"
 ---
 ```
 
@@ -69,7 +69,7 @@ dark:
 ---
 ```
 
-Explicitly pinning `theme: light` or `theme: dark` renders static — it overrides the [`darkTheme` render option](/docs/theme#automatic-dark-mode) when the sending app enables dark mode globally. See [Theme → Automatic Dark Mode](/docs/theme#automatic-dark-mode) for client support notes.
+Explicitly pinning `theme: light` or `theme: dark` renders static: it overrides the [`darkTheme` render option](/docs/theme#automatic-dark-mode) when the sending app enables dark mode globally. See [Theme → Automatic Dark Mode](/docs/theme#automatic-dark-mode) for client support notes.
 
 ## Custom Fonts
 
@@ -92,7 +92,7 @@ When both the `fonts:` frontmatter and the `fonts` [render option](/docs/api-ref
 
 ## Language and Direction
 
-Set `lang` (a language tag like `en`, `de`, or `pt-BR`) and `dir` (`ltr`, `rtl`, or `auto`) to emit the matching attributes on the output document's `<html>` tag — screen readers pick the right voice, and right-to-left scripts lay out correctly:
+Set `lang` (a language tag like `en`, `de`, or `pt-BR`) and `dir` (`ltr`, `rtl`, or `auto`) to emit the matching attributes on the output document's `<html>` tag, so screen readers pick the right voice and right-to-left scripts lay out correctly:
 
 ```markdown
 ---
@@ -105,11 +105,11 @@ dir: rtl
 
 When unset, the output uses MJML's defaults (`lang="und" dir="auto"`).
 
-`dir: rtl` does more than set the attribute: the default text alignment flips to right (email clients don't do this for you — MJML hardcodes left alignment), and left-anchored details like blockquote bars and list indents flip with it. Explicit alignment parameters (`center`, `left`, `right` on directives and images) still apply as written.
+`dir: rtl` does more than set the attribute: the default text alignment flips to right (email clients don't do this for you; MJML hardcodes left alignment), and left-anchored details like blockquote bars and list indents flip with it. Explicit alignment parameters (`center`, `left`, `right` on directives and images) still apply as written.
 
 ## Hard Line Breaks
 
-By default, a single newline does not break a line (standard markdown — use a blank line for a new paragraph). Set `breaks: true` to render every newline as a line break, the way non-technical writers usually expect:
+By default, a single newline does not break a line (standard markdown; use a blank line for a new paragraph). Set `breaks: true` to render every newline as a line break, the way non-technical writers usually expect:
 
 ```markdown
 ---
@@ -127,7 +127,7 @@ Apps can set this globally with the `breaks` [render option](/docs/api-reference
 | Key | Description |
 |-----|-------------|
 | `preheader` | Inbox preview text (hidden in email body) |
-| `theme` | Appearance — `light`, `dark`, or `auto` (adapts to the reader's dark mode) |
+| `theme` | Appearance: `light`, `dark`, or `auto` (adapts to the reader's dark mode) |
 | `brand_color` | Links, highlights, accents |
 | `heading_color` | Heading text color |
 | `body_color` | Body text color |
@@ -153,10 +153,10 @@ Apps can set this globally with the `breaks` [render option](/docs/api-reference
 | `fonts` | Nested map of custom web fonts: family name → stylesheet URL |
 | `dark` | Map of dark-palette overrides for `theme: auto` (implies `auto` when present) |
 | `lang` | Document language tag (e.g. `en`, `pt-BR`) for the output `<html>` |
-| `dir` | Text direction — `ltr`, `rtl`, or `auto` |
+| `dir` | Text direction: `ltr`, `rtl`, or `auto` |
 | `breaks` | `true` renders single newlines as line breaks |
 
-Frontmatter values are validated before rendering: theme values containing markup characters fall back to the base theme, font entries with unsafe URLs are skipped, and the preheader is HTML-escaped in the output. Invalid values never break the render — they surface on [`warnings`](/docs/api-reference#renderwarning) instead.
+Frontmatter values are validated before rendering: theme values containing markup characters fall back to the base theme, font entries with unsafe URLs are skipped, and the preheader is HTML-escaped in the output. Invalid values never break the render; they surface on [`warnings`](/docs/api-reference#renderwarning) instead.
 
 ## Custom Metadata
 

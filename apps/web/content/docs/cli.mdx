@@ -26,7 +26,7 @@ emailmd [file] [options]
 emailmd lint [file] [options]
 ```
 
-If no file is given, the CLI reads from stdin. The `lint` command checks the email instead of rendering it — see [Linting](#linting) below.
+If no file is given, the CLI reads from stdin. The `lint` command checks the email instead of rendering it; see [Linting](#linting) below.
 
 ## Options
 
@@ -36,7 +36,7 @@ If no file is given, the CLI reads from stdin. The `lint` command checks the ema
 | `-t, --text`       | Output plain text instead of HTML                 |
 | `-m, --minify`     | Minify the HTML output                            |
 | `-b, --beautify`   | Pretty-print the HTML output (ignored with `-m`)  |
-| `-p, --partials <path>` | [Partials](/docs/partials) for `::: include <name>` — a directory of `.md` files or a single file. Repeatable. |
+| `-p, --partials <path>` | [Partials](/docs/partials) for `::: include <name>`: a directory of `.md` files or a single file. Repeatable. |
 | `--strict`         | `lint` only: exit non-zero on suggestions as well |
 | `-h, --help`       | Show help                                         |
 | `-v, --version`    | Show version number                               |
@@ -73,7 +73,7 @@ Pretty-print the HTML output (handy for reading it straight in the terminal):
 emailmd input.md --beautify
 ```
 
-Load [partials](/docs/partials) from a directory — each `.md` file becomes a partial named after its path relative to the directory, so `partials/blocks/legal.md` is included as `::: include blocks/legal`. Individual files work too (named by basename), and the flag is repeatable with later paths winning on name collisions:
+Load [partials](/docs/partials) from a directory. Each `.md` file becomes a partial named after its path relative to the directory, so `partials/blocks/legal.md` is included as `::: include blocks/legal`. Individual files work too (named by basename), and the flag is repeatable with later paths winning on name collisions:
 
 ```bash
 emailmd input.md --partials ./partials
@@ -89,7 +89,7 @@ curl -s https://example.com/template.md | emailmd -o email.html
 
 ## Linting
 
-`emailmd lint` checks the email for deliverability, accessibility, and readability problems — missing alt text, `http://` links, Gmail's 102KB clip limit, generic link text, spam-trigger phrases, and more (see the [lint rules](/docs/api-reference#lintmarkdown-options)) — instead of rendering it:
+`emailmd lint` checks the email for deliverability, accessibility, and readability problems instead of rendering it: missing alt text, `http://` links, Gmail's 102KB clip limit, generic link text, spam-trigger phrases, and more. See [Linting](/docs/linting) for the full rule list.
 
 ```bash
 emailmd lint input.md

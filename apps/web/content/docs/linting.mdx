@@ -1,0 +1,53 @@
+---
+title: Linting
+description: Catch deliverability, accessibility, and readability problems before you send.
+---
+
+Rendering tells you the email works. Linting tells you whether it will land well. `lint()` checks an email for problems that render fine but hurt it in practice: missing alt text, `http://` links, Gmail's 102KB clip limit, generic link text, spam-trigger phrases, and more.
+
+```typescript
+import { lint } from 'emailmd';
+
+const findings = await lint(markdown);
+// [{ rule: 'image-alt', severity: 'warning',
+//    message: 'Image is missing alt text — …', line: 12 }]
+```
+
+Each finding carries a machine-readable `rule` id, a `severity`, a human-readable `message`, and the 1-based `line` in the source markdown. See the [API reference](/docs/api-reference#lintmarkdown-options) for the full signature.
+
+## Severities
+
+- **warning**: likely a real problem. Fix these before sending.
+- **suggestion**: worth a look, but often intentional (a transactional email may deliberately skip the unsubscribe link, for example).
+
+## Rules
+
+| Rule                | Severity   | Checks                                                                 |
+| ------------------- | ---------- | ---------------------------------------------------------------------- |
+| `image-alt`         | warning    | Images without alt text                                                 |
+| `insecure-link`     | warning    | Links or image sources using `http://`                                  |
+| `gmail-clip`        | warning    | Minified HTML over 102KB (Gmail clips the message)                      |
+| `render`            | warning    | Render warnings, folded in so one call surfaces everything              |
+| `image-format`      | warning / suggestion | SVG and `data:` images, stripped by most clients (warning); WebP/AVIF, broken in Outlook desktop (suggestion) |
+| `link-text`         | suggestion | Generic link text ("click here", "here", "link")                        |
+| `preheader-missing` | suggestion | No `preheader` in frontmatter                                           |
+| `preheader-length`  | suggestion | Preheader longer than ~100 characters (inbox previews truncate)         |
+| `unsubscribe`       | suggestion | No unsubscribe link anywhere in the rendered output                     |
+| `spam-words`        | suggestion | Common spam-filter trigger phrases ("act now", "100% free", …)          |
+| `placeholder-image` | suggestion | Images or hero backgrounds on placeholder hosts (picsum.photos, placehold.co, wsrv.nl, …) |
+
+Template tokens are respected throughout: a `{{tracking_url}}` link is never flagged insecure, and `[Unsubscribe]({{unsubscribe_url}})` satisfies the unsubscribe check.
+
+## In the CLI
+
+`emailmd lint` runs the same checks from the terminal and prints findings with line numbers:
+
+```bash
+emailmd lint input.md
+```
+
+The exit code is `1` when warnings are found, so it slots into CI; suggestions alone exit `0` unless you pass `--strict`. See [CLI → Linting](/docs/cli#linting).
+
+## In the Builder
+
+Pass the `lint` prop to [`<EmailmdBuilder />`](/docs/react#emailmdbuilder-) (or the `lint` option to `useEmailmd`) and findings surface live alongside render warnings as you type.

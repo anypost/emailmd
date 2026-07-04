@@ -3,7 +3,7 @@ title: Partials
 description: Reusable markdown components spliced into emails with the include directive.
 ---
 
-Partials are named blocks of markdown you define once and reuse across emails — a legal footer, a branded header, a recurring promo card. The document references them with the `include` directive, and edits to a partial propagate to every email that includes it.
+Partials are named blocks of markdown you define once and reuse across emails: a legal footer, a branded header, a recurring promo card. The document references them with the `include` directive, and edits to a partial propagate to every email that includes it.
 
 ```markdown
 # Your order has shipped
@@ -28,9 +28,9 @@ const { html } = await render(markdown, {
 });
 ```
 
-The same map works everywhere `RenderOptions` is accepted — pass it to the [builder](/docs/react)'s `renderOptions` prop and includes expand live in the preview.
+The same map works everywhere `RenderOptions` is accepted; pass it to the [builder](/docs/react)'s `renderOptions` prop and includes expand live in the preview.
 
-There is no filesystem convention — emailmd also runs in the browser, so *where* partials live is up to your app. Server-side, loading them from a directory is a few lines:
+There is no filesystem convention: emailmd also runs in the browser, so *where* partials live is up to your app. Server-side, loading them from a directory is a few lines:
 
 ```typescript
 import { readFile, readdir } from 'node:fs/promises';
@@ -49,11 +49,11 @@ const partials = Object.fromEntries(
 const { html } = await render(markdown, { partials });
 ```
 
-The [CLI](/docs/cli) has this built in — `emailmd input.md --partials ./partials` loads every `.md` file in the directory, with subdirectories as name prefixes (`blocks/legal.md` → `::: include blocks/legal`). The flag also accepts individual `.md` files (named by basename) and is repeatable, with later paths winning on name collisions.
+The [CLI](/docs/cli) has this built in: `emailmd input.md --partials ./partials` loads every `.md` file in the directory, with subdirectories as name prefixes (`blocks/legal.md` → `::: include blocks/legal`). The flag also accepts individual `.md` files (named by basename) and is repeatable, with later paths winning on name collisions.
 
 ## Parameters
 
-Pass parameters on the include line to fill `{{key}}` placeholders inside the partial — this is what turns an include into a reusable component. Values with spaces need quotes:
+Pass parameters on the include line to fill `{{key}}` placeholders inside the partial. This is what turns an include into a reusable component. Values with spaces need quotes:
 
 ```markdown
 ::: include promo-card title="Summer sale" url="https://acme.com/sale"
@@ -69,11 +69,11 @@ partials: {
 }
 ```
 
-Only keys explicitly passed on the include line are substituted. Every other `{{token}}` passes through untouched for your app's template layer (Handlebars, Liquid, …) to resolve after render — the same [pass-through contract](/docs/api-reference#renderoptions) as the rest of the pipeline. In the footer example above, `{{unsubscribe_url}}` survives into the output HTML exactly as written.
+Only keys explicitly passed on the include line are substituted. Every other `{{token}}` passes through untouched for your app's template layer (Handlebars, Liquid, …) to resolve after render, following the same [pass-through contract](/docs/api-reference#renderoptions) as the rest of the pipeline. In the footer example above, `{{unsubscribe_url}}` survives into the output HTML exactly as written.
 
 ## What a Partial Can Contain
 
-Expansion happens textually before the markdown is parsed, so a partial can contain anything a document can: [directives](/docs/directives), [buttons](/docs/buttons), images, tables — even other includes. Nested includes expand up to 10 levels deep, and cycles are detected and skipped.
+Expansion happens textually before the markdown is parsed, so a partial can contain anything a document can: [directives](/docs/directives), [buttons](/docs/buttons), images, tables, even other includes. Nested includes expand up to 10 levels deep, and cycles are detected and skipped.
 
 The one exception is frontmatter: a partial that starts with a `---` block gets it stripped with a warning. Frontmatter belongs on the document.
 
@@ -91,10 +91,10 @@ Include lines inside code fences and indented code blocks are left alone, so you
 
 ## Partials vs. Snippets vs. Wrappers
 
-- **Snippets** (in the [builder](/docs/react)) insert a *copy* at the cursor — later edits to the snippet don't affect emails already written.
-- **Partials** are *live references* — edit the partial, and every email that includes it changes on the next render.
-- **[Wrappers](/docs/wrappers)** replace the whole document chrome in code — the right tool for layout-level control, not content reuse.
+- **Snippets** (in the [builder](/docs/react)) insert a *copy* at the cursor; later edits to the snippet don't affect emails already written.
+- **Partials** are *live references*: edit the partial and every email that includes it changes on the next render.
+- **[Wrappers](/docs/wrappers)** replace the whole document chrome in code, the right tool for layout-level control rather than content reuse.
 
 ## Custom Pipelines
 
-If you bypass `render()` and drive the pipeline yourself, the expansion pass is exported as `expandPartials(content, partials, warnings)` — call it on the frontmatter-stripped content before `parseMarkdown`.
+If you bypass `render()` and drive the pipeline yourself, the expansion pass is exported as `expandPartials(content, partials, warnings)`; call it on the frontmatter-stripped content before `parseMarkdown`.

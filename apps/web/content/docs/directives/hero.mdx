@@ -3,7 +3,7 @@ title: Hero
 description: Full-width section with a background image and overlaid text.
 ---
 
-A full-width section with a background image and overlaid text — typically used for a hero banner at the top of an email:
+A full-width section with a background image and overlaid text, typically used as a hero banner at the top of an email:
 
 ```markdown
 ::: hero https://wsrv.nl/?url=picsum.photos/seed/hero/1200/600&filt=duotone&start=111827&stop=4b5563
@@ -12,13 +12,13 @@ Get started with your new account today.
 :::
 ```
 
-The URL after `hero` specifies the background image. All content inside the directive is overlaid on top of it. (The `wsrv.nl` URLs in these examples are dark-filtered placeholder photos — see [Placeholder Images](/docs/images#placeholder-images).)
+The URL after `hero` specifies the background image. All content inside the directive is overlaid on top of it. (The `wsrv.nl` URLs in these examples are dark-filtered placeholder photos; see [Placeholder Images](/docs/images#placeholder-images).)
 
 Text is centered and rendered in the theme's `button_text_color` (white in the default theme) for contrast against the background image.
 
 ### Background Color Fallback
 
-The hero always has a solid background color behind the image, defaulting to the theme's `button_color`. Many email clients block remote images until the reader opts in, so the fallback keeps the overlaid text readable — the theme's button color pair is already contrast-tested. Override it with `bg=`:
+The hero always has a solid background color behind the image, defaulting to the theme's `button_color`. Many email clients block remote images until the reader opts in, so the fallback keeps the overlaid text readable; the theme's button color pair is already contrast-tested. Override it with `bg=`:
 
 ```markdown
 ::: hero https://wsrv.nl/?url=picsum.photos/seed/hero/1200/600&filt=duotone&start=111827&stop=4b5563 bg=#1f2937
@@ -27,7 +27,7 @@ Readable even before the image loads.
 :::
 ```
 
-The URL is optional: omit it and the hero renders as a solid banner. Hero colors are a self-contained pair, so dark mode leaves them alone — the section keeps its authored background and text colors in both modes. (Image-less heroes carry an `emd-hero-solid` class if you want to restyle them from custom wrapper CSS.)
+The URL is optional: omit it and the hero renders as a solid banner. Hero colors are a self-contained pair, so dark mode leaves them alone: the section keeps its authored background and text colors in both modes. (Image-less heroes carry an `emd-hero-solid` class if you want to restyle them from custom wrapper CSS.)
 
 ```markdown
 ::: hero
@@ -49,7 +49,7 @@ Some text over the image.
 
 This applies to all text inside the hero, including headings.
 
-You can include any markdown content inside the hero — headings, paragraphs, buttons, and more:
+You can include any markdown content inside the hero: headings, paragraphs, buttons, and more:
 
 ```markdown
 ::: hero https://wsrv.nl/?url=picsum.photos/seed/sale/1200/600&filt=duotone&start=111827&stop=4b5563

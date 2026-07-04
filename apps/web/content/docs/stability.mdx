@@ -1,14 +1,14 @@
 ---
 title: Stability & Versioning
-description: What the semver contract covers — and what it deliberately doesn't.
+description: What the semver contract covers, and what it deliberately doesn't.
 ---
 
 emailmd follows [Semantic Versioning](https://semver.org/). This page defines what the version number makes promises about. The core idea:
 
-> **The contract is the input language and the API — not the output bytes.**
+> **The contract is the input language and the API, not the output bytes.**
 > Your markdown keeps meaning the same thing; the exact HTML that expresses it may change.
 
-## Covered by semver
+## Covered by Semver
 
 Breaking any of these requires a **major** version bump:
 
@@ -20,39 +20,39 @@ Breaking any of these requires a **major** version bump:
 
 ### The input language
 
-- Documented markdown behavior — headings, lists, tables, task lists, emoji shortcodes, inline HTML passthrough.
+- Documented markdown behavior: headings, lists, tables, task lists, emoji shortcodes, inline HTML passthrough.
 - Directive names and their documented parameters (`::: callout`, `bg=`, `center`, …).
-- Button syntax — `{button}`, variants, `color`/`width`/`fallback`/`border-radius` attributes.
-- Frontmatter keys — `preheader`, `theme`, the theme override keys, `fonts`, and the passthrough of custom keys into `meta`.
+- Button syntax: `{button}`, variants, `color`/`width`/`fallback`/`border-radius` attributes.
+- Frontmatter keys: `preheader`, `theme`, the theme override keys, `fonts`, and the passthrough of custom keys into `meta`.
 - Template tag passthrough (`{{ x }}`, `{% x %}`, `${x}`, `%%x%%`, `[[x]]`).
 
 ### The rest of the public surface
 
 - Exported functions and types: `buildHead`, `segmentsToMjml`, the theme objects and helpers, the sanitize helpers, `WrapperFn`/`WrapperMeta`, `Segment`.
 - CLI arguments and flags, exit codes, and stdin/stdout behavior.
-- Node.js version support (currently `>=20`) — raising the floor is a major.
+- Node.js version support (currently `>=20`); raising the floor is a major.
 
 ### Rendering semantics
 
 - What the output *means*: a callout renders as a visually distinct card, a primary button uses `buttonColor`, the preheader appears in the inbox preview, valid input never gains new warnings. Changes that alter how a documented feature *looks or behaves* in mainstream email clients are treated as breaking even if the API is untouched.
 
-## Not covered by semver
+## Not Covered by Semver
 
 These may change in **minor or patch** releases:
 
-- **Exact HTML output.** The generated markup structure, attribute order, whitespace, class names, and MJML-generated boilerplate. *Don't byte-snapshot the output in your tests* — assert on content and semantics instead (e.g. "contains the button text and href"), the way [emailmd's own test suite](https://github.com/anypost/emailmd/tree/main/packages/emailmd/tests) does.
+- **Exact HTML output.** The generated markup structure, attribute order, whitespace, class names, and MJML-generated boilerplate. *Don't byte-snapshot the output in your tests.* Assert on content and semantics instead (e.g. "contains the button text and href"), the way [emailmd's own test suite](https://github.com/anypost/emailmd/tree/main/packages/emailmd/tests) does.
 - **The bundled MJML version.** MJML minor/patch upgrades ship in emailmd minors or patches when output semantics are preserved.
 - **Warning message text.** The `stage` and the *presence* of a warning for a given problem are stable; the human-readable `message` wording is not.
-- **Internal formats.** The `<!--EMAILMD:...-->` marker namespace (reserved — user comments in it are dropped), template shielding placeholders, and the intermediate MJML document handed to `mjml2html`.
-- **Undocumented behavior.** If it's not in these docs, it's an implementation detail — even if it happens to work today.
+- **Internal formats.** The `<!--EMAILMD:...-->` marker namespace (reserved; user comments in it are dropped), template shielding placeholders, and the intermediate MJML document handed to `mjml2html`.
+- **Undocumented behavior.** If it's not in these docs, it's an implementation detail, even if it happens to work today.
 
-## Additive changes land in minors
+## Additive Changes Land in Minors
 
 New capabilities that don't change existing behavior arrive in **minor** versions: new `RenderOptions` fields, new frontmatter keys, new directives or directive params, new warning stages, new exports, new theme keys (with defaults matching prior rendering), and new CLI flags. Code written against an older minor keeps working.
 
-If you exhaustively match on union types like `RenderWarning['stage']` or `SegmentType`, include a default case — those unions grow in minors.
+If you exhaustively match on union types like `RenderWarning['stage']` or `SegmentType`, include a default case; those unions grow in minors.
 
-## Deprecation policy
+## Deprecation Policy
 
 Features are deprecated in a minor release (documented here and in the changelog, with a migration path) and removed no earlier than the next major.
 

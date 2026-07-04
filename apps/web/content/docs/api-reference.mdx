@@ -5,14 +5,14 @@ description: Complete API documentation for emailmd.
 
 ## `render(markdown, options?)`
 
-Renders markdown to email-safe HTML. **Async** since v0.3.0 — returns a `Promise`.
+Renders markdown to email-safe HTML. **Async** since v0.3.0; returns a `Promise`.
 
 **Returns** `Promise<{ html, text, meta, warnings? }>`
 
-- `html` — complete HTML email document
-- `text` — plain text version for the `text/plain` MIME part
-- `meta` — extracted frontmatter metadata
-- `warnings` — non-fatal issues encountered while rendering (e.g. invalid frontmatter YAML). Omitted when empty. See [`RenderWarning`](#renderwarning).
+- `html`: complete HTML email document
+- `text`: plain text version for the `text/plain` MIME part
+- `meta`: extracted frontmatter metadata
+- `warnings`: non-fatal issues encountered while rendering (e.g. invalid frontmatter YAML). Omitted when empty. See [`RenderWarning`](#renderwarning).
 
 ```typescript
 import { render } from "emailmd";
@@ -88,18 +88,18 @@ const { html, text, meta } = await render("# Hello");
 | `message` | `string`  | Human-readable message                               |
 | `cause`   | `Error?`  | Original thrown error, when one is available         |
 
-Warnings never stop the render — `html`/`text` output always contains a working email, so UIs can keep the preview alive and surface warnings alongside it. The stages:
+Warnings never stop the render: `html`/`text` output always contains a working email, so UIs can keep the preview alive and surface warnings alongside it. The stages:
 
 | Stage         | Meaning                                                                                              |
 | ------------- | ---------------------------------------------------------------------------------------------------- |
 | `frontmatter` | The YAML block could not be parsed. The body renders with empty `meta`.                               |
 | `theme`       | A theme or font value was invalid (e.g. contained markup) and the default was used instead.           |
-| `content`     | A directive or button value was invalid — an unknown color, alignment, length, or unsafe URL — and was dropped or replaced with the theme default. |
+| `content`     | A directive or button value was invalid (an unknown color, alignment, length, or unsafe URL) and was dropped or replaced with the theme default. |
 | `mjml`        | The MJML compiler reported a validation error (at the default `soft` level).                          |
 
 ## `lint(markdown, options?)`
 
-Check an email for deliverability, accessibility, and readability problems. Unlike [render warnings](#renderwarning) (things emailmd had to repair), lint findings flag content that renders fine but is likely to hurt the email in practice. Returns a `Promise<LintFinding[]>`, sorted by source line:
+Check an email for deliverability, accessibility, and readability problems. Unlike [render warnings](#renderwarning), which report things emailmd had to repair, lint findings flag content that renders fine but is likely to hurt the email in practice. Returns a `Promise<LintFinding[]>`, sorted by source line:
 
 ```typescript
 import { lint } from 'emailmd';
@@ -118,23 +118,7 @@ interface LintFinding {
 }
 ```
 
-The rules:
-
-| Rule                | Severity   | Checks                                                                 |
-| ------------------- | ---------- | ---------------------------------------------------------------------- |
-| `image-alt`         | warning    | Images without alt text                                                 |
-| `insecure-link`     | warning    | Links or image sources using `http://`                                  |
-| `gmail-clip`        | warning    | Minified HTML over 102KB — Gmail clips the message                      |
-| `render`            | warning    | Render warnings, folded in so one call surfaces everything              |
-| `link-text`         | suggestion | Generic link text ("click here", "here", "link")                        |
-| `preheader-missing` | suggestion | No `preheader` in frontmatter                                           |
-| `preheader-length`  | suggestion | Preheader longer than ~100 characters (inbox previews truncate)         |
-| `unsubscribe`       | suggestion | No unsubscribe link anywhere in the rendered output                     |
-| `spam-words`        | suggestion | Common spam-filter trigger phrases ("act now", "100% free", …)          |
-| `placeholder-image` | suggestion | Images or hero backgrounds on placeholder hosts (picsum.photos, placehold.co, wsrv.nl, …) |
-| `image-format`      | warning / suggestion | SVG and `data:` images (stripped by most clients — warning); WebP/AVIF (broken in Outlook desktop — suggestion) |
-
-Template tokens are respected throughout: a `{{tracking_url}}` link is never flagged insecure, and `[Unsubscribe]({{unsubscribe_url}})` satisfies the unsubscribe check. The [CLI](/docs/cli) exposes this as `emailmd lint`, and the [builder](/docs/react) surfaces findings live with its `lint` prop.
+The full rule list, severity semantics, and CLI and builder integration are documented on the [Linting](/docs/linting) page. Template tokens are respected throughout: a `{{tracking_url}}` link is never flagged insecure, and `[Unsubscribe]({{unsubscribe_url}})` satisfies the unsubscribe check.
 
 ## Input validation
 
@@ -146,7 +130,7 @@ All user-supplied values that end up in the HTML are escaped and/or validated be
 - Theme values containing `<`, `>`, or `"` are replaced with the base theme's value.
 - Font entries with unsafe family names or URLs are skipped.
 
-Invalid values never throw — they fall back to safe defaults and surface as [`warnings`](#renderwarning). Template tags (`{{ x }}`, `{% x %}`, `${x}`, `%%x%%`, `[[x]]`) pass through validation untouched so merge fields keep working. Note that raw inline HTML in the markdown body is passed through by design — treat the markdown source as trusted, and resolve template variables with properly encoded values in your sending app.
+Invalid values never throw; they fall back to safe defaults and surface as [`warnings`](#renderwarning). Template tags (`{{ x }}`, `{% x %}`, `${x}`, `%%x%%`, `[[x]]`) pass through validation untouched so merge fields keep working. Note that raw inline HTML in the markdown body is passed through by design: treat the markdown source as trusted, and resolve template variables with properly encoded values in your sending app.
 
 ## `RenderStrings`
 
@@ -168,7 +152,7 @@ await render(md, {
 });
 ```
 
-A per-button `fallback="custom text"` attribute still takes precedence over the global string. See [Buttons](/docs/buttons#fallback-urls).
+A per-button `fallback="custom text"` attribute still takes precedence over the global string. See [Buttons](/docs/buttons#button-fallback).
 
 ## `Theme`
 
@@ -281,8 +265,8 @@ The context object passed to wrapper functions:
 | ------------- | -------------------------- | ------------------------------------------------------------------------------ |
 | `preheader`   | `string?`                  | Preheader text from frontmatter                                                 |
 | `frontmatter` | `Record<string, unknown>?` | The full frontmatter map, including custom keys                                 |
-| `strings`     | `RenderStrings?`           | Localized strings from render options — forward to `segmentsToMjml`             |
-| `warnings`    | `RenderWarning[]?`         | The render's warnings collector — forward to `segmentsToMjml`                   |
+| `strings`     | `RenderStrings?`           | Localized strings from render options; forward to `segmentsToMjml`              |
+| `warnings`    | `RenderWarning[]?`         | The render's warnings collector; forward to `segmentsToMjml`                    |
 
 ## Sanitize helpers
 
@@ -292,8 +276,8 @@ The validation primitives used internally are exported for reuse:
 import { escapeHtml, escapeAttrValue, isCssColor, isCssLength, isSafeUrl } from "emailmd";
 ```
 
-- **`escapeHtml(value)`** — escape a raw string for HTML text or attribute context
-- **`escapeAttrValue(value)`** — escape `"` and `<` without double-escaping existing entities
-- **`isCssColor(value)`** — hex, named, `rgb()`/`hsl()` functional color, or template token
-- **`isCssLength(value)`** — 1–4 CSS length tokens (e.g. `8px 16px`), or template token
-- **`isSafeUrl(value)`** — no scheme, a safe scheme (`http`, `https`, `mailto`, `tel`), or template token
+- **`escapeHtml(value)`**: escape a raw string for HTML text or attribute context
+- **`escapeAttrValue(value)`**: escape `"` and `<` without double-escaping existing entities
+- **`isCssColor(value)`**: hex, named, `rgb()`/`hsl()` functional color, or template token
+- **`isCssLength(value)`**: 1–4 CSS length tokens (e.g. `8px 16px`), or template token
+- **`isSafeUrl(value)`**: no scheme, a safe scheme (`http`, `https`, `mailto`, `tel`), or template token

@@ -36,10 +36,10 @@ Images are centered by default. Override with:
 Add a `caption` to render a small, muted line under the image. It follows the image's alignment and appears after the image label in the plain-text version:
 
 ```markdown
-![Signups chart](https://picsum.photos/seed/chart/800/450){caption="Figure 1 — signups by week"}
+![Signups chart](https://picsum.photos/seed/chart/800/450){caption="Figure 1: signups by week"}
 ```
 
-Captions are plain text — markdown and HTML inside them are not processed.
+Captions are plain text; markdown and HTML inside them are not processed.
 
 ## Linked Images
 
@@ -89,13 +89,13 @@ A small ![icon](https://placehold.co/40x40.png){width="20" height="20"} icon.
 
 ## Formats and Retina Sizing
 
-Stick to **PNG, JPEG, and GIF** — every email client renders them. The formats to avoid:
+Stick to **PNG, JPEG, and GIF**, which every email client renders. The formats to avoid:
 
 - **SVG** is stripped by Gmail, Outlook, and most other clients.
-- **`data:` URIs** are stripped by Gmail's image proxy and clients like it — always host images at a URL.
+- **`data:` URIs** are stripped by Gmail's image proxy and clients like it, so always host images at a URL.
 - **WebP and AVIF** work in Apple Mail and Gmail, but Outlook desktop and some older clients show a broken image.
 
-`lint()` flags all of these under the `image-format` rule.
+[`lint()`](/docs/linting) flags all of these under the `image-format` rule.
 
 For crisp images on high-DPI screens, use the standard email retina technique: serve an image with **twice the pixels** you display and set the rendered size with `width`:
 
@@ -107,11 +107,11 @@ The photo examples on this page follow this pattern (an 800×600 source displaye
 
 ## Placeholder Images
 
-While drafting, use placeholder services so every image actually renders — the examples on this page follow this convention, so they all work if you paste them into the [builder](/builder):
+While drafting, use placeholder services so every image actually renders. The examples on this page follow this convention, so they all work if you paste them into the [builder](/builder):
 
-- **Photos:** `https://picsum.photos/seed/<name>/<width>/<height>` — a random but stable photo. The same seed always returns the same image, so pick a new seed name for each distinct image.
-- **Logos, icons, and flat graphics:** `https://placehold.co/<width>x<height>.png?text=Logo` — a solid box with optional label. The `.png` extension matters: the service defaults to SVG, which most email clients won't display.
-- **Hero backgrounds:** random photos make overlaid text unreadable when they're too bright. Route the photo through the [wsrv.nl](https://wsrv.nl) image proxy with a dark duotone filter, which remaps the photo's full tonal range between two dark colors — light text stays readable no matter which photo the seed produces:
+- **Photos:** `https://picsum.photos/seed/<name>/<width>/<height>` returns a random but stable photo. The same seed always returns the same image, so pick a new seed name for each distinct image.
+- **Logos, icons, and flat graphics:** `https://placehold.co/<width>x<height>.png?text=Logo` renders a solid box with an optional label. The `.png` extension matters: the service defaults to SVG, which most email clients won't display.
+- **Hero backgrounds:** random photos make overlaid text unreadable when they're too bright. Route the photo through the [wsrv.nl](https://wsrv.nl) image proxy with a dark duotone filter, which remaps the photo's full tonal range between two dark colors, so light text stays readable no matter which photo the seed produces:
 
 ```markdown
 ::: hero https://wsrv.nl/?url=picsum.photos/seed/hero/1200/600&filt=duotone&start=111827&stop=4b5563
@@ -122,4 +122,4 @@ The photo's brightest pixel is only as light as `stop`.
 
 Swap `start`/`stop` (darkest and lightest hex colors, no `#`) to tint toward your brand. For a light background with dark text instead, use light colors and set `color=` on the hero.
 
-Placeholders are for drafts — replace them with real, self-hosted assets before sending. `lint()` flags images on known placeholder hosts as a reminder.
+Placeholders are for drafts. Replace them with real, self-hosted assets before sending; [`lint()`](/docs/linting) flags images on known placeholder hosts as a reminder.

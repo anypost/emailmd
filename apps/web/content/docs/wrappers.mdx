@@ -3,7 +3,7 @@ title: Wrappers
 description: Customize the outer email structure with custom wrappers.
 ---
 
-Most emails work great with the default wrapper — a gray outer background with a centered white content area. Custom wrappers are for when you need full control over the outer MJML structure, such as an edge-to-edge background color, custom `<mj-body>` attributes, or a multi-section layout.
+Most emails work great with the default wrapper: a gray outer background with a centered white content area. Custom wrappers are for when you need full control over the outer MJML structure, such as an edge-to-edge background color, custom `<mj-body>` attributes, or a multi-section layout.
 
 ## Custom Wrapper
 
@@ -27,9 +27,9 @@ await render(md, { wrapper: myWrapper });
 
 The wrapper function receives three arguments:
 
-- **`segments`** — the parsed content blocks from the markdown (text, buttons, images, directives, tables, etc.). Each segment has a `type`, `content`, and optional `attrs`.
-- **`theme`** — the fully resolved theme object after merging defaults with any overrides from the render options and frontmatter.
-- **`meta`** — the render context (`WrapperMeta`): the `preheader`, the full `frontmatter` map including custom keys, plus `strings` and `warnings` to forward to `segmentsToMjml`.
+- **`segments`**: the parsed content blocks from the markdown (text, buttons, images, directives, tables, etc.). Each segment has a `type`, `content`, and optional `attrs`.
+- **`theme`**: the fully resolved theme object after merging defaults with any overrides from the render options and frontmatter.
+- **`meta`**: the render context (`WrapperMeta`) with the `preheader`, the full `frontmatter` map including custom keys, plus `strings` and `warnings` to forward to `segmentsToMjml`.
 
 Custom frontmatter keys are handy for wrapper-driven layouts:
 
@@ -46,9 +46,9 @@ const myWrapper: WrapperFn = (segments, theme, meta) => {
 
 emailmd exports two helpers for use inside custom wrappers:
 
-- **`buildHead(theme, preheader?)`** — generates the `<mj-head>` element containing global styles, font imports, and the hidden preheader text.
-- **`segmentsToMjml(segments, theme, ctx?)`** — converts the parsed segments into MJML body elements (sections, columns, text, buttons, images, tables, etc.).
+- **`buildHead(theme, preheader?)`** generates the `<mj-head>` element containing global styles, font imports, and the hidden preheader text.
+- **`segmentsToMjml(segments, theme, ctx?)`** converts the parsed segments into MJML body elements (sections, columns, text, buttons, images, tables, etc.).
 
 You can call these helpers to reuse emailmd's rendering logic while customizing the outer shell, or you can skip them entirely and write raw MJML from scratch.
 
-Forward `meta.strings` and `meta.warnings` into `segmentsToMjml`'s third argument (as in the example above) so localized strings apply and [content validation warnings](/docs/api-reference#input-validation) surface on the render result. Skipping them doesn't affect safety — invalid values still fall back to defaults — you just won't see the warnings.
+Forward `meta.strings` and `meta.warnings` into `segmentsToMjml`'s third argument (as in the example above) so localized strings apply and [content validation warnings](/docs/api-reference#input-validation) surface on the render result. Skipping them doesn't affect safety (invalid values still fall back to defaults); you just won't see the warnings.

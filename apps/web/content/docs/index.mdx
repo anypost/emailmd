@@ -5,21 +5,13 @@ description: emailmd converts markdown to email-safe HTML that works across all 
 
 ## Why emailmd?
 
-Writing good email HTML is really hard. Unlike web pages, email clients don't share a modern rendering engine - Outlook still uses Microsoft Word's rendering engine, Gmail strips out `<style>` tags and most CSS, and Yahoo Mail has its own quirks. What looks perfect in Apple Mail can be completely broken in Outlook. This means email developers end up writing deeply nested tables, inline styles, and client-specific hacks just to get a simple layout to work everywhere.
+Writing good email HTML is genuinely hard. Email clients never adopted a shared rendering engine: Outlook still renders with Microsoft Word's engine, Gmail strips `<style>` tags and most CSS, and Yahoo Mail has quirks of its own. A layout that looks perfect in Apple Mail can be completely broken in Outlook. That's why hand-built emails end up as deeply nested tables, inline styles, and client-specific hacks.
 
-Most teams either settle for plain-text-looking emails, hire a specialist, or wrestle with complex templating systems that require deep knowledge of each client's limitations.
+Most teams either settle for plain-looking emails, hire a specialist, or wrestle with templating systems that demand deep knowledge of each client's limitations.
 
-emailmd takes a different approach. Instead of fighting with HTML tables and inline CSS, you write **Markdown** - the same simple syntax you already use in README files, docs, and chat. emailmd handles the hard part: converting that markdown into bulletproof, email-safe HTML (via MJML) that renders correctly across Gmail, Outlook, Apple Mail, Yahoo Mail, and every other major client.
+emailmd takes a different approach. You write **markdown**, the same syntax you already use in README files, docs, and chat. emailmd converts it into bulletproof, email-safe HTML (via MJML) that renders correctly in Gmail, Outlook, Apple Mail, Yahoo Mail, and every other major client.
 
-It won't cover every edge case a hand-crafted HTML email can - but it handles **80%+ of email design needs** in a fraction of the time and complexity.
-
-And because it's just markdown, **AI is a natural fit**. Large language models are great at writing markdown, which means you can use AI to draft, iterate, and generate emailmd templates quickly. Describe the email you want and get a working, production-ready template in seconds.
-
-To give your AI tool full knowledge of emailmd's syntax and features, feed it the complete docs:
-
-```
-https://www.emailmd.dev/llms-full.txt
-```
+It won't cover every edge case a hand-crafted HTML email can, but it handles **80%+ of email design needs** in a fraction of the time and complexity.
 
 ## Quick Start
 
@@ -42,14 +34,26 @@ Thanks for signing up.
 // text → plain text version for text/plain MIME part
 ```
 
+Prefer a visual starting point? The [builder](/builder) renders your markdown to a live preview as you type, and the [template gallery](/templates) has twelve production-ready designs to copy and make your own.
+
 ## Features
 
-- **Email-Safe HTML** - Powered by MJML for bulletproof rendering across all email clients
-- **Rich Markdown** - Tables, task lists, buttons, callouts, heroes, and more
-- **Theming** - Light/dark themes, brand colors, full customization
-- **Frontmatter** - Override theme values and set metadata per-email
-- **Directives** - Header, hero, callout, highlight, centered, and footer blocks
-- **Plain Text** - Automatic plain text generation for the `text/plain` MIME part
+- **Email-safe HTML.** MJML under the hood, tested across Gmail, Outlook, Apple Mail, Yahoo Mail, and more.
+- **Layout that flexes.** Photo [heroes](/docs/directives/hero), responsive [columns](/docs/directives/columns), [callouts](/docs/directives/callout), [accordions](/docs/directives/accordion), and the rest of the [directives](/docs/directives).
+- **Theming and dark mode.** Brand colors, custom fonts, and [automatic dark mode](/docs/theme#automatic-dark-mode) that follows the reader's preference.
+- **Buttons.** Primary, secondary, and semantic [button](/docs/buttons) variants with one attribute.
+- **Frontmatter.** Per-email [theme overrides and metadata](/docs/frontmatter) that live with the content.
+- **Linting.** [Deliverability and accessibility checks](/docs/linting) that catch problems before you send.
+- **Plain text.** An automatic `text/plain` version alongside every render.
+- **Tooling.** A [CLI](/docs/cli), a drop-in [React builder](/docs/react), and reusable [partials](/docs/partials).
+
+## AI-Friendly by Design
+
+Because it's just markdown, AI tools are a natural fit. Language models are great at writing markdown, so you can describe the email you want and get a working, production-ready template in seconds. To give your AI tool full knowledge of emailmd's syntax and features, feed it the complete docs:
+
+```
+https://www.emailmd.dev/llms-full.txt
+```
 
 ## Built on MJML
 

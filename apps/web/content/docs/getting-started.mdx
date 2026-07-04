@@ -25,18 +25,19 @@ Thanks for signing up.
 `);
 ```
 
-`render` is asynchronous — use `await` (or `.then()`) to get the result.
+`render` is asynchronous, so `await` it (or use `.then()`).
 
 The `render` function returns:
 
-- `html` — a complete HTML document (DOCTYPE, html, head, body) ready to use as the `text/html` MIME part. Not a fragment — you can send it as-is.
-- `text` — plain text version for the `text/plain` MIME part. Buttons become `Label: https://url`, images become `[Image: alt]`, and all formatting is stripped.
-- `meta` — frontmatter metadata extracted from the markdown. Includes `preheader` (inbox preview text) and any custom keys you define. See [Frontmatter](/docs/frontmatter).
+- `html`: a complete HTML document (DOCTYPE, html, head, body) ready to use as the `text/html` MIME part. It's not a fragment; you can send it as-is.
+- `text`: the plain text version for the `text/plain` MIME part. Buttons become `Label: https://url`, images become `[Image: alt]`, and all formatting is stripped.
+- `meta`: frontmatter metadata extracted from the markdown, including `preheader` (inbox preview text) and any custom keys you define. See [Frontmatter](/docs/frontmatter).
 
 ## Next Steps
 
-- [Theme](/docs/theme) — Customize colors and fonts
-- [Frontmatter](/docs/frontmatter) — Set metadata per-email
-- [Buttons](/docs/buttons) — Add call-to-action buttons
-- [Directives](/docs/directives) — Use header, hero, callout, and more
-- [API Reference](/docs/api-reference) — Full API documentation
+- [Builder](/builder): write markdown and watch the email render live
+- [Templates](/templates): production-ready designs to start from
+- [Buttons](/docs/buttons): add call-to-action buttons
+- [Directives](/docs/directives): heroes, columns, callouts, and more
+- [Theme](/docs/theme): customize colors, fonts, and dark mode
+- [API Reference](/docs/api-reference): full API documentation

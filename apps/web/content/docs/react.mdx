@@ -1,9 +1,9 @@
 ---
-title: React
-description: React hooks and components — live email preview and a drop-in builder.
+title: React Builder
+description: Drop the full emailmd builder into your React app, or use the hooks and preview components on their own.
 ---
 
-`@emailmd/react` packages the pieces you need to put a live email preview — or the entire [builder](/builder) — inside your own React app.
+`@emailmd/react` packages the entire [emailmd.dev builder](/builder) as a drop-in component, plus the lower-level pieces (a render hook and a sandboxed preview) for building your own UI.
 
 ## Install
 
@@ -12,6 +12,48 @@ npm install @emailmd/react emailmd
 ```
 
 Requires React 18+. Rendering runs fully client-side (emailmd uses `mjml-browser` in the browser), so all components are client components.
+
+## `<EmailmdBuilder />`
+
+The full [emailmd.dev builder](/builder), as a drop-in component: CodeMirror markdown editor with a formatting toolbar, visual theme editor, emoji and snippet pickers, live preview with device switching and a dark-mode toggle (enabled when the email uses `theme: auto`), HTML source (pretty/minified with a Gmail-clip meter), plain-text view, render warnings, autosave, download, and optional share links. The builder page on this site is exactly this component.
+
+```tsx
+'use client';
+
+import { EmailmdBuilder } from '@emailmd/react';
+import '@emailmd/react/styles.css';
+
+export function BuilderPage() {
+  return <EmailmdBuilder />;
+}
+```
+
+Give the parent element a height; the builder fills it.
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `defaultValue` | `string` | starter template | Initial markdown when no draft or share link is present |
+| `value` / `onChange` | `string` / `(md: string) => void` | — | Controlled mode (disables autosave) |
+| `autoSave` | `boolean \| string` | `true` | Draft persistence in localStorage; a string sets a custom key (default `"emailmd:draft"`) |
+| `share` | `boolean` | `false` | Read `#md=` URL fragments on mount and show a share-link button |
+| `colorScheme` | `'light' \| 'dark'` | `'light'` | UI scheme |
+| `renderOptions` | `RenderOptions` | — | Passed through to `render()` for the preview |
+| `lint` | `boolean` | `false` | Run [`lint()`](/docs/linting) on each render and surface findings in the warnings banner |
+| `debounceMs` | `number` | `150` | Typing → re-render debounce |
+| `className` | `string` | — | Extra class on the root element |
+
+Share links put the (deflate-compressed) document in the URL *fragment*, so shared markdown never reaches your server.
+
+### Styling
+
+The UI has no Tailwind or component-library dependency. `styles.css` scopes everything under `.emd-` class names and derives all colors from `--emd-*` CSS custom properties, so you can retheme it:
+
+```css
+.emd-builder {
+  --emd-link: #7c3aed;
+  --emd-radius: 10px;
+}
+```
 
 ## `useEmailmd(markdown, options?)`
 
@@ -36,12 +78,12 @@ export function Editor() {
 }
 ```
 
-Options extend [`RenderOptions`](/docs/api-reference#renderoptions) — `theme`, `fonts`, `minify`, `strings`, and the rest all pass through — plus:
+Options extend [`RenderOptions`](/docs/api-reference#renderoptions), so `theme`, `fonts`, `minify`, `strings`, and the rest all pass through, plus:
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `debounceMs` | `number` | `150` | Wait after the last keystroke before re-rendering. `0` renders immediately. |
-| `lint` | `boolean` | `false` | Run [`lint()`](/docs/api-reference#lintmarkdown-options) alongside each render; findings land in `lintFindings`. |
+| `lint` | `boolean` | `false` | Run [`lint()`](/docs/linting) alongside each render; findings land in `lintFindings`. |
 
 The returned object:
 
@@ -55,7 +97,7 @@ The returned object:
 | `error` | `Error \| null` | Set if `render()` threw; previous output is retained |
 | `isRendering` | `boolean` | True while an updated render is in flight |
 
-Options are compared by value, so inline object literals are fine. If you swap a custom `wrapper` *function* at runtime, memoize it — function identity changes aren't detected until the next input change.
+Options are compared by value, so inline object literals are fine. If you swap a custom `wrapper` *function* at runtime, memoize it; function identity changes aren't detected until the next input change.
 
 ## `<EmailPreview />`
 
@@ -73,49 +115,7 @@ A sandboxed iframe showing a rendered email.
 
 All other iframe props (`className`, `style`, `sandbox`, `title`, …) pass through.
 
-The exported helper `hasDarkModeStyles(html)` tells you whether a rendered email opts into dark mode — useful for showing a dark-preview toggle only when it does something.
-
-## `<EmailmdBuilder />`
-
-The full [emailmd.dev builder](/builder), as a drop-in component: CodeMirror markdown editor with a formatting toolbar, visual theme editor, emoji and snippet pickers, live preview with device switching and a dark-mode toggle (enabled when the email uses `theme: auto`), HTML source (pretty/minified with a Gmail-clip meter), plain-text view, render warnings, autosave, download, and optional share links. The builder page on this site is exactly this component.
-
-```tsx
-'use client';
-
-import { EmailmdBuilder } from '@emailmd/react';
-import '@emailmd/react/styles.css';
-
-export function BuilderPage() {
-  return <EmailmdBuilder />;
-}
-```
-
-Give the parent element a height — the builder fills it.
-
-| Prop | Type | Default | Description |
-| --- | --- | --- | --- |
-| `defaultValue` | `string` | starter template | Initial markdown when no draft or share link is present |
-| `value` / `onChange` | `string` / `(md: string) => void` | — | Controlled mode (disables autosave) |
-| `autoSave` | `boolean \| string` | `true` | Draft persistence in localStorage; a string sets a custom key (default `"emailmd:draft"`) |
-| `share` | `boolean` | `false` | Read `#md=` URL fragments on mount and show a share-link button |
-| `colorScheme` | `'light' \| 'dark'` | `'light'` | UI scheme |
-| `renderOptions` | `RenderOptions` | — | Passed through to `render()` for the preview |
-| `lint` | `boolean` | `false` | Run [`lint()`](/docs/api-reference#lintmarkdown-options) on each render and surface findings in the warnings banner |
-| `debounceMs` | `number` | `150` | Typing → re-render debounce |
-| `className` | `string` | — | Extra class on the root element |
-
-### Styling
-
-The UI has no Tailwind or component-library dependency. `styles.css` scopes everything under `.emd-` class names and derives all colors from `--emd-*` CSS custom properties, so you can retheme it:
-
-```css
-.emd-builder {
-  --emd-link: #7c3aed;
-  --emd-radius: 10px;
-}
-```
-
-Share links put the (deflate-compressed) document in the URL *fragment*, so shared markdown never reaches your server.
+The exported helper `hasDarkModeStyles(html)` tells you whether a rendered email opts into dark mode, useful for showing a dark-preview toggle only when it does something.
 
 ## Versioning
 
