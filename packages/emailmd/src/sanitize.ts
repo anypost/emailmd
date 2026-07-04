@@ -56,6 +56,23 @@ export function isCssLength(value: string): boolean {
   return tokens.every((t) => LENGTH_TOKEN_RE.test(t));
 }
 
+const BARE_NUMBER_RE = /^-?\d*\.?\d+$/;
+
+/**
+ * Append `px` to bare numeric tokens (`8` → `8px`, `8 16` → `8px 16px`).
+ * Unitless lengths are invalid CSS that email clients silently drop, but
+ * they're the natural way to write attrs like `{border-radius="8"}`.
+ * Template tokens pass through untouched.
+ */
+export function normalizeCssLength(value: string): string {
+  const v = value.trim();
+  if (isTemplateToken(v)) return v;
+  return v
+    .split(/\s+/)
+    .map((t) => (BARE_NUMBER_RE.test(t) ? `${t}px` : t))
+    .join(' ');
+}
+
 const URL_SCHEME_RE = /^\s*([a-z][a-z0-9+.-]*):/i;
 const BLOCKED_SCHEMES = new Set(['javascript', 'vbscript', 'data', 'file']);
 

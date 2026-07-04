@@ -237,6 +237,19 @@ describe('button border-radius', async () => {
     expect(html).not.toContain('border-radius:12px');
   });
 
+  it('appends px to a unitless border-radius attr', async () => {
+    const { html, warnings } = await render('[Click](https://example.com){button border-radius="10"}');
+    expect(warnings).toBeUndefined();
+    expect(html).toContain('border-radius:10px');
+    // The old behavior emitted the bare number, which clients drop as invalid CSS.
+    expect(html).not.toMatch(/border-radius:\s*10[^p]/);
+  });
+
+  it('appends px per token in a multi-value border-radius attr', async () => {
+    const { html } = await render('[Click](https://example.com){button border-radius="8 16"}');
+    expect(html).toContain('border-radius:8px 16px');
+  });
+
   it('applies theme borderRadius in button groups', async () => {
     const { html } = await render('[A](https://a.com){button} [B](https://b.com){button.secondary}', { theme: { borderRadius: '20px' } });
     expect(html).toContain('border-radius:20px');

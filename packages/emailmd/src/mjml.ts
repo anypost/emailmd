@@ -2,7 +2,7 @@ import mjml2html from 'mjml';
 import type { ColumnCell, Segment } from './segmenter.js';
 import type { Theme } from './theme.js';
 import type { RenderWarning } from './warnings.js';
-import { escapeHtml, escapeAttrValue, isCssColor, isCssLength, isSafeUrl } from './sanitize.js';
+import { escapeHtml, escapeAttrValue, isCssColor, isCssLength, isSafeUrl, normalizeCssLength } from './sanitize.js';
 import { EMPTY_TABLE_HEADER_RE } from './constants.js';
 
 /**
@@ -79,7 +79,7 @@ function resolveAlign(value: string | undefined, fallback: string, ctx: SegmentC
 
 function resolveLength(value: string | undefined, fallback: string, ctx: SegmentContext | undefined, label: string): string {
   if (!value) return fallback;
-  if (isCssLength(value)) return value;
+  if (isCssLength(value)) return normalizeCssLength(value);
   warn(ctx, `Invalid length "${value}" for ${label} — using default.`);
   return fallback;
 }
@@ -273,7 +273,7 @@ function processInlineImages(html: string): string {
     // Extract and remove border-radius
     const borderRadiusMatch = tag.match(/\bborder-radius="([^"]*)"/);
     if (borderRadiusMatch) {
-      styles.push(`border-radius: ${borderRadiusMatch[1]}`);
+      styles.push(`border-radius: ${normalizeCssLength(borderRadiusMatch[1])}`);
       tag = tag.replace(/\s*\bborder-radius="[^"]*"/, '');
     }
 

@@ -38,6 +38,13 @@ describe('image support', async () => {
       expect(html).toContain('border-radius');
       expect(html).toContain('8px');
     });
+
+    it('appends px to a unitless border-radius attr', async () => {
+      const { html, warnings } = await render('![Alt](https://example.com/img.png){border-radius="8"}');
+      expect(warnings).toBeUndefined();
+      expect(html).toMatch(/border-radius:\s*8px/);
+      expect(html).not.toMatch(/border-radius:\s*8[^p]/);
+    });
   });
 
   describe('linked images', async () => {
@@ -121,6 +128,12 @@ describe('image support', async () => {
       const { html } = await render('::: callout\n![](https://example.com/dog.jpg){width=120 border-radius="10%"}\n:::');
       expect(html).toContain('border-radius: 10%');
       expect(html).not.toContain('border-radius="10%"');
+    });
+
+    it('appends px to a unitless border-radius on inline images', async () => {
+      const { html } = await render('::: callout\n![](https://example.com/dog.jpg){width=120 border-radius="6"}\n:::');
+      expect(html).toContain('border-radius: 6px');
+      expect(html).not.toMatch(/border-radius:\s*6[^p]/);
     });
 
     it('combines border-radius with other inline image styles', async () => {
