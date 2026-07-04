@@ -55,13 +55,13 @@ const MCP_CLIENTS: McpClient[] = [
   },
   {
     name: "Claude.ai & Desktop",
-    hint: "Copies the URL, opens Connectors settings",
+    hint: "Copies the URL — paste it under Add → Add custom connector",
     copy: MCP_URL,
     open: "https://claude.ai/customize/connectors",
   },
   {
     name: "ChatGPT",
-    hint: "Copies the URL for Settings → Connectors",
+    hint: "Copies the URL for Settings → Apps & Connectors → Create",
     copy: MCP_URL,
   },
   {
