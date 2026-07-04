@@ -40,9 +40,58 @@ Give the parent element a height; the builder fills it.
 | `renderOptions` | `RenderOptions` | — | Passed through to `render()` for the preview |
 | `lint` | `boolean` | `false` | Run [`lint()`](/docs/linting) on each render and surface findings in the warnings banner |
 | `debounceMs` | `number` | `150` | Typing → re-render debounce |
+| `toolbarItems` | `EmailmdBuilderToolbarItem[]` | — | Custom toolbar buttons; see below |
 | `className` | `string` | — | Extra class on the root element |
 
 Share links put the (deflate-compressed) document in the URL *fragment*, so shared markdown never reaches your server.
+
+### Custom Toolbar Buttons
+
+Add your own buttons to the toolbar with `toolbarItems`. Each `onClick` receives the editor API, so a button can read and rewrite the document with no extra wiring. The classic use is an AI button:
+
+```tsx
+<EmailmdBuilder
+  toolbarItems={[
+    {
+      id: 'ai',
+      label: 'AI',
+      tooltip: 'Draft with AI',
+      onClick: async (editor) => {
+        const prompt = window.prompt('What should this email say?');
+        if (!prompt) return;
+        const markdown = await draftEmail(prompt, editor.getMarkdown());
+        editor.setMarkdown(markdown);
+      },
+    },
+  ]}
+/>
+```
+
+An item with an `icon` renders icon-only with its `label` as the accessible name and tooltip; without one, the label text renders on the button.
+
+### Driving the Editor
+
+The same editor API is exposed through the component's ref, for driving the builder from outside the toolbar (a chat side panel, an import flow, a template picker):
+
+```tsx
+const builderRef = useRef<EmailmdBuilderHandle>(null);
+
+<EmailmdBuilder ref={builderRef} />;
+
+// Later, when your AI response arrives:
+builderRef.current?.setMarkdown(generated);
+```
+
+| Method | What it does |
+| --- | --- |
+| `getMarkdown()` | Returns the current document |
+| `setMarkdown(md)` | Replaces the whole document |
+| `insertAtCursor(text)` | Inserts at the cursor, leaving existing text in place |
+| `replaceSelection(text)` | Replaces the selected range (inserts at the cursor when empty) |
+| `getSelection()` | Returns `{ text, from, to }` for the current selection |
+| `focus()` | Focuses the editor |
+
+Every mutation goes through a CodeMirror transaction, so autosave and `onChange` fire exactly as if the user had typed, and each call lands as a single undo step: your users can Cmd+Z away an AI draft they don't like. `getSelection` plus `replaceSelection` enable selection-scoped AI actions like "rewrite this paragraph".
 
 ### Styling
 

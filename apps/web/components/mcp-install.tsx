@@ -10,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 export const MCP_URL = "https://www.emailmd.dev/api/mcp";
 
@@ -74,13 +75,18 @@ function useCopied(): [string | null, (key: string, text: string) => void] {
   return [copied, copy];
 }
 
-/** Compact "Add to AI" dropdown for the site header. */
-export function McpInstallMenu() {
+/** Compact "Add to AI" dropdown for the site header (pass className to restyle the trigger). */
+export function McpInstallMenu({ className }: { className?: string }) {
   const [copied, copy] = useCopied();
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="inline-flex h-8 items-center gap-1 rounded-lg border border-border bg-background px-3 text-sm font-medium transition-colors hover:bg-muted">
+      <DropdownMenuTrigger
+        className={cn(
+          "inline-flex h-8 items-center gap-1 rounded-lg border border-border bg-background px-3 text-sm font-medium transition-colors hover:bg-muted",
+          className
+        )}
+      >
         Add to AI
         <ChevronDown className="size-3.5 text-muted-foreground" />
       </DropdownMenuTrigger>

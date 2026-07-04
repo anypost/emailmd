@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Divider color field in the visual theme editor (`divider_color`).
 - `useEmailmd` `lint` option — runs emailmd's `lint()` alongside each render and returns the findings as `lintFindings` on the hook result.
 - `<EmailmdBuilder lint />` — surfaces lint findings live in the warnings banner (labeled `Lint`/`Lint suggestion`, with source lines), merged with render warnings.
+- `<EmailmdBuilder toolbarItems={[...]} />` — custom buttons appended to the toolbar (text or icon, with tooltips). Each `onClick` receives the imperative editor API, so a host-app button (e.g. "Draft with AI") can read and rewrite the document with no extra wiring.
+- `EmailmdBuilderHandle` — the builder now forwards a ref exposing that same editor API: `getMarkdown`, `setMarkdown`, `insertAtCursor`, `replaceSelection`, `getSelection`, and `focus`. Mutations go through CodeMirror transactions, so autosave and `onChange` fire as if the user had typed and each call is a single undo step (Cmd+Z reverts an injected AI draft). Works in uncontrolled mode — no need to switch to `value`/`onChange` just to populate the editor programmatically.
 
 ### Fixed
 - The default template said "Email.md" in body text, which linkify auto-linked to `http://email.md` (`.md` is a real TLD) in the rendered output. It now says "emailmd". Found by the new linter.

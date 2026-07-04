@@ -41,6 +41,7 @@ import { CopyButton } from './copy-button.js';
 import { EmojiDialog } from './emoji-dialog.js';
 import { SnippetsDialog } from './snippets-dialog.js';
 import { ThemeDialog } from './theme-dialog.js';
+import type { EmailmdBuilderHandle, EmailmdBuilderToolbarItem } from './handle.js';
 
 interface ToolbarProps {
   /** Getter for the live CodeMirror view (null before mount). */
@@ -49,6 +50,10 @@ interface ToolbarProps {
   onChange: (value: string) => void;
   onReset?: () => void;
   lastSaved?: number | null;
+  /** Custom buttons appended after the built-in groups. */
+  items?: EmailmdBuilderToolbarItem[];
+  /** Editor API passed to custom item onClick handlers. */
+  editor: EmailmdBuilderHandle;
 }
 
 function ToolbarButton({
@@ -94,7 +99,7 @@ function ToolbarMenu({
   );
 }
 
-export function Toolbar({ getView, value, onChange, onReset, lastSaved }: ToolbarProps) {
+export function Toolbar({ getView, value, onChange, onReset, lastSaved, items, editor }: ToolbarProps) {
   const [showSaved, setShowSaved] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
 
@@ -445,6 +450,32 @@ export function Toolbar({ getView, value, onChange, onReset, lastSaved }: Toolba
         <EmojiDialog onInsert={(text) => withView((v) => insertAtCursor(v, text))()} />
         <SnippetsDialog onInsert={(text) => withView((v) => insertBlock(v, text))()} />
         <ThemeDialog markdown={value} onChange={onChange} />
+
+        {items && items.length > 0 && (
+          <>
+            <div className="emd-toolbar-separator" />
+            {items.map((item) =>
+              item.icon ? (
+                <ToolbarButton
+                  key={item.id}
+                  tooltip={item.tooltip ?? item.label}
+                  icon={item.icon}
+                  onClick={() => item.onClick(editor)}
+                />
+              ) : item.tooltip ? (
+                <Tip key={item.id} label={item.tooltip}>
+                  <Button size="sm" onClick={() => item.onClick(editor)}>
+                    {item.label}
+                  </Button>
+                </Tip>
+              ) : (
+                <Button key={item.id} size="sm" onClick={() => item.onClick(editor)}>
+                  {item.label}
+                </Button>
+              )
+            )}
+          </>
+        )}
 
         <div className="emd-toolbar-end">
           {showSaved && (

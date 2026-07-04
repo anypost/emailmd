@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import type { RenderOptions } from 'emailmd';
 import { useEmailmd } from '../use-emailmd.js';
 import { Button, cx } from './ui.js';
@@ -12,6 +12,7 @@ import { useAutoSave } from './use-auto-save.js';
 import { DEFAULT_DRAFT_KEY, clearDraft, loadDraft } from './storage.js';
 import { readShareFromLocation } from './share.js';
 import { DEFAULT_TEMPLATE } from './default-template.js';
+import type { EmailmdBuilderHandle, EmailmdBuilderToolbarItem } from './handle.js';
 
 export interface EmailmdBuilderProps {
   /**
@@ -45,6 +46,11 @@ export interface EmailmdBuilderProps {
   lint?: boolean;
   /** Debounce between typing and re-render, in ms. Default: `150`. */
   debounceMs?: number;
+  /**
+   * Custom buttons appended to the toolbar. Each `onClick` receives the
+   * imperative editor API (the same object exposed via `ref`).
+   */
+  toolbarItems?: EmailmdBuilderToolbarItem[];
   className?: string;
 }
 
@@ -58,18 +64,22 @@ export interface EmailmdBuilderProps {
  * import '@emailmd/react/styles.css';
  * ```
  */
-export function EmailmdBuilder({
-  defaultValue,
-  value,
-  onChange,
-  autoSave = true,
-  share = false,
-  colorScheme = 'light',
-  renderOptions,
-  lint = false,
-  debounceMs,
-  className,
-}: EmailmdBuilderProps) {
+export const EmailmdBuilder = forwardRef<EmailmdBuilderHandle, EmailmdBuilderProps>(function EmailmdBuilder(
+  {
+    defaultValue,
+    value,
+    onChange,
+    autoSave = true,
+    share = false,
+    colorScheme = 'light',
+    renderOptions,
+    lint = false,
+    debounceMs,
+    toolbarItems,
+    className,
+  },
+  ref
+) {
   const controlled = value !== undefined;
   const storageKey = typeof autoSave === 'string' ? autoSave : DEFAULT_DRAFT_KEY;
   const autoSaveEnabled = !controlled && autoSave !== false;
@@ -118,6 +128,62 @@ export function EmailmdBuilder({
   }, [controlled, onChange, storageKey]);
 
   const handleSave = useCallback(() => setLastSaved(Date.now()), []);
+
+  // Imperative editor API. Mutations dispatch CodeMirror transactions, so the
+  // existing update listener routes them through handleChange (state, autosave,
+  // onChange) and each call lands as one undo step. Refs keep the object
+  // identity stable across renders.
+  const markdownRef = useRef(markdown);
+  markdownRef.current = markdown;
+  const handleChangeRef = useRef(handleChange);
+  handleChangeRef.current = handleChange;
+
+  const editor = useMemo<EmailmdBuilderHandle>(() => {
+    const getView = () => editorRef.current?.view ?? null;
+    return {
+      getMarkdown: () => markdownRef.current,
+      setMarkdown: (next) => {
+        const view = getView();
+        if (view) {
+          view.dispatch({
+            changes: { from: 0, to: view.state.doc.length, insert: next },
+            selection: { anchor: next.length },
+          });
+        } else {
+          handleChangeRef.current(next);
+        }
+      },
+      insertAtCursor: (text) => {
+        const view = getView();
+        if (!view) return;
+        const { head } = view.state.selection.main;
+        view.dispatch({
+          changes: { from: head, to: head, insert: text },
+          selection: { anchor: head + text.length },
+        });
+        view.focus();
+      },
+      replaceSelection: (text) => {
+        const view = getView();
+        if (!view) return;
+        const { from, to } = view.state.selection.main;
+        view.dispatch({
+          changes: { from, to, insert: text },
+          selection: { anchor: from + text.length },
+        });
+        view.focus();
+      },
+      getSelection: () => {
+        const view = getView();
+        if (!view) return { text: '', from: 0, to: 0 };
+        const { from, to } = view.state.selection.main;
+        return { text: view.state.sliceDoc(from, to), from, to };
+      },
+      focus: () => getView()?.focus(),
+    };
+  }, []);
+
+  useImperativeHandle(ref, () => editor, [editor]);
 
   useAutoSave(markdown, {
     // Don't overwrite an existing draft with a template until the user edits it.
@@ -169,6 +235,8 @@ export function EmailmdBuilder({
             onChange={handleChange}
             onReset={handleReset}
             lastSaved={lastSaved}
+            items={toolbarItems}
+            editor={editor}
           />
         </div>
         <CodeEditor
@@ -203,4 +271,4 @@ export function EmailmdBuilder({
       )}
     </div>
   );
-}
+});
