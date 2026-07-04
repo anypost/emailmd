@@ -11,11 +11,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export const MCP_URL = "https://www.emailmd.dev/api/mcp";
 
 const CLAUDE_CODE_COMMAND = `claude mcp add --transport http emailmd ${MCP_URL}`;
 const LOCAL_COMMAND = "npx emailmd mcp";
+
+const ANYPOST_URL = "https://anypost.com/";
+const ANYPOST_HINT = "Full AI template generator, free account";
 
 const CURSOR_DEEPLINK = `cursor://anysphere.cursor-deeplink/mcp/install?name=emailmd&config=${btoa(
   JSON.stringify({ url: MCP_URL })
@@ -149,8 +160,117 @@ export function McpInstallMenu({ className }: { className?: string }) {
             {copied === "local" ? "Copied to clipboard" : "Run the server locally over stdio"}
           </span>
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <a
+            href={ANYPOST_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="flex w-full cursor-pointer flex-col items-start gap-0.5 px-2 py-1.5"
+          >
+            <span className="flex items-center gap-1.5 text-sm">
+              Anypost
+              <ExternalLink className="size-3 text-muted-foreground" />
+            </span>
+            <span className="text-xs text-muted-foreground">{ANYPOST_HINT}</span>
+          </a>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+const rowClass =
+  "flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg border border-border bg-background px-4 py-3 text-left transition-colors hover:bg-muted";
+
+/** Modal with the same connect options as the menu, for surfaces without a header (e.g. the builder toolbar). */
+export function McpInstallDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [copied, copy] = useCopied();
+
+  function rowBody(key: string, name: ReactNode, hint: string, external = false) {
+    return (
+      <>
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="text-sm font-medium">{name}</span>
+          <span className="text-xs text-muted-foreground">
+            {copied === key ? "Copied to clipboard" : hint}
+          </span>
+        </span>
+        {external ? (
+          <ExternalLink className="size-4 shrink-0 text-muted-foreground" />
+        ) : copied === key ? (
+          <Check className="size-4 shrink-0 text-green-600" />
+        ) : (
+          <Copy className="size-4 shrink-0 text-muted-foreground" />
+        )}
+      </>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Use emailmd with your AI</DialogTitle>
+          <DialogDescription>
+            Connect the emailmd MCP server and your assistant can write, lint,
+            and render emails, with a live preview link for every draft.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-2">
+          {MCP_CLIENTS.map((client) =>
+            client.href ? (
+              <a key={client.name} href={client.href} className={rowClass}>
+                {rowBody(client.name, client.name, client.hint, true)}
+              </a>
+            ) : (
+              <button
+                key={client.name}
+                type="button"
+                className={rowClass}
+                onClick={() => {
+                  copy(client.name, client.copy!);
+                  if (client.open) window.open(client.open, "_blank");
+                }}
+              >
+                {rowBody(client.name, client.name, client.hint)}
+              </button>
+            )
+          )}
+          <button
+            type="button"
+            className={rowClass}
+            onClick={() => copy("local", LOCAL_COMMAND)}
+          >
+            {rowBody(
+              "local",
+              <span className="font-mono text-[13px]">{LOCAL_COMMAND}</span>,
+              "Run locally over stdio"
+            )}
+          </button>
+          <a href={ANYPOST_URL} target="_blank" rel="noreferrer" className={rowClass}>
+            {rowBody("anypost", "Anypost", ANYPOST_HINT, true)}
+          </a>
+        </div>
+        <p className="text-center text-sm text-muted-foreground">
+          Full setup instructions in the{" "}
+          <Link
+            href="/docs/mcp"
+            className="underline underline-offset-4 hover:text-foreground"
+            onClick={() => onOpenChange(false)}
+          >
+            MCP docs
+          </Link>
+          .
+        </p>
+      </DialogContent>
+    </Dialog>
   );
 }
 
