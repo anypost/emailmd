@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] — 2026-07-05
+
+### Fixed
+- Quoted directive parameter values (`color="#ffffff"`, `bg='#eff6ff'`, a quoted hero URL) now parse the same as bare values. Previously the quotes were kept in the value, which broke the directive's internal marker and made the whole block silently degrade to plain text — with the malformed marker leaking into the output HTML as a comment.
+- Internal marker attribute values are serialized quote-free, so no parameter value can ever produce an unparseable marker again.
+- Backstop: if a malformed internal marker is ever encountered anyway, it is stripped from the output and surfaced as a render warning ("A directive could not be parsed…") instead of shipping silently.
+
 ## [0.7.1] — 2026-07-04
 
 ### Fixed

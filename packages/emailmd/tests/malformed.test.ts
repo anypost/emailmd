@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '../src/index.js';
+import { segment } from '../src/segmenter.js';
+import type { RenderWarning } from '../src/warnings.js';
 
 /**
  * Malformed and degenerate input: the renderer must never throw, never leak
@@ -103,6 +105,29 @@ describe('malformed: directives', () => {
   it('ignores empty and duplicate directive params', async () => {
     const { html } = await rendersCleanly('::: callout bg= center left bg=#eef\nHi\n:::');
     expect(html).toContain('Hi');
+  });
+
+  it('renders a callout with a quoted param without leaking markers', async () => {
+    const { html } = await rendersCleanly('::: callout bg="#eff6ff"\nQuoted card\n:::');
+    expect(html).toContain('Quoted card');
+    expect(html).toContain('#eff6ff');
+  });
+
+  it('renders a param with an unmatched quote without leaking markers', async () => {
+    // The stray quote is dropped at marker serialization; the directive
+    // still renders rather than silently degrading to text.
+    const { html } = await rendersCleanly('::: callout bg="#eff6ff center\nStray quote\n:::');
+    expect(html).toContain('Stray quote');
+    expect(html).toContain('#eff6ff');
+  });
+
+  it('warns on and strips a marker whose attributes are malformed', async () => {
+    // Unreachable through render() now that serializeMarkerAttrs keeps values
+    // quote-free, so exercise the segmenter backstop directly.
+    const warnings: RenderWarning[] = [];
+    const segments = segment('<p>Before</p>\n<!--EMAILMD:HERO_OPEN color=""#fff""-->\n<p>After</p>', warnings);
+    expect(segments.every((s) => !s.content.includes('<!--EMAILMD:'))).toBe(true);
+    expect(warnings.some((w) => w.message.includes('could not be parsed'))).toBe(true);
   });
 });
 

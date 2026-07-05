@@ -10,6 +10,7 @@ import {
   MARKER_SOCIAL_CLOSE,
   MARKER_ACCORDION_CLOSE,
 } from './constants.js';
+import type { RenderWarning } from './warnings.js';
 
 export type SegmentType = 'text' | 'callout' | 'centered' | 'highlight' | 'header' | 'footer' | 'button' | 'button-group' | 'image' | 'hr' | 'table' | 'hero' | 'columns' | 'spacer' | 'social' | 'accordion';
 
@@ -447,12 +448,26 @@ function splitOnTables(segments: Segment[]): Segment[] {
 // reach this point as matching markers.)
 const ORPHAN_MARKER_RE = /<!--EMAILMD:[A-Z_0-9]+(?:\s+[\w-]+="[^"]*")*-->/g;
 
-function stripOrphanMarkers(segments: Segment[]): Segment[] {
-  return segments.map((seg) =>
-    seg.content.includes('<!--EMAILMD:')
-      ? { ...seg, content: seg.content.replace(ORPHAN_MARKER_RE, '') }
-      : seg,
-  );
+// A marker the strict pattern can't strip is malformed — its attributes
+// broke the key="value" shape, so its directive was never recognized and
+// its block silently degraded to text. Should be unreachable now that
+// serializeMarkerAttrs keeps values quote-free, but internal syntax must
+// never ship in an email, so warn and strip loosely.
+const MALFORMED_MARKER_RE = /<!--EMAILMD:[\s\S]*?(?:-->|$)/g;
+
+function stripOrphanMarkers(segments: Segment[], warnings?: RenderWarning[]): Segment[] {
+  return segments.map((seg) => {
+    if (!seg.content.includes('<!--EMAILMD:')) return seg;
+    let content = seg.content.replace(ORPHAN_MARKER_RE, '');
+    if (content.includes('<!--EMAILMD:')) {
+      content = content.replace(MALFORMED_MARKER_RE, '');
+      warnings?.push({
+        stage: 'content',
+        message: 'A directive could not be parsed and was rendered as regular content — check its parameters.',
+      });
+    }
+    return { ...seg, content };
+  });
 }
 
 const COLUMN_OPEN_RE = /<!--EMAILMD:COLUMN_OPEN((?:\s+[\w-]+="[^"]*")*)-->/g;
@@ -463,12 +478,12 @@ const COLUMN_OPEN_RE = /<!--EMAILMD:COLUMN_OPEN((?:\s+[\w-]+="[^"]*")*)-->/g;
  * Markers of directives nested inside the cell are orphans (nested directives
  * are unsupported) and get stripped, leaving their inner content as text.
  */
-function segmentCellContent(content: string, buttons: Segment[]): Segment[] {
+function segmentCellContent(content: string, buttons: Segment[], warnings?: RenderWarning[]): Segment[] {
   const base: Segment[] = [{ type: 'text', content }];
   const withButtons = splitOnButtonPlaceholders(base, buttons);
   const withImages = splitOnImages(withButtons);
   const withTables = splitOnTables(withImages);
-  return stripOrphanMarkers(splitOnDividers(splitOnSpacers(splitOnHr(withTables))));
+  return stripOrphanMarkers(splitOnDividers(splitOnSpacers(splitOnHr(withTables))), warnings);
 }
 
 /**
@@ -476,7 +491,7 @@ function segmentCellContent(content: string, buttons: Segment[]): Segment[] {
  * cells. A columns block with no `::: column` children degrades to a single
  * cell holding all of its content.
  */
-function parseColumnCells(segments: Segment[], buttons: Segment[]): Segment[] {
+function parseColumnCells(segments: Segment[], buttons: Segment[], warnings?: RenderWarning[]): Segment[] {
   return segments.map((seg) => {
     if (seg.type !== 'columns') return seg;
 
@@ -490,25 +505,25 @@ function parseColumnCells(segments: Segment[], buttons: Segment[]): Segment[] {
       const attrs = parseMarkerAttrs(match[1]);
       cells.push({
         attrs: Object.keys(attrs).length > 0 ? attrs : undefined,
-        segments: segmentCellContent(inner, buttons),
+        segments: segmentCellContent(inner, buttons, warnings),
       });
       if (closePos === -1) break;
       re.lastIndex = match.index + match[0].length + closePos + MARKER_COLUMN_CLOSE.length;
     }
 
     if (cells.length === 0 && seg.content.trim()) {
-      cells.push({ segments: segmentCellContent(seg.content, buttons) });
+      cells.push({ segments: segmentCellContent(seg.content, buttons, warnings) });
     }
 
     return { ...seg, content: '', cells };
   });
 }
 
-export function segment(html: string): Segment[] {
+export function segment(html: string, warnings?: RenderWarning[]): Segment[] {
   const { html: htmlWithPlaceholders, buttons } = extractButtons(html);
-  const segments = parseColumnCells(splitOnDirectives(htmlWithPlaceholders), buttons);
+  const segments = parseColumnCells(splitOnDirectives(htmlWithPlaceholders), buttons, warnings);
   const withButtons = splitOnButtonPlaceholders(segments, buttons);
   const withImages = splitOnImages(withButtons);
   const withTables = splitOnTables(withImages);
-  return stripOrphanMarkers(splitOnDividers(splitOnSpacers(splitOnHr(withTables))));
+  return stripOrphanMarkers(splitOnDividers(splitOnSpacers(splitOnHr(withTables))), warnings);
 }

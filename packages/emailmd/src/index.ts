@@ -257,7 +257,7 @@ export async function render(markdown: string, options?: RenderOptions): Promise
   }
 
   const parsedHtml = parseMarkdown(content, { breaks });
-  const segments = segment(parsedHtml);
+  const segments = segment(parsedHtml, warnings);
 
   const wrapperFn = resolveWrapper(options?.wrapper);
 

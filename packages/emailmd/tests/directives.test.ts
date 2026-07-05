@@ -97,6 +97,21 @@ describe('hero directive', async () => {
     expect(html).toMatch(/h1[^>]*style="color: #20ffff[;"]/);
   });
 
+  it('accepts a quoted color param alongside a query-string URL', async () => {
+    const { html, warnings } = await render(
+      '::: hero https://wsrv.nl/?url=picsum.photos/seed/pony/1200/600&filt=duotone&start=be185d&stop=ec4899 color="#ffffff"\n# Welcome\nSome text\n:::',
+    );
+    expect(html).toContain('emd-hero');
+    expect(html).toMatch(/h1[^>]*style="color: #ffffff[;"]/);
+    expect(warnings ?? []).toEqual([]);
+  });
+
+  it('accepts a quoted hero URL', async () => {
+    const { html } = await render('::: hero "https://example.com/hero.jpg"\n# Welcome\n:::');
+    expect(html).toContain('emd-hero');
+    expect(html).toContain('https://example.com/hero.jpg');
+  });
+
   it('inlines the default hero text color on headings', async () => {
     const { html } = await render('::: hero https://example.com/hero.jpg\n# Welcome\n:::');
     // Without this, the head's h1 color rule wins over the mj-text color

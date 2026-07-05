@@ -60,6 +60,18 @@ describe('parseDirectiveParams', () => {
   it('ignores unknown bare keywords', () => {
     expect(parseDirectiveParams('callout unknown', 'callout')).toEqual({});
   });
+
+  it('strips double quotes around a value', () => {
+    expect(parseDirectiveParams('callout bg="#eff6ff"', 'callout')).toEqual({ bg: '#eff6ff' });
+  });
+
+  it('strips single quotes around a value', () => {
+    expect(parseDirectiveParams("callout color='#1e40af'", 'callout')).toEqual({ color: '#1e40af' });
+  });
+
+  it('keeps an unmatched quote in the value', () => {
+    expect(parseDirectiveParams('callout bg="#eff6ff', 'callout')).toEqual({ bg: '"#eff6ff' });
+  });
 });
 
 describe('serializeMarkerAttrs', () => {
@@ -82,5 +94,9 @@ describe('serializeMarkerAttrs', () => {
 
   it('filters out undefined values', () => {
     expect(serializeMarkerAttrs({ align: 'center', padding: undefined })).toBe(' align="center"');
+  });
+
+  it('strips double quotes from values so markers stay parseable', () => {
+    expect(serializeMarkerAttrs({ bg: '"#eff6ff' })).toBe(' bg="#eff6ff"');
   });
 });
