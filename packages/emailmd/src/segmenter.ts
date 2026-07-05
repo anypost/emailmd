@@ -458,6 +458,15 @@ const MALFORMED_MARKER_RE = /<!--EMAILMD:[\s\S]*?(?:-->|$)/g;
 function stripOrphanMarkers(segments: Segment[], warnings?: RenderWarning[]): Segment[] {
   return segments.map((seg) => {
     if (!seg.content.includes('<!--EMAILMD:')) return seg;
+    // An orphaned column marker means the surrounding columns block never
+    // formed — worth calling out specifically, since the cell degrades to
+    // regular content and loses its layout and card styling.
+    if (seg.content.includes('<!--EMAILMD:COLUMN_OPEN')) {
+      warnings?.push({
+        stage: 'content',
+        message: 'A "::: column" outside a ":::: columns" block was rendered as regular content.',
+      });
+    }
     let content = seg.content.replace(ORPHAN_MARKER_RE, '');
     if (content.includes('<!--EMAILMD:')) {
       content = content.replace(MALFORMED_MARKER_RE, '');

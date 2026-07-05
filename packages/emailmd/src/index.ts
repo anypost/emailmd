@@ -19,6 +19,7 @@ import { renderMjml, type WrapperFn, type WrapperMeta, type RenderStrings } from
 import { resolveWrapper } from './wrappers/index.js';
 import { toPlainText } from './plaintext.js';
 import { expandPartials } from './partials.js';
+import { repairColumnsFences } from './repair.js';
 import type { RenderWarning } from './warnings.js';
 import { isSafeThemeValue, isSafeUrl } from './sanitize.js';
 
@@ -172,7 +173,11 @@ export async function render(markdown: string, options?: RenderOptions): Promise
 
   // Runs with an empty map too, so a stray include still warns and is
   // dropped instead of rendering as a literal ":::" paragraph.
-  const content = expandPartials(rawContent, options?.partials ?? {}, warnings);
+  // After partial expansion, since partials can contain columns blocks too.
+  const content = repairColumnsFences(
+    expandPartials(rawContent, options?.partials ?? {}, warnings),
+    warnings,
+  );
 
   if (meta.theme !== undefined && meta.theme !== 'light' && meta.theme !== 'dark' && meta.theme !== 'auto') {
     warnings.push({

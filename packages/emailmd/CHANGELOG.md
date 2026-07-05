@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] — 2026-07-05
+
+### Fixed
+- A columns block opened with `::: columns` (three colons) is now repaired to the required four-colon form. Previously the first inner `:::` close ended the whole block: the first column swallowed the block at full width, later columns lost their layout and card styling, and a literal `:::` paragraph leaked into the HTML and plain text. The repair tracks nested directive opens to find the real closing fence (an unclosed block is also handled), skips code fences, and emits a render warning so authors — and AI assistants aiming for zero warnings — converge on `:::: columns … ::::`.
+- A `::: column` outside any `:::: columns` block now emits a render warning instead of silently degrading to regular content.
+
 ## [0.7.2] — 2026-07-05
 
 ### Fixed

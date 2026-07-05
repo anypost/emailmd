@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { render } from '../src/index.js';
 
+// Every column's rendered width, in percent (per-48-51 → 48.51). Inline-block
+// columns wrap to the next line if a row's widths sum past 100%.
+const columnWidths = (html: string): number[] =>
+  [...html.matchAll(/class="mj-column-per-([\d-]+) /g)].map((m) =>
+    parseFloat(m[1].replace('-', '.')));
+
 describe('columns directive', () => {
   it('renders two equal columns side by side', async () => {
     const { html } = await render(
@@ -83,12 +89,6 @@ describe('columns directive', () => {
     );
     expect(html).toMatch(/display:inline-block;[^"]*width:100%/);
   });
-
-  // Every column's rendered width, in percent (per-48-51 → 48.51). Inline-block
-  // columns wrap to the next line if a row's widths sum past 100%.
-  const columnWidths = (html: string): number[] =>
-    [...html.matchAll(/class="mj-column-per-([\d-]+) /g)].map((m) =>
-      parseFloat(m[1].replace('-', '.')));
 
   it('separates adjacent bg cards with a spacer column sized to gap', async () => {
     const { html } = await render(
@@ -191,5 +191,68 @@ describe('columns directive', () => {
   it('renders no output for an empty columns block, with a warning', async () => {
     const { warnings } = await render('Before\n\n:::: columns\n::::\n\nAfter');
     expect(warnings.some((w) => w.message.includes('Empty columns'))).toBe(true);
+  });
+});
+
+describe('three-colon columns repair', () => {
+  // With three colons the first bare ::: closes the columns block itself:
+  // the first column swallows the block at full width, later columns degrade
+  // to plain text, and the final ::: leaks as a literal paragraph.
+  it('repairs a columns block opened with three colons', async () => {
+    const { html, text, warnings } = await render(
+      '::: columns gap=24\n::: column bg=#fce7f3 compact\nGlitter\n:::\n::: column bg=#fce7f3 compact\nHoofmail\n:::\n:::',
+    );
+    const widths = columnWidths(html);
+    expect(widths).toHaveLength(3); // 2 cards + gap spacer
+    expect(widths.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(100);
+    expect(html).toContain('emd-gap');
+    expect(html).toContain('Glitter');
+    expect(html).toContain('Hoofmail');
+    expect(html).not.toContain('<p>:::</p>');
+    expect(text).not.toContain(':::');
+    expect(warnings.some((w) => w.message.includes('four colons'))).toBe(true);
+  });
+
+  it('repairs across a nested directive inside a column', async () => {
+    const { html, warnings } = await render(
+      '::: columns\n::: column\n::: callout\nNested note\n:::\n:::\n::: column\nOther\n:::\n:::',
+    );
+    expect(columnWidths(html).length).toBeGreaterThanOrEqual(2);
+    expect(html).toContain('Nested note');
+    expect(html).toContain('Other');
+    expect(html).not.toContain('<p>:::</p>');
+    expect(warnings.some((w) => w.message.includes('four colons'))).toBe(true);
+  });
+
+  it('repairs a misopened columns block that is never closed', async () => {
+    const { html, warnings } = await render(
+      '::: columns\n::: column\nA\n:::\n::: column\nB\n:::',
+    );
+    expect(columnWidths(html).length).toBeGreaterThanOrEqual(2);
+    expect(html).toContain('A');
+    expect(html).toContain('B');
+    expect(warnings.some((w) => w.message.includes('four colons'))).toBe(true);
+  });
+
+  it('leaves ::: columns inside a code fence alone', async () => {
+    const { html, warnings } = await render(
+      'Example:\n\n```\n::: columns\n::: column\nA\n:::\n:::\n```\n',
+    );
+    expect(html).toContain('columns');
+    expect((warnings ?? []).some((w) => w.message.includes('four colons'))).toBe(false);
+  });
+
+  it('does not warn on a properly fenced four-colon block', async () => {
+    const { warnings } = await render(
+      ':::: columns\n::: column\nA\n:::\n::: column\nB\n:::\n::::',
+    );
+    expect((warnings ?? []).some((w) => w.message.includes('four colons'))).toBe(false);
+  });
+
+  it('warns on a ::: column outside any columns block', async () => {
+    const { html, warnings } = await render('::: column\nLoose cell\n:::');
+    expect(html).toContain('Loose cell');
+    expect(html).not.toContain('EMAILMD');
+    expect(warnings.some((w) => w.message.includes('outside a ":::: columns" block'))).toBe(true);
   });
 });
