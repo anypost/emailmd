@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **`html` render option** for rendering Markdown from untrusted sources. Defaults to `true`, preserving the current behaviour (raw HTML passes through). Set `html: false` and raw tags are escaped to text (`<script>` → `&lt;script&gt;`), closing off HTML/script injection into the email while every Markdown feature — headings, links, tables, images, emoji, directives, buttons — keeps working, and `javascript:`/`data:` URLs stay blocked.
+
 ## [0.7.3] — 2026-07-05
 
 ### Fixed

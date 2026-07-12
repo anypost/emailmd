@@ -66,6 +66,18 @@ export interface RenderOptions {
    */
   breaks?: boolean;
   /**
+   * Allow raw HTML in the Markdown source. Default: `true`.
+   *
+   * With the default, a raw tag like `<span style="…">` passes through
+   * verbatim. When the Markdown comes from an untrusted source (user-generated
+   * campaign copy, a public form), set this to `false`: raw tags are escaped to
+   * text (`<script>` → `&lt;script&gt;`), closing off HTML/script injection into
+   * the rendered email while every Markdown feature — headings, links, tables,
+   * directives, buttons — keeps working. `javascript:`/`data:` URLs are already
+   * blocked regardless.
+   */
+  html?: boolean;
+  /**
    * Named markdown partials spliced in wherever the document says
    * `::: include <name>`. Parameters on the include line (`key="value"`)
    * fill `{{key}}` placeholders inside the partial; tokens for keys that
@@ -261,7 +273,7 @@ export async function render(markdown: string, options?: RenderOptions): Promise
     }
   }
 
-  const parsedHtml = parseMarkdown(content, { breaks });
+  const parsedHtml = parseMarkdown(content, { breaks, html: options?.html });
   const segments = segment(parsedHtml, warnings);
 
   const wrapperFn = resolveWrapper(options?.wrapper);

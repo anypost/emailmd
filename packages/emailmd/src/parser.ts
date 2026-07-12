@@ -80,12 +80,18 @@ function restoreTemplateTags(html: string, tags: string[], prefix: string): stri
 export interface ParseOptions {
   /** Render single newlines as `<br>` (markdown-it `breaks` mode). Default: `false`. */
   breaks?: boolean;
+  /**
+   * Allow raw HTML in the Markdown source (markdown-it `html` mode). Default: `true`.
+   * When `false`, raw tags are escaped to text instead of passed through — see the note
+   * on {@link RenderOptions.html}.
+   */
+  html?: boolean;
 }
 
 export function parseMarkdown(markdown: string, options?: ParseOptions): string {
-  // The instance is a module-level singleton, so set the option every call
+  // The instance is a module-level singleton, so set the options every call
   // rather than only when enabled.
-  md.set({ breaks: options?.breaks ?? false });
+  md.set({ breaks: options?.breaks ?? false, html: options?.html ?? true });
   const { text: shielded, tags, prefix } = shieldTemplateTags(markdown);
   let html = md.render(shielded);
   html = restoreTemplateTags(html, tags, prefix);
