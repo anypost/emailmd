@@ -37,6 +37,7 @@ If no file is given, the CLI reads from stdin. The `lint` command checks the ema
 | `-t, --text`       | Output plain text instead of HTML                 |
 | `-m, --minify`     | Minify the HTML output                            |
 | `-b, --beautify`   | Pretty-print the HTML output (ignored with `-m`)  |
+| `--escape-html`    | Escape raw HTML for untrusted input. See [Raw HTML](/docs/api-reference#raw-html). |
 | `-p, --partials <path>` | [Partials](/docs/partials) for `::: include <name>`: a directory of `.md` files or a single file. Repeatable. |
 | `--strict`         | `lint` only: exit non-zero on suggestions as well |
 | `-h, --help`       | Show help                                         |
@@ -72,6 +73,12 @@ Pretty-print the HTML output (handy for reading it straight in the terminal):
 
 ```bash
 emailmd input.md --beautify
+```
+
+Escape raw HTML when the source is untrusted, so raw tags render as text instead of markup. This also drops unsafe `{attr=…}` attributes and escapes HTML inside template tags. See [Raw HTML](/docs/api-reference#raw-html):
+
+```bash
+emailmd untrusted.md --escape-html -o safe.html
 ```
 
 Load [partials](/docs/partials) from a directory. Each `.md` file becomes a partial named after its path relative to the directory, so `partials/blocks/legal.md` is included as `::: include blocks/legal`. Individual files work too (named by basename), and the flag is repeatable with later paths winning on name collisions:

@@ -31,6 +31,10 @@ Options:
   -t, --text        Output plain text instead of HTML
   -m, --minify      Minify the HTML output
   -b, --beautify    Pretty-print the HTML output (ignored with --minify)
+  --escape-html     Escape raw HTML in the source instead of passing it
+                    through, for rendering untrusted input. Also drops
+                    unsafe attributes (on*, style) and escapes HTML inside
+                    template tags.
   -p, --partials <path>  Partials for "::: include <name>" — a directory of
                     .md files (subdirectories become name prefixes:
                     blocks/legal) or a single .md file. Repeatable;
@@ -45,6 +49,7 @@ Examples:
   emailmd input.md --text
   emailmd input.md --minify -o output.html
   emailmd input.md --beautify
+  emailmd untrusted.md --escape-html -o safe.html
   emailmd input.md --partials ./partials
   emailmd input.md -p ./partials -p ./extra/legal.md
   emailmd lint input.md
@@ -99,6 +104,7 @@ async function main(): Promise<void> {
         text: { type: 'boolean', short: 't', default: false },
         minify: { type: 'boolean', short: 'm', default: false },
         beautify: { type: 'boolean', short: 'b', default: false },
+        'escape-html': { type: 'boolean', default: false },
         partials: { type: 'string', short: 'p', multiple: true },
         strict: { type: 'boolean', default: false },
         help: { type: 'boolean', short: 'h', default: false },
@@ -183,6 +189,7 @@ async function main(): Promise<void> {
 
   const minify = values.minify === true;
   const beautify = values.beautify === true;
+  const allowHtml = values['escape-html'] !== true;
   const text = values.text === true;
   const outputPath = typeof values.output === 'string' ? values.output : undefined;
 
@@ -206,7 +213,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const result = await render(markdown, { minify, beautify, partials });
+  const result = await render(markdown, { minify, beautify, allowHtml, partials });
   const output = text ? result.text : result.html;
 
   if (outputPath) {

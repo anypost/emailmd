@@ -66,17 +66,22 @@ export interface RenderOptions {
    */
   breaks?: boolean;
   /**
-   * Allow raw HTML in the Markdown source. Default: `true`.
+   * Allow raw HTML tags in the Markdown source. Default: `true`.
    *
    * With the default, a raw tag like `<span style="…">` passes through
-   * verbatim. When the Markdown comes from an untrusted source (user-generated
-   * campaign copy, a public form), set this to `false`: raw tags are escaped to
-   * text (`<script>` → `&lt;script&gt;`), closing off HTML/script injection into
-   * the rendered email while every Markdown feature — headings, links, tables,
-   * directives, buttons — keeps working. `javascript:`/`data:` URLs are already
-   * blocked regardless.
+   * verbatim. Set `false` for untrusted input to escape raw tags to text
+   * (`<script>` → `&lt;script&gt;`) while every Markdown feature — headings,
+   * links, tables, directives, buttons — keeps working.
+   *
+   * With `false`, the other two ways Markdown can emit markup are closed too:
+   * the `{attr=…}` attribute syntax drops event handlers (`on*`), inline
+   * `style`, and `javascript:`/`data:` URL overrides, and raw HTML inside
+   * template tags (`{{…}}`, `${…}`) is escaped rather than spliced back
+   * verbatim. `javascript:`/`data:` URLs in Markdown links are blocked either
+   * way. It is still not a general HTML sanitizer, so for high-assurance
+   * threat models pass the output through a dedicated sanitizer as well.
    */
-  html?: boolean;
+  allowHtml?: boolean;
   /**
    * Named markdown partials spliced in wherever the document says
    * `::: include <name>`. Parameters on the include line (`key="value"`)
@@ -273,7 +278,7 @@ export async function render(markdown: string, options?: RenderOptions): Promise
     }
   }
 
-  const parsedHtml = parseMarkdown(content, { breaks, html: options?.html });
+  const parsedHtml = parseMarkdown(content, { breaks, html: options?.allowHtml });
   const segments = segment(parsedHtml, warnings);
 
   const wrapperFn = resolveWrapper(options?.wrapper);

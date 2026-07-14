@@ -28,7 +28,7 @@ describe('html option: default (true)', () => {
   });
 
   it('is the behaviour when html is set explicitly to true', async () => {
-    const { html } = await render('<u>underline</u>', { html: true });
+    const { html } = await render('<u>underline</u>', { allowHtml: true });
     expect(html).toContain('<u>underline</u>');
   });
 });
@@ -47,20 +47,85 @@ describe('html option: false escapes raw HTML', () => {
 
   for (const [name, source] of Object.entries(vectors)) {
     it(`neutralizes: ${name}`, async () => {
-      const { html } = await render(source, { html: false });
+      const { html } = await render(source, { allowHtml: false });
       expect(hasLiveHtml(html), html).toBe(false);
     });
   }
 
   it('escapes to visible text rather than dropping the content', async () => {
-    const { html } = await render('<script>alert(1)</script>', { html: false });
+    const { html } = await render('<script>alert(1)</script>', { allowHtml: false });
     expect(html).toContain('&lt;script&gt;');
   });
 
   it('neutralizes a forged internal marker comment', async () => {
-    const { html } = await render('<!--EMAILMD:btn0-->', { html: false });
+    const { html } = await render('<!--EMAILMD:btn0-->', { allowHtml: false });
     expect(hasLiveHtml(html)).toBe(false);
     expect(html).not.toContain('<!--EMAILMD:');
+  });
+});
+
+describe('html option: false neutralizes {attr=…} injection', () => {
+  // The `{key=value}` (markdown-it-attrs) syntax attaches attributes to the
+  // generated element without going through markdown-it's raw-HTML lexer, so it
+  // is a second injection path that `allowHtml: false` must also close.
+  const vectors: Record<string, string> = {
+    handlerOnHeading: '# Hi {onmouseover=alert(1)}',
+    handlerOnLink: '[click me](https://ok.example){onclick=alert(1)}',
+    handlerOnEmphasis: 'hi *x*{onmouseover=alert(1)}',
+    styleOnEmphasis: 'text *em*{style="background:url(https://evil.example)"}',
+  };
+
+  for (const [name, source] of Object.entries(vectors)) {
+    it(`strips the sink: ${name}`, async () => {
+      const { html } = await render(source, { allowHtml: false });
+      expect(hasLiveHtml(html), html).toBe(false);
+    });
+  }
+
+  it('strips a javascript: href override while keeping the safe href', async () => {
+    const { html } = await render('[x](https://ok.example){href="javascript:alert(1)"}', {
+      allowHtml: false,
+    });
+    expect(html).not.toMatch(/href="javascript:/i);
+    expect(html).toMatch(/href="https:\/\/ok\.example"/);
+  });
+
+  it('keeps benign attributes (class, id, data-*)', async () => {
+    const { html } = await render('text *em*{.fancy #lead data-track=1}', { allowHtml: false });
+    expect(html).toMatch(/<em[^>]*class="fancy"/);
+    expect(html).toMatch(/<em[^>]*id="lead"/);
+    expect(html).toMatch(/<em[^>]*data-track="1"/);
+  });
+
+  it('leaves {attr=…} injection alone in the default (trusted) mode', async () => {
+    // Tightening is opt-in — trusted templates keep their current behaviour.
+    const { html } = await render('# Hi {onmouseover=alert(1)}', { allowHtml: true });
+    expect(html).toMatch(/<h1[^>]*onmouseover=/);
+  });
+});
+
+describe('html option: false neutralizes raw HTML inside template tags', () => {
+  const vectors: Record<string, string> = {
+    scriptInBraces: 'hello {{<script>alert(1)</script>}} world',
+    imgInDollar: 'a ${<img src=x onerror=alert(1)>} b',
+    svgInPercent: 'x %%<svg onload=alert(1)>%% y',
+  };
+
+  for (const [name, source] of Object.entries(vectors)) {
+    it(`escapes it: ${name}`, async () => {
+      const { html } = await render(source, { allowHtml: false });
+      expect(hasLiveHtml(html), html).toBe(false);
+    });
+  }
+
+  it('leaves a legitimate template variable untouched', async () => {
+    const { html } = await render('Hello [profile]({{ profile_url }})', { allowHtml: false });
+    expect(html).toMatch(/href="\{\{ profile_url \}\}"/);
+  });
+
+  it('passes raw HTML in template tags through in the default (trusted) mode', async () => {
+    const { html } = await render('hello {{<script>alert(1)</script>}} world', { allowHtml: true });
+    expect(hasLiveHtml(html)).toBe(true);
   });
 });
 
@@ -68,7 +133,7 @@ describe('html option: false preserves every Markdown feature', () => {
   it('keeps headings, emphasis, links, lists, quotes and tables', async () => {
     const { html } = await render(
       '# Heading\n\n**bold** *italic* `code` [link](https://ok.example)\n\n> quote\n\n- a\n- b\n\n| x | y |\n|---|---|\n| 1 | 2 |',
-      { html: false },
+      { allowHtml: false },
     );
     expect(html).toMatch(/<h1[^>]*>Heading/);
     expect(html).toContain('<strong>bold</strong>');
@@ -82,7 +147,7 @@ describe('html option: false preserves every Markdown feature', () => {
   it('keeps directives, buttons and Markdown images', async () => {
     const { html } = await render(
       '![logo](https://cdn.example/logo.png)\n\n::: callout\nCallout body\n:::\n\n[Go](https://e.example){button}',
-      { html: false },
+      { allowHtml: false },
     );
     expect(html).toMatch(/<img[^>]+src="https:\/\/cdn\.example\/logo\.png"/);
     expect(html).toContain('Callout body');
@@ -90,14 +155,14 @@ describe('html option: false preserves every Markdown feature', () => {
   });
 
   it('still blocks javascript: URLs in Markdown links (unchanged from default)', async () => {
-    const { html } = await render('[click](javascript:alert(1))', { html: false });
+    const { html } = await render('[click](javascript:alert(1))', { allowHtml: false });
     expect(html).not.toMatch(/href="javascript:/i);
   });
 
   it('produces sensible plain text (raw HTML is inert literal text there)', async () => {
     // The text/plain part is never executed by a mail client, so escaped tags
     // simply appear as the literal characters the author typed.
-    const { text } = await render('# Hi\n\nthanks', { html: false });
+    const { text } = await render('# Hi\n\nthanks', { allowHtml: false });
     expect(text.toLowerCase()).toContain('hi');
     expect(text).toContain('thanks');
   });

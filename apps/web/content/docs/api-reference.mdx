@@ -35,7 +35,7 @@ const { html, text, meta } = await render("# Hello");
   strings?: RenderStrings;
   darkTheme?: true | Partial<Theme>;
   breaks?: boolean;
-  html?: boolean;
+  allowHtml?: boolean;
   partials?: Record<string, string>;
 }
 ```
@@ -53,7 +53,7 @@ const { html, text, meta } = await render("# Hello");
 | `strings`         | `RenderStrings`                               | Override output strings for localization. See [`RenderStrings`](#renderstrings).        |
 | `darkTheme`       | `true \| Partial<Theme>`                      | Opt into [automatic dark mode](/docs/theme#automatic-dark-mode). `true` = built-in dark palette; a partial theme merges over it. Overridden by a pinned frontmatter `theme: light`/`dark`. |
 | `breaks`          | `boolean`                                     | Render single newlines as `<br>`. Frontmatter `breaks:` wins per document. Default `false`. |
-| `html`            | `boolean`                                     | Allow raw HTML in the Markdown source. Default `true` (raw tags pass through). Set `false` for untrusted content to escape raw tags (`<script>` → text) while keeping every Markdown feature. See [Untrusted content](#untrusted-content). |
+| `allowHtml`       | `boolean`                                     | Allow raw HTML tags in the Markdown source. Default `true` (raw tags pass through). Set `false` to escape raw tags (`<script>` → text) while keeping every Markdown feature. See [Raw HTML](#raw-html). |
 | `partials`        | `Record<string, string>`                      | Named markdown [partials](/docs/partials) spliced in at `::: include <name>` lines.     |
 
 ## `RenderResult`
@@ -284,23 +284,21 @@ import { escapeHtml, escapeAttrValue, isCssColor, isCssLength, isSafeUrl } from 
 - **`isCssLength(value)`**: 1–4 CSS length tokens (e.g. `8px 16px`), or template token
 - **`isSafeUrl(value)`**: no scheme, a safe scheme (`http`, `https`, `mailto`, `tel`), or template token
 
-## Untrusted content
+## Raw HTML
 
-By default (`html: true`) raw HTML in the Markdown source passes through verbatim —
-`<span style="…">`, `<div>`, and inline formatting tags all render as written. This
-is convenient for templates you control.
+By default (`allowHtml: true`) raw HTML in the Markdown source passes through verbatim: `<span style="…">`, `<div>`, and inline tags like `<u>` all render as written. This is convenient for templates you control.
 
-When the Markdown comes from somewhere you do **not** control — user-generated
-campaign copy, a public submission, anything an end user can type — pass
-`html: false`:
+Set `allowHtml: false` to escape raw tags to text instead:
 
 ```typescript
-const { html } = await render(userMarkdown, { html: false });
+const { html } = await render(markdown, { allowHtml: false });
 ```
 
-With `html: false`, raw tags are escaped to text (`<script>alert(1)</script>` becomes
-the literal characters, not an element), which closes off HTML and script injection
-into the rendered email. Everything else is unaffected: headings, emphasis, links,
-lists, tables, images, emoji, directives (`::: callout`), and buttons all keep
-working, and `javascript:`/`data:` URLs in Markdown links are blocked whether or not
-this option is set.
+Now `<script>alert(1)</script>` renders as the literal characters rather than an element, while every Markdown feature (headings, emphasis, links, lists, tables, images, emoji, directives, buttons) keeps working. `javascript:`/`data:` URLs in Markdown links are blocked either way.
+
+`allowHtml: false` also closes the two other ways Markdown can emit markup:
+
+- **Attribute syntax.** The `{attr=…}` syntax attaches attributes to the generated element (`# Hi {onclick=…}` becomes `<h1 onclick="…">`). In this mode event handlers (`on*`), inline `style`, and `href`/`src` overrides with a `javascript:`/`data:` scheme are dropped. Harmless attributes (`class`, `id`, `data-*`, and emailmd's own `button`, `caption`, `width`, `align`) are kept, so buttons, captions, and classes still work.
+- **Template tags.** Raw HTML wrapped in a template tag (`{{<script>…</script>}}`) is escaped to text instead of spliced back verbatim. A legitimate template variable like `{{ profile_url }}` has no HTML-significant characters, so it stays unchanged.
+
+This is not a general HTML sanitizer. It prevents injection through emailmd's own syntax, but if your threat model demands high assurance, run the output through a dedicated sanitizer (tag/attribute allowlist) as a second layer.

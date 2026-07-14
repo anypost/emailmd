@@ -166,6 +166,33 @@ describe('cli', () => {
     });
   });
 
+  describe('--escape-html', () => {
+    it('passes raw HTML through by default', () => {
+      const { stdout, status } = run([], 'a <b onclick="alert(1)">x</b> c');
+      expect(status).toBe(0);
+      expect(stdout).toMatch(/<b onclick=/i);
+    });
+
+    it('escapes raw HTML and strips unsafe attributes with --escape-html', () => {
+      const { stdout, status } = run(['--escape-html'], 'a <b onclick="alert(1)">x</b> c');
+      expect(status).toBe(0);
+      expect(stdout).not.toMatch(/<b onclick=/i);
+      expect(stdout).toContain('&lt;b');
+    });
+
+    it('drops {attr=…} event handlers with --escape-html', () => {
+      const { stdout, status } = run(['--escape-html'], '# Hi {onmouseover=alert(1)}');
+      expect(status).toBe(0);
+      expect(stdout).not.toMatch(/<h1[^>]*onmouseover=/i);
+      expect(stdout).toMatch(/<h1[^>]*>Hi/);
+    });
+
+    it('is listed in --help', () => {
+      const { stdout } = run(['--help']);
+      expect(stdout).toContain('--escape-html');
+    });
+  });
+
   describe('--partials', () => {
     const PARTIALS_DIR = resolve(__dirname, 'fixtures/partials');
 

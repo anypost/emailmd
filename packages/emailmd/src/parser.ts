@@ -8,6 +8,7 @@ import sub from 'markdown-it-sub';
 import sup from 'markdown-it-sup';
 import { registerDirectives } from './directives/index.js';
 import { highlightCode } from './highlight.js';
+import { escapeHtml, isSafeUrl } from './sanitize.js';
 
 const md = new MarkdownIt({
   html: true,
@@ -44,6 +45,37 @@ md.core.ruler.push('neutralize_internal_markers', (state) => {
   return true;
 });
 
+// When rendering untrusted input (`allowHtml: false`, surfaced here as
+// `state.env.escapeRawHtml`), markdown-it's raw-HTML lexer is off — but the
+// `{key=value}` attribute syntax (markdown-it-attrs) still attaches arbitrary
+// attributes to the *generated* elements, which is a second way to inject live
+// markup: `# Hi {onclick=…}` → `<h1 onclick="…">`. This rule runs after
+// curly_attributes and drops the attributes that are actually HTML sinks —
+// event handlers (`on*`), inline `style`, and `href`/`src` carrying an unsafe
+// scheme — while leaving emailmd's own attrs (button, caption, width, class,
+// id, …) and everything the author writes in trusted mode untouched.
+interface AttrToken {
+  attrs: [string, string][] | null;
+  children: AttrToken[] | null;
+}
+function sanitizeAttrs(tokens: AttrToken[]): void {
+  for (const token of tokens) {
+    if (token.attrs) {
+      token.attrs = token.attrs.filter(([name, value]) => {
+        const n = name.toLowerCase();
+        if (n.startsWith('on') || n === 'style') return false;
+        if ((n === 'href' || n === 'src' || n === 'xlink:href') && !isSafeUrl(value)) return false;
+        return true;
+      });
+    }
+    if (token.children) sanitizeAttrs(token.children);
+  }
+}
+md.core.ruler.push('sanitize_attrs', (state) => {
+  if (state.env?.escapeRawHtml) sanitizeAttrs(state.tokens);
+  return true;
+});
+
 // Matches template tags that should pass through markdown-it untouched.
 // Matches template tags that could break markdown-it link/URL parsing.
 // Excludes ERB/EJS (<% %>) since markdown-it HTML-encodes those safely.
@@ -71,10 +103,23 @@ function shieldTemplateTags(input: string): { text: string; tags: string[]; pref
   return { text, tags, prefix };
 }
 
-function restoreTemplateTags(html: string, tags: string[], prefix: string): string {
+function restoreTemplateTags(
+  html: string,
+  tags: string[],
+  prefix: string,
+  escape: boolean,
+): string {
   if (tags.length === 0) return html;
   const re = new RegExp(`${prefix}(\\d+)ENDTPL`, 'g');
-  return html.replace(re, (_, idx) => tags[parseInt(idx, 10)] ?? _);
+  return html.replace(re, (_, idx) => {
+    const tag = tags[parseInt(idx, 10)] ?? _;
+    // Template tags are pulled out before markdown-it runs and spliced back
+    // verbatim, so raw HTML inside them (`{{<script>…}}`) would otherwise dodge
+    // `allowHtml: false`. In untrusted mode, escape the restored tag to visible
+    // text. Legitimate tags (`{{ name }}`) have no HTML-significant characters,
+    // so escaping is a no-op for them.
+    return escape ? escapeHtml(tag) : tag;
+  });
 }
 
 export interface ParseOptions {
@@ -83,7 +128,7 @@ export interface ParseOptions {
   /**
    * Allow raw HTML in the Markdown source (markdown-it `html` mode). Default: `true`.
    * When `false`, raw tags are escaped to text instead of passed through — see the note
-   * on {@link RenderOptions.html}.
+   * on {@link RenderOptions.allowHtml}.
    */
   html?: boolean;
 }
@@ -91,10 +136,13 @@ export interface ParseOptions {
 export function parseMarkdown(markdown: string, options?: ParseOptions): string {
   // The instance is a module-level singleton, so set the options every call
   // rather than only when enabled.
-  md.set({ breaks: options?.breaks ?? false, html: options?.html ?? true });
+  const allowHtml = options?.html ?? true;
+  md.set({ breaks: options?.breaks ?? false, html: allowHtml });
   const { text: shielded, tags, prefix } = shieldTemplateTags(markdown);
-  let html = md.render(shielded);
-  html = restoreTemplateTags(html, tags, prefix);
+  // In untrusted mode, `escapeRawHtml` drives the attribute-sanitizing core
+  // rule and the template-tag escaping below.
+  let html = md.render(shielded, { escapeRawHtml: !allowHtml });
+  html = restoreTemplateTags(html, tags, prefix, !allowHtml);
 
   // Replace <input> checkboxes with Unicode characters for email safety
   // (email clients strip <input> elements)

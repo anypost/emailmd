@@ -4,10 +4,10 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.8.0] — 2026-07-14
 
 ### Added
-- **`html` render option** for rendering Markdown from untrusted sources. Defaults to `true`, preserving the current behaviour (raw HTML passes through). Set `html: false` and raw tags are escaped to text (`<script>` → `&lt;script&gt;`), closing off HTML/script injection into the email while every Markdown feature — headings, links, tables, images, emoji, directives, buttons — keeps working, and `javascript:`/`data:` URLs stay blocked.
+- **`allowHtml` render option** for rendering Markdown from untrusted sources. Defaults to `true` (raw HTML passes through). Set `allowHtml: false` and raw tags are escaped to text (`<script>` → `&lt;script&gt;`) and `javascript:`/`data:` URLs stay blocked. In this mode the two non-passthrough injection paths are closed too: the `{attr=…}` attribute syntax drops event handlers (`on*`), inline `style`, and `javascript:`/`data:` URL overrides (keeping `class`, `id`, `data-*`, and emailmd's own attrs), and raw HTML inside template tags (`{{…}}`, `${…}`) is escaped instead of restored verbatim. Not a general HTML sanitizer. Layer a dedicated sanitizer for high-assurance threat models. Also available as the CLI flag `--escape-html`.
 
 ## [0.7.3] — 2026-07-05
 
