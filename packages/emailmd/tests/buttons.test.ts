@@ -336,4 +336,9 @@ describe('button fallback', async () => {
     // The button font size follows the body scale, so a smaller theme shrinks the button too.
     expect(html).toContain('font-size:13px;font-weight:600');
   });
+
+  it('exposes the button as .emd-btn so its styles are reachable from `css`', async () => {
+    const { html } = await render('[Go](https://example.com){button}');
+    expect(html).toContain('emd-btn');
+  });
 });

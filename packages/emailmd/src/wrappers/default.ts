@@ -4,7 +4,7 @@ import type { WrapperMeta } from '../mjml.js';
 import { buildHead, segmentsToMjml } from '../mjml.js';
 
 export function defaultWrapper(segments: Segment[], theme: Theme, meta?: WrapperMeta): string {
-  const head = buildHead(theme, meta?.preheader, meta?.darkTheme, meta?.dir);
+  const head = buildHead(theme, meta?.preheader, meta?.darkTheme, meta?.dir, meta?.css);
   const body = segmentsToMjml(segments, theme, { strings: meta?.strings, warnings: meta?.warnings, dir: meta?.dir });
 
   const langAttr = meta?.lang ? ` lang="${meta.lang}"` : '';

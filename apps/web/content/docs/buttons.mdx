@@ -69,6 +69,18 @@ To change the default border radius for all buttons (and callouts/highlights), s
 
 Buttons take their font size from the theme's `fontSize`, so they scale with the body text — a smaller `fontSize` gives a smaller button.
 
+## Styling
+
+Every button carries the class `emd-btn`, so you can reach properties that have no dedicated option (weight, padding, …) through the [`css`](/docs/api-reference#renderoptions) render option:
+
+```typescript
+await render(md, {
+  css: '.emd-btn a { font-weight: 400 !important }',
+});
+```
+
+The `!important` is needed because the button's own styles are inline. Because this relies on an embedded `<style>`, treat it as progressive enhancement: clients that don't honour those keep the built-in styling.
+
 ## Button Fallback
 
 Add a fallback URL below a button for accessibility. Some email clients block or strip buttons, so providing the raw URL ensures recipients can still take action:

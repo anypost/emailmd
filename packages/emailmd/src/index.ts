@@ -83,6 +83,14 @@ export interface RenderOptions {
    */
   allowHtml?: boolean;
   /**
+   * Custom CSS, emitted as one extra `<mj-style>` in the head after the built-in
+   * styles so it can override them. Use it to reach classes the renderer exposes
+   * (e.g. `.emd-btn` on buttons) without replacing the wrapper. Inline styles still
+   * win, so target those with `!important`; and since it is an embedded `<style>`,
+   * treat it as progressive enhancement — not every email client honours those.
+   */
+  css?: string;
+  /**
    * Named markdown partials spliced in wherever the document says
    * `::: include <name>`. Parameters on the include line (`key="value"`)
    * fill `{{key}}` placeholders inside the partial; tokens for keys that
@@ -291,6 +299,7 @@ export async function render(markdown: string, options?: RenderOptions): Promise
     darkTheme: darkThemeResolved,
     lang,
     dir,
+    css: options?.css,
   };
 
   const frontmatterFonts = frontmatterToFonts(meta);
