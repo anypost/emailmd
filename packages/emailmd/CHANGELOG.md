@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] — 2026-07-15
+
+### Added
+- **`css` render option** for custom styles, emitted as one extra `<mj-style>` in the head after the built-in styles so it can override them. Buttons now carry the class `emd-btn`, so their styles (weight, padding, and anything else with no dedicated option) are reachable through this hook without replacing the wrapper. Inline styles still win, so target them with `!important`, and since it lands as an embedded `<style>` treat it as progressive enhancement. The string is emitted verbatim and is trusted developer input, not a place for end-user-controlled CSS.
+
+### Fixed
+- **Buttons now take their font size from `theme.fontSize`** instead of a hardcoded `16px`, so they scale with the body text when the theme is sized down. Default output is unchanged (the default `fontSize` is `16px`).
+
 ## [0.8.0] — 2026-07-14
 
 ### Added

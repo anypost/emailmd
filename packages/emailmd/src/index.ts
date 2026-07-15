@@ -88,6 +88,9 @@ export interface RenderOptions {
    * (e.g. `.emd-btn` on buttons) without replacing the wrapper. Inline styles still
    * win, so target those with `!important`; and since it is an embedded `<style>`,
    * treat it as progressive enhancement — not every email client honours those.
+   *
+   * This is trusted developer input: the string is emitted verbatim, so a `</style>`
+   * in it breaks out of the block. Do not pass end-user-controlled CSS here.
    */
   css?: string;
   /**
