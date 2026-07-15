@@ -309,7 +309,7 @@ function renderEmbeddedButtons(buttons: Array<Record<string, string>>, theme: Th
     const isFullWidth = attrs.width === 'full';
     const widthAttr = isFullWidth ? ' width="100%"' : '';
     const borderRadius = resolveLength(attrs['border-radius'], theme.borderRadius, ctx, 'button border-radius');
-    return `<mj-button background-color="${bgColor}" color="${textColor}" font-size="16px" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>`;
+    return `<mj-button background-color="${bgColor}" color="${textColor}" font-size="${theme.fontSize}" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>`;
   }).join('\n        ');
 }
 
@@ -538,7 +538,7 @@ function renderButtonSegment(segment: Segment, theme: Theme, ctx?: SegmentContex
 
   let mjml = `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
       <mj-column>
-        <mj-button background-color="${bgColor}" color="${textColor}" font-size="16px" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>
+        <mj-button background-color="${bgColor}" color="${textColor}" font-size="${theme.fontSize}" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>
       </mj-column>
     </mj-section>`;
 
@@ -555,7 +555,7 @@ function renderButtonGroupSegment(segment: Segment, theme: Theme, ctx?: SegmentC
     const borderRadius = resolveLength(attrs['border-radius'], theme.borderRadius, ctx, 'button border-radius');
 
     return `<mj-column>
-        <mj-button background-color="${bgColor}" color="${textColor}" font-size="16px" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px" padding="10px 0"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>
+        <mj-button background-color="${bgColor}" color="${textColor}" font-size="${theme.fontSize}" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px" padding="10px 0"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>
       </mj-column>`;
   }).join('\n      ');
 
@@ -885,7 +885,7 @@ function renderCellButton(attrs: Record<string, string>, theme: Theme, ctx?: Seg
   const widthAttr = attrs.width === 'full' ? ' width="100%"' : '';
   const borderRadius = resolveLength(attrs['border-radius'], theme.borderRadius, ctx, 'button border-radius');
   const alignAttr = cellAlign ? ` align="${cellAlign}"` : '';
-  return `<mj-button padding="8px 0"${alignAttr} background-color="${bgColor}" color="${textColor}" font-size="16px" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>`;
+  return `<mj-button padding="8px 0"${alignAttr} background-color="${bgColor}" color="${textColor}" font-size="${theme.fontSize}" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>`;
 }
 
 function renderCellSegments(cell: ColumnCell, theme: Theme, ctx?: SegmentContext, card = false): string {

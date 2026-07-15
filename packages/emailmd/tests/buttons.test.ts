@@ -330,4 +330,10 @@ describe('button fallback', async () => {
     const { text } = await render('[Reset](https://example.com/reset){button fallback}');
     expect(text).toContain('Reset: https://example.com/reset');
   });
+
+  it('sizes the button from theme.fontSize rather than a fixed size', async () => {
+    const { html } = await render('[Go](https://example.com){button}', { theme: { fontSize: '13px' } });
+    // The button font size follows the body scale, so a smaller theme shrinks the button too.
+    expect(html).toContain('font-size:13px;font-weight:600');
+  });
 });
