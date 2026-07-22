@@ -65,9 +65,23 @@ npm install @emailmd/react emailmd
 - [Templates](https://www.emailmd.dev/templates) — ready-made email templates you can copy and customize
 - [Builder](https://www.emailmd.dev/builder) — live editor to write and preview emails in your browser
 
+## MCP
+
+emailmd ships a [Model Context Protocol](https://modelcontextprotocol.io) server, so an AI assistant can render, lint, and preview emails for you. It exposes three tools — `render` (markdown to email-safe HTML), `lint` (flag deliverability problems without rendering), and `read_docs` (look up emailmd syntax) — over either transport:
+
+```bash
+# Hosted (Streamable HTTP)
+https://www.emailmd.dev/api/mcp
+
+# Or run it locally over stdio
+npx emailmd mcp
+```
+
+Published to the official MCP registry as `dev.emailmd/emailmd`. See the [MCP docs](https://www.emailmd.dev/docs/mcp) for per-client setup.
+
 ## AI
 
-emailmd is just markdown, so AI is great at writing templates. Feed the full docs to your AI tool:
+Prefer plain context over tools? emailmd is just markdown, so AI is great at writing templates. Feed the full docs to your AI tool:
 
 ```
 https://www.emailmd.dev/llms-full.txt
