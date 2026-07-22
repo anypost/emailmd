@@ -1,6 +1,6 @@
 {
   "name": "emailmd",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Turn markdown into responsive, email-safe HTML that renders perfectly across every client.",
   "keywords": [
     "email",
@@ -23,6 +23,7 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "mcpName": "dev.emailmd/emailmd",
   "browser": {
     "mjml": "mjml-browser"
   },

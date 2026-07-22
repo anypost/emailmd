@@ -1,0 +1,27 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.emailmd/emailmd",
+  "title": "emailmd",
+  "description": "Render markdown into email-safe HTML, lint drafts for deliverability problems, and preview emails.",
+  "version": "0.9.1",
+  "repository": {
+    "url": "https://github.com/anypost/emailmd",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "emailmd",
+      "version": "0.9.1",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://www.emailmd.dev/api/mcp"
+    }
+  ]
+}
