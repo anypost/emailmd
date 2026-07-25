@@ -1,4 +1,5 @@
 import { source } from '@/lib/source';
+import { SITE_URL } from '@/lib/get-llm-text';
 
 export const revalidate = false;
 
@@ -13,7 +14,7 @@ export async function GET() {
     `## Docs (${pages.length} pages)`,
     '',
     ...pages.map(
-      (page) => `- [${page.data.title}](https://www.emailmd.dev${page.url})`,
+      (page) => `- [${page.data.title}](${SITE_URL}${page.url})`,
     ),
   ];
 
