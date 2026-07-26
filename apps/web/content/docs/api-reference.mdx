@@ -55,7 +55,7 @@ const { html, text, meta } = await render("# Hello");
 | `darkTheme`       | `true \| Partial<Theme>`                      | Opt into [automatic dark mode](/docs/theme#automatic-dark-mode). `true` = built-in dark palette; a partial theme merges over it. Overridden by a pinned frontmatter `theme: light`/`dark`. |
 | `breaks`          | `boolean`                                     | Render single newlines as `<br>`. Frontmatter `breaks:` wins per document. Default `false`. |
 | `allowHtml`       | `boolean`                                     | Allow raw HTML tags in the Markdown source. Default `true` (raw tags pass through). Set `false` to escape raw tags (`<script>` → text) while keeping every Markdown feature. See [Raw HTML](#raw-html). |
-| `css`             | `string`                                      | Custom CSS emitted as one extra `<mj-style>` in the head, after the built-in styles so it can override them. Reaches renderer classes like `.emd-btn`. Inline styles still win, so use `!important`, and as an embedded `<style>` not every client honours it. Trusted developer input only, not end-user-controlled strings. |
+| `css`             | `string`                                      | Custom CSS emitted as one extra `<mj-style>` in the head, after the built-in styles so it can override them. Reaches renderer classes like `.emd-btn` (see [CSS Hooks](/docs/theme#css-hooks)). Inline styles still win, so use `!important`, and as an embedded `<style>` not every client honours it. Trusted developer input only, not end-user-controlled strings. |
 | `partials`        | `Record<string, string>`                      | Named markdown [partials](/docs/partials) spliced in at `::: include <name>` lines.     |
 
 ## `RenderResult`

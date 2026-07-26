@@ -72,7 +72,40 @@ This emits `color-scheme` meta tags, a `prefers-color-scheme: dark` media query,
 
 Dark mode is palette-based: custom per-block colors (`bg=`/`color=` on callouts and columns, divider colors) are normalized to the dark palette so text stays readable. To tune how a specific accent looks in dark mode, adjust the corresponding key in the `dark:` map rather than the block parameter.
 
-The overrides target stable `emd-*` CSS classes that emailmd emits on every render (`emd-root`, `emd-s`, `emd-bg`, `emd-card`, `emd-hl`, `emd-tbl`), which you can also target from a custom wrapper.
+The overrides target the stable `emd-*` classes below, which you can style yourself or reach from a custom wrapper.
+
+## CSS Hooks
+
+Every render emits the same `emd-*` classes, so the [`css`](/docs/api-reference#renderoptions) render option can reach what the theme keys don't:
+
+| Class | On |
+|-------|-----|
+| `emd-root` | Body |
+| `emd-s` | Every content section |
+| `emd-bg` | Sections painted with `contentColor` |
+| `emd-top` / `emd-bot` | First and last section of the content box |
+| `emd-hero` | Hero sections |
+| `emd-card` | Callout / column card backgrounds |
+| `emd-hl` | Highlight blocks |
+| `emd-tbl` | Tables |
+| `emd-btn` | Buttons |
+
+### Rounding the Content Box
+
+The content area is a stack of same-colored sections rather than one element, so `emd-top` and `emd-bot` mark its outer edges. They carry no styling of their own:
+
+```typescript
+const { html } = await render(markdown, {
+  css: `
+    .emd-top, .emd-top > table { border-top-left-radius: 12px; border-top-right-radius: 12px; }
+    .emd-bot, .emd-bot > table { border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }
+  `,
+});
+```
+
+Use the corner longhands rather than the `border-radius` shorthand — a short email is a single section carrying both classes, and two competing shorthands would leave one edge square — and style the section together with its child `table`, since MJML paints the background on both.
+
+`::: header` and `::: footer` bands sit on the outer background, outside the box; a hero at the top of the document counts as the top of it. Outlook desktop renders square corners.
 
 ## Web Fonts
 

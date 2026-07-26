@@ -1072,8 +1072,48 @@ function segmentToMjml(segment: Segment, theme: Theme, ctx?: SegmentContext): st
   }
 }
 
+/**
+ * Sections that make up the visible content box — the ones carrying a
+ * background of their own. Header and footer bands sit on the page background
+ * (`emd-s` alone) and stay outside it.
+ */
+const BOX_SECTION_RE = /<mj-section css-class="(?=[^"]*\bemd-(?:bg|hero)\b)[^"]*"/g;
+
+/**
+ * Tag the first and last section of the content box with `emd-top`/`emd-bot`.
+ *
+ * The box renders as a stack of same-colored sections, so there is no single
+ * element to style. These classes are a pure styling hook — no visual change on
+ * their own — letting the `css` render option round or pad the box as a whole:
+ *
+ * ```css
+ * .emd-top, .emd-top > table { border-top-left-radius: 12px; border-top-right-radius: 12px; }
+ * ```
+ *
+ * Corner longhands matter: a single-section document gets both classes, and
+ * competing `border-radius` shorthands would leave it square on one edge.
+ */
+function markBoxEdges(body: string): string {
+  const matches = [...body.matchAll(BOX_SECTION_RE)];
+  if (matches.length === 0) return body;
+
+  const first = matches[0];
+  const last = matches[matches.length - 1];
+  const edits = first === last
+    ? [{ match: first, extra: ' emd-top emd-bot' }]
+    : [{ match: first, extra: ' emd-top' }, { match: last, extra: ' emd-bot' }];
+
+  // Apply back to front so earlier insertions don't shift later offsets.
+  let out = body;
+  for (const { match, extra } of edits.reverse()) {
+    const closingQuote = match.index! + match[0].length - 1;
+    out = out.slice(0, closingQuote) + extra + out.slice(closingQuote);
+  }
+  return out;
+}
+
 export function segmentsToMjml(segments: Segment[], theme: Theme, ctx?: SegmentContext): string {
-  return segments.map((s) => segmentToMjml(s, theme, ctx)).join('\n    ');
+  return markBoxEdges(segments.map((s) => segmentToMjml(s, theme, ctx)).join('\n    '));
 }
 
 export interface MjmlRenderOptions {

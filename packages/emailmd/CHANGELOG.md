@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] — 2026-07-25
+
+### Added
+- **`emd-top` / `emd-bot` classes on the first and last section of the content box**, so the box can be styled as a whole through the `css` render option — rounded corners being the motivating case. Purely a styling hook: output is visually unchanged until you target them. The content area renders as a stack of same-colored sections, so use the corner longhands rather than the `border-radius` shorthand (a short email is a single section carrying both classes) and style the section and its child `table` together. `::: header` / `::: footer` bands sit on the outer background and stay outside the box; a hero at the top of the document counts as the top of it.
+
 ## [0.9.0] — 2026-07-15
 
 ### Added
