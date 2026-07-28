@@ -1,5 +1,7 @@
 # emailmd
 
+[![MCP Toplist](https://mcptoplist.com/badge/dev.emailmd%2Femailmd.svg)](https://mcptoplist.com/server/dev.emailmd%2Femailmd)
+
 ### Write markdown. Ship emails. No HTMHELL.
 
 emailmd converts markdown into responsive, email-safe HTML that works across Gmail, Outlook, Apple Mail, Yahoo, and every other client.
