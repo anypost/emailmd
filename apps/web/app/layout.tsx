@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Geist_Mono, Audiowide } from "next/font/google";
 import { RootProvider } from "fumadocs-ui/provider/next";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
@@ -33,6 +34,8 @@ export default function RootLayout({
     >
       <body className={`${geistMono.variable} antialiased`}>
         <RootProvider>{children}</RootProvider>
+        {/* No-ops off Vercel and in dev; forks report to their own project. */}
+        <Analytics />
       </body>
     </html>
   );
