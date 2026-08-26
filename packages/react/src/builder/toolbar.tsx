@@ -441,6 +441,8 @@ export function Toolbar({ getView, value, onChange, onReset, lastSaved, items, e
               >
                 Accordion (FAQ)
               </MenuItem>
+              <MenuSeparator />
+              <MenuLabel>Charts &amp; Data</MenuLabel>
               <MenuItem
                 close={close}
                 onSelect={withView((v) =>
