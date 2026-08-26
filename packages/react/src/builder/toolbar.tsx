@@ -525,6 +525,18 @@ export function Toolbar({ getView, value, onChange, onReset, lastSaved, items, e
               >
                 Status tracker
               </MenuItem>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) =>
+                  insertBlock(
+                    v,
+                    '::: rating\n- Comfort: 4.5\n- Value for money: 3.5\n- Customer service: 5\n:::',
+                    'Comfort'
+                  )
+                )}
+              >
+                Rating
+              </MenuItem>
             </>
           )}
         </ToolbarMenu>

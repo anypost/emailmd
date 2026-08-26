@@ -10,6 +10,7 @@ import { parseProgress, type ProgressData } from './progress.js';
 import { parseSparkline } from './sparkline.js';
 import { parseStats, defaultStatColumns, type StatItem } from './stats.js';
 import { parseSteps, type StepItem } from './steps.js';
+import { parseRating, ratingIcons, RATING_ICONS, type RatingItem } from './rating.js';
 
 /**
  * Overridable output strings, for localization.
@@ -228,6 +229,11 @@ function buildDarkModeStyles(dark: Theme): string {
     ['.emd-step-title-themed', `color: ${dark.headingColor} !important;`],
     ['.emd-step-muted, .emd-step-desc', `color: ${dark.bodyColor} !important;`],
     ['.emd-steps a', `color: ${dark.brandColor} !important;`],
+    ['.emd-rating-on-themed', `color: ${dark.warningColor} !important;`],
+    ['.emd-rating-off-themed', `color: ${dark.bodyColor} !important;`],
+    ['.emd-rating-half-themed', `color: ${halfLitColor(dark.warningColor, dark.contentColor)} !important;`],
+    ['.emd-rating-label', `color: ${dark.bodyColor} !important;`],
+    ['.emd-rating-value', `color: ${dark.headingColor} !important;`],
     ...codeTokenRules(codePaletteFor(dark.cardColor), true),
   ];
 
@@ -1590,6 +1596,195 @@ function renderStepsSegment(segment: Segment, theme: Theme, ctx?: SegmentContext
     </mj-section>`;
 }
 
+/** Gap between glyphs, as a fraction of the glyph's own size. */
+const RATING_GAP_RATIO = 0.14;
+
+const HEX_RE = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+/** Expand `#abc` to `#aabbcc` so both forms mix the same way. */
+function hexChannels(color: string): [number, number, number] | null {
+  if (!HEX_RE.test(color)) return null;
+  const hex = color.slice(1);
+  const full = hex.length === 3 ? hex.replace(/./g, (c) => c + c) : hex;
+  return [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16)) as [number, number, number];
+}
+
+/**
+ * The color a half-lit glyph is drawn in: the lit color, half faded into the
+ * page behind it.
+ *
+ * A glyph cannot be cut down the middle — an email client that would honour
+ * `overflow` on half a character is not one worth designing for — so half a
+ * score is drawn as a whole glyph at half the strength. Fading toward the page
+ * rather than toward the unlit color is what makes it read as a dimmer version
+ * of a lit glyph instead of a differently colored one. The mix needs both
+ * colors in hex; either written some other way (`rgb()`, a keyword) gives back
+ * null, and the caller falls back to a hollow glyph in the lit color.
+ */
+function halfLitColor(on: string, page: string): string | null {
+  const a = hexChannels(on);
+  const b = hexChannels(page);
+  if (!a || !b) return null;
+  const mixed = a.map((channel, i) => Math.round((channel + b[i]) / 2));
+  return `#${mixed.map((c) => c.toString(16).padStart(2, '0')).join('')}`;
+}
+
+interface RatingStyle {
+  /** Filled and hollow glyphs of the chosen icon. */
+  icons: readonly [string, string];
+  on: string;
+  off: string;
+  /** Null when the colors cannot be mixed; halves fall back to a hollow lit glyph. */
+  half: string | null;
+  /** Class hooks, empty for a color the author set — those keep it in dark mode. */
+  onClass: string;
+  offClass: string;
+  halfClass: string;
+  size: number;
+  gap: number;
+}
+
+/**
+ * One row of glyphs.
+ *
+ * Each glyph is its own cell rather than a run of characters in one, so the
+ * lit, half-lit and unlit parts of the row can be colored separately and the
+ * spacing between them comes from cell padding — letter-spacing is dropped by
+ * Outlook, which would close the row up into a solid block.
+ */
+function renderRatingGlyphs(item: RatingItem, max: number, style: RatingStyle, rtl: boolean): string {
+  const [filled, hollow] = style.icons;
+
+  const cells = Array.from({ length: max }, (_, i) => {
+    const remaining = item.lit - i;
+    const state = remaining >= 1 ? 'on' : remaining === 0.5 ? 'half' : 'off';
+    const glyph = state === 'off' || (state === 'half' && !style.half) ? hollow : filled;
+    const color = state === 'on' ? style.on
+      : state === 'half' ? (style.half ?? style.on)
+      : style.off;
+    const cls = state === 'on' ? style.onClass : state === 'half' ? style.halfClass : style.offClass;
+    const pad = i === max - 1 ? '0' : `0 ${style.gap}px 0 0`;
+    return `<td${cls}${` `}style="padding:${pad};font-size:${style.size}px;line-height:${style.size}px;color:${color};mso-line-height-rule:exactly;">${glyph}</td>`;
+  });
+
+  if (rtl) cells.reverse();
+  return `<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;"><tr>${cells.join('')}</tr></table>`;
+}
+
+/**
+ * A rating: a score drawn on a fixed scale, as one headline row or as a
+ * breakdown with a label against each.
+ *
+ * The glyphs are text, not images — a client that blocks images still shows
+ * the score — and they default to the theme's warning color, which is the
+ * amber both palettes share, so a star row looks the same in dark mode without
+ * anything having to flip.
+ */
+function renderRatingSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  const attrs = segment.attrs ?? {};
+  const data = parseRating(segment.content, attrs);
+
+  if (data.items.length === 0) {
+    warn(ctx, 'Rating block has no numeric score — rendering its content as regular text.');
+    return renderTextSegment(segment.content, theme);
+  }
+  for (const message of data.warnings) warn(ctx, message);
+  if (data.skipped > 0) {
+    warn(ctx, `${data.skipped} rating item${data.skipped === 1 ? '' : 's'} had no number and ${data.skipped === 1 ? 'was' : 'were'} skipped.`);
+  }
+
+  let icons = RATING_ICONS.star;
+  if (attrs.icon !== undefined) {
+    const chosen = ratingIcons(attrs.icon);
+    if (chosen) icons = chosen;
+    else warn(ctx, `Invalid icon "${attrs.icon}" for rating — expected ${Object.keys(RATING_ICONS).join(', ')}; using star.`);
+  }
+
+  const on = resolveColor(attrs.color, theme.warningColor, ctx, 'rating color');
+  const off = resolveColor(attrs.track, theme.bodyColor, ctx, 'rating track');
+
+  const base = parseInt(theme.fontSize, 10) || 16;
+  const size = resolveGlyphSize(attrs.size, Math.round(base * 1.25), ctx);
+
+  const style: RatingStyle = {
+    icons,
+    on,
+    off,
+    half: halfLitColor(on, theme.contentColor),
+    onClass: attrs.color ? '' : ' class="emd-rating-on-themed"',
+    offClass: attrs.track ? '' : ' class="emd-rating-off-themed"',
+    // A half glyph is the lit color faded, so it follows the dark palette on
+    // the same terms a lit one does.
+    halfClass: attrs.color ? '' : ' class="emd-rating-half-themed"',
+    size,
+    gap: Math.max(1, Math.round(size * RATING_GAP_RATIO)),
+  };
+
+  const rtl = ctx?.dir === 'rtl';
+  const align = resolveAlign(attrs.align, startAlign(ctx), ctx, 'rating align');
+  const labelled = data.items.some((item) => item.label);
+  const rowGap = Math.max(4, Math.round(size * 0.4));
+
+  // Space between the glyphs and the text either side of them. It is cell
+  // padding rather than a couple of spaces in the text, so it stays on the side
+  // facing the glyphs when the row is mirrored for a right-to-left document.
+  const textGap = Math.max(6, Math.round(size * 0.35));
+
+  const rows = data.items.map((item, i) => {
+    const bottom = i === data.items.length - 1 ? 0 : rowGap;
+    const labelPad = rtl ? `0 0 ${bottom}px ${textGap}px` : `0 ${textGap}px ${bottom}px 0`;
+    const valuePad = rtl ? `0 ${textGap}px ${bottom}px 0` : `0 0 ${bottom}px ${textGap}px`;
+    const cells: string[] = [];
+
+    if (labelled) {
+      cells.push(`<td class="emd-rating-label" align="${startAlign(ctx)}" valign="middle" style="padding:${labelPad};font-size:${theme.fontSize};line-height:1.4;color:${theme.bodyColor};white-space:nowrap;">${escapeAttrValue(item.label)}</td>`);
+    }
+    cells.push(`<td valign="middle" style="padding:0 0 ${bottom}px 0;">${renderRatingGlyphs(item, data.max, style, rtl)}</td>`);
+    if (data.showValues) {
+      cells.push(`<td class="emd-rating-value" valign="middle" style="padding:${valuePad};font-size:${theme.fontSize};line-height:1.4;font-weight:700;color:${theme.headingColor};white-space:nowrap;">${escapeAttrValue(item.display)}</td>`);
+    }
+    // The glyphs sit next to their number rather than at opposite edges of the
+    // row, so the two read as one thing; a slack cell soaks up the rest of the
+    // width and decides which edge the group is pushed to.
+    const slack = (width: number) => `<td width="${width}%" style="width:${width}%;font-size:0;line-height:0;">&#160;</td>`;
+    if (align === 'right') cells.unshift(slack(100));
+    // Centring takes two slack cells of equal share: both asking for the whole
+    // width leaves it to the client to decide how to split what is left over.
+    else if (align === 'center') { cells.unshift(slack(50)); cells.push(slack(50)); }
+    else cells.push(slack(100));
+
+    if (rtl) cells.reverse();
+    return `<tr>${cells.join('')}</tr>`;
+  });
+
+  const introMjml = data.intro.trim()
+    ? `<mj-text padding="0 0 8px" font-size="${theme.fontSize}" color="${theme.bodyColor}" line-height="${theme.lineHeight}">${processInlineImages(data.intro)}</mj-text>
+        `
+    : '';
+  const restMjml = data.rest.trim()
+    ? `
+        <mj-text padding="8px 0 0" font-size="${theme.fontSize}" color="${theme.bodyColor}" line-height="${theme.lineHeight}">${processInlineImages(data.rest)}</mj-text>`
+    : '';
+
+  return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
+      <mj-column>
+        ${introMjml}<mj-table css-class="emd-rating" role="presentation" cellpadding="0" cellspacing="0" width="100%" padding="4px 0" font-family="${theme.fontFamily}">
+          ${rows.join('\n          ')}
+        </mj-table>${restMjml}
+      </mj-column>
+    </mj-section>`;
+}
+
+/** Read a glyph size, which may be written bare or with a unit. */
+function resolveGlyphSize(value: string | undefined, fallback: number, ctx: SegmentContext | undefined): number {
+  if (value === undefined) return fallback;
+  const raw = value.replace(/px$/, '').trim();
+  const size = /^\d+$/.test(raw) ? parseInt(raw, 10) : NaN;
+  if (size >= 10 && size <= 64) return size;
+  warn(ctx, `Invalid size "${value}" for rating — expected a whole number of pixels from 10 to 64; using ${fallback}.`);
+  return fallback;
+}
+
 function styleTableHtml(html: string, theme: Theme): string {
   let tableHtml = html;
 
@@ -1949,6 +2144,8 @@ function segmentToMjml(segment: Segment, theme: Theme, ctx?: SegmentContext): st
       return renderStatsSegment(segment, theme, ctx);
     case 'steps':
       return renderStepsSegment(segment, theme, ctx);
+    case 'rating':
+      return renderRatingSegment(segment, theme, ctx);
   }
 }
 

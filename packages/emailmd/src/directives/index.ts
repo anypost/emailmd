@@ -15,6 +15,7 @@ import { registerProgress } from './progress.js';
 import { registerSparkline } from './sparkline.js';
 import { registerStats } from './stats.js';
 import { registerSteps } from './steps.js';
+import { registerRating } from './rating.js';
 
 export function registerDirectives(md: MarkdownIt): void {
   registerCallout(md);
@@ -33,4 +34,5 @@ export function registerDirectives(md: MarkdownIt): void {
   registerSparkline(md);
   registerStats(md);
   registerSteps(md);
+  registerRating(md);
 }

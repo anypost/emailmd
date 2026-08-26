@@ -14,11 +14,12 @@ import {
   MARKER_SPARKLINE_CLOSE,
   MARKER_STATS_CLOSE,
   MARKER_STEPS_CLOSE,
+  MARKER_RATING_CLOSE,
 } from './constants.js';
 import type { RenderWarning } from './warnings.js';
 
 export type SegmentType = 'text' | 'callout' | 'centered' | 'highlight' | 'header' | 'footer' | 'button' | 'button-group' | 'image' | 'hr' | 'table' | 'hero' | 'columns' | 'spacer' | 'social' | 'accordion' | 'chart'
-  | 'progress' | 'sparkline' | 'stats' | 'steps';
+  | 'progress' | 'sparkline' | 'stats' | 'steps' | 'rating';
 
 /** One cell of a `columns` segment. Cell content is itself segmented. */
 export interface ColumnCell {
@@ -57,6 +58,7 @@ const PARAMETERIZED_DIRECTIVES: Array<{
   { re: /<!--EMAILMD:SPARKLINE_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'sparkline', close: MARKER_SPARKLINE_CLOSE },
   { re: /<!--EMAILMD:STATS_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'stats', close: MARKER_STATS_CLOSE },
   { re: /<!--EMAILMD:STEPS_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'steps', close: MARKER_STEPS_CLOSE },
+  { re: /<!--EMAILMD:RATING_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'rating', close: MARKER_RATING_CLOSE },
 ];
 
 function parseMarkerAttrs(attrString: string): Record<string, string> {

@@ -20,6 +20,7 @@ export const MARKER_PROGRESS_CLOSE = '<!--EMAILMD:PROGRESS_CLOSE-->';
 export const MARKER_SPARKLINE_CLOSE = '<!--EMAILMD:SPARKLINE_CLOSE-->';
 export const MARKER_STATS_CLOSE = '<!--EMAILMD:STATS_CLOSE-->';
 export const MARKER_STEPS_CLOSE = '<!--EMAILMD:STEPS_CLOSE-->';
+export const MARKER_RATING_CLOSE = '<!--EMAILMD:RATING_CLOSE-->';
 
 /**
  * A table header row whose cells are all empty (`| | |`) opts the table out of

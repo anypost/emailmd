@@ -13,6 +13,7 @@ import { parseProgress, type ProgressData } from './progress.js';
 import { parseSparkline } from './sparkline.js';
 import { parseStats } from './stats.js';
 import { parseSteps, type StepState } from './steps.js';
+import { parseRating, ratingIcons, RATING_ICONS } from './rating.js';
 
 /**
  * Convert rendered HTML (with directive markers) into a plain text email body.
@@ -77,6 +78,12 @@ export function toPlainText(html: string): string {
   text = text.replace(
     /<!--EMAILMD:STEPS_OPEN((?:\s+[\w-]+="[^"]*")*)-->([\s\S]*?)<!--EMAILMD:STEPS_CLOSE-->/g,
     (_, attrString: string, inner: string) => stepsToText(inner, attrString),
+  );
+
+  // Ratings keep their glyphs, which are the same characters the HTML draws
+  text = text.replace(
+    /<!--EMAILMD:RATING_OPEN((?:\s+[\w-]+="[^"]*")*)-->([\s\S]*?)<!--EMAILMD:RATING_CLOSE-->/g,
+    (_, attrString: string, inner: string) => ratingToText(inner, attrString),
   );
 
   // Convert buttons: <p><a href="url" button="">Text</a></p> → Text: url
@@ -323,6 +330,35 @@ function statsToText(inner: string, attrString: string): string {
   });
 
   return `${intro}\n${lines.join('\n')}\n`;
+}
+
+/**
+ * Render a rating block as the same glyphs the HTML draws.
+ *
+ * The glyphs are plain characters either way, so the text part loses nothing
+ * but the color — except at a half, which a character cannot express: the row
+ * rounds down and the readout beside it carries the fraction, spelled `4.5 / 5`
+ * so the scale is not left to be counted.
+ */
+function ratingToText(inner: string, attrString: string): string {
+  const data = parseRating(inner, markerAttrs(attrString));
+  if (data.items.length === 0) return inner;
+
+  const attrs = markerAttrs(attrString);
+  const [filled, hollow] = ratingIcons(attrs.icon) ?? RATING_ICONS.star;
+
+  const labels = data.items.map((item) => decodeEntities(item.label));
+  const labelWidth = Math.max(...labels.map((l) => l.length));
+
+  const lines = data.items.map((item, i) => {
+    const lit = Math.floor(item.lit);
+    const glyphs = filled.repeat(lit) + hollow.repeat(data.max - lit);
+    const readout = data.showValues ? `  ${decodeEntities(item.display)} / ${data.max}` : '';
+    const label = labelWidth > 0 ? `${labels[i].padEnd(labelWidth)}  ` : '';
+    return `${label}${glyphs}${readout}`;
+  });
+
+  return `${data.intro}\n${lines.join('\n')}\n${data.rest}`;
 }
 
 /** How a tracker's stops are marked in a text part. */
