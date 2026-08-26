@@ -17,6 +17,7 @@ export const MARKER_SOCIAL_CLOSE = '<!--EMAILMD:SOCIAL_CLOSE-->';
 export const MARKER_ACCORDION_CLOSE = '<!--EMAILMD:ACCORDION_CLOSE-->';
 export const MARKER_CHART_CLOSE = '<!--EMAILMD:CHART_CLOSE-->';
 export const MARKER_PROGRESS_CLOSE = '<!--EMAILMD:PROGRESS_CLOSE-->';
+export const MARKER_SPARKLINE_CLOSE = '<!--EMAILMD:SPARKLINE_CLOSE-->';
 
 /**
  * A table header row whose cells are all empty (`| | |`) opts the table out of

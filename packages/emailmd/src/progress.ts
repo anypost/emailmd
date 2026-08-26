@@ -8,13 +8,10 @@
  * its readout says.
  */
 
-import { parseLabelValue, parseNumber, barPercent, stripTags } from './bar.js';
+import { parseLabelValue, parseNumber, barPercent, splitValueLine } from './bar.js';
 
 /** Past this, segments are too thin to read in an email client. */
 export const MAX_PROGRESS_STEPS = 12;
-
-/** The paragraph carrying the value; anything after it renders below the bar. */
-const VALUE_PARAGRAPH_RE = /<p>([\s\S]*?)<\/p>/;
 
 export interface ProgressData {
   /** Text before the value, shown beside the readout. Empty for a bare value. */
@@ -43,19 +40,9 @@ export function parseProgress(
   content: string,
   attrs: Record<string, string | undefined> = {},
 ): ProgressData | null {
-  const paragraph = VALUE_PARAGRAPH_RE.exec(content);
-  const inner = paragraph ? paragraph[1] : content;
-
-  // Only the first line of that paragraph is the value; a soft-wrapped
-  // sentence under it is commentary and belongs below the bar.
-  const wrap = inner.indexOf('\n');
-  const parsed = parseLabelValue(stripTags(wrap === -1 ? inner : inner.slice(0, wrap)));
+  const { line, rest } = splitValueLine(content);
+  const parsed = parseLabelValue(line);
   if (!parsed) return null;
-
-  const trailing = wrap === -1 ? '' : `<p>${inner.slice(wrap + 1)}</p>`;
-  const rest = paragraph
-    ? content.slice(0, paragraph.index) + trailing + content.slice(paragraph.index + paragraph[0].length)
-    : '';
 
   const warnings: string[] = [];
 

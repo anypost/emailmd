@@ -10,6 +10,7 @@ import {
 import { parseChart, resolveChartMax } from './chart.js';
 import { barPercent, parseNumber } from './bar.js';
 import { parseProgress, type ProgressData } from './progress.js';
+import { parseSparkline, TREND_ARROWS } from './sparkline.js';
 
 /**
  * Convert rendered HTML (with directive markers) into a plain text email body.
@@ -53,6 +54,13 @@ export function toPlainText(html: string): string {
   text = text.replace(
     /<!--EMAILMD:PROGRESS_OPEN((?:\s+[\w-]+="[^"]*")*)-->([\s\S]*?)<!--EMAILMD:PROGRESS_CLOSE-->/g,
     (_, attrString: string, inner: string) => progressToText(inner, attrString),
+  );
+
+  // Sparklines keep their shape as block characters; `trend` blocks share the
+  // marker and come through as their readout alone.
+  text = text.replace(
+    /<!--EMAILMD:SPARKLINE_OPEN((?:\s+[\w-]+="[^"]*")*)-->([\s\S]*?)<!--EMAILMD:SPARKLINE_CLOSE-->/g,
+    (_, attrString: string, inner: string) => sparklineToText(inner, attrString),
   );
 
   // Convert buttons: <p><a href="url" button="">Text</a></p> → Text: url
@@ -237,6 +245,36 @@ function continuousTextBar(pct: number): string {
 function steppedTextBar(data: ProgressData): string {
   const width = Math.max(2, Math.floor(TEXT_BAR_WIDTH / data.steps));
   return Array.from({ length: data.steps }, (_, i) => (i < data.filled ? '█' : '░').repeat(width)).join(' ');
+}
+
+/** Eight column heights, from a baseline tick to a full column. */
+const SPARK_LEVELS = '▁▂▃▄▅▆▇█';
+
+/**
+ * Render a sparkline as block characters, so the shape of the series survives
+ * the text part instead of flattening to a row of numbers. A `trend` block has
+ * no columns to draw, so it comes through as a single readout line.
+ */
+function sparklineToText(inner: string, attrString: string): string {
+  const data = parseSparkline(inner, markerAttrs(attrString));
+  if (!data) return inner;
+
+  const label = decodeEntities(data.label);
+  const readout = data.showValues
+    ? `${decodeEntities(data.latest)}  ${TREND_ARROWS[data.direction]} ${data.delta}`
+    : '';
+
+  if (data.bare) {
+    return `${[label, readout].filter(Boolean).join('  ')}\n${data.rest}`;
+  }
+
+  const spark = data.heights
+    .map((pct) => SPARK_LEVELS[Math.max(0, Math.min(7, Math.round((pct / 100) * 7)))])
+    .join('');
+  const line = readout ? `${spark}  ${readout}` : spark;
+
+  // Label above, readout closing the line — the same shape progress draws.
+  return `${label ? `${label}\n` : ''}${line}\n${data.rest}`;
 }
 
 function convertLists(html: string): string {

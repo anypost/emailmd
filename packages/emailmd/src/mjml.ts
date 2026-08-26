@@ -7,6 +7,7 @@ import { EMPTY_TABLE_HEADER_RE } from './constants.js';
 import { parseChart, resolveChartMax } from './chart.js';
 import { barPercent } from './bar.js';
 import { parseProgress, type ProgressData } from './progress.js';
+import { parseSparkline, TREND_ARROWS } from './sparkline.js';
 
 /**
  * Overridable output strings, for localization.
@@ -192,6 +193,7 @@ function buildDarkModeStyles(dark: Theme): string {
     ['.emd-chart-track-themed', `background-color: ${dark.cardColor} !important;`],
     ['.emd-progress-bar-themed', `background-color: ${dark.brandColor} !important;`],
     ['.emd-progress-track-themed', `background-color: ${dark.cardColor} !important;`],
+    ['.emd-sparkline-bar-themed', `background-color: ${dark.brandColor} !important;`],
   ];
   const colorRules: CssRule[] = [
     ['.emd-s div', `color: ${dark.bodyColor} !important;`],
@@ -209,6 +211,9 @@ function buildDarkModeStyles(dark: Theme): string {
     ['.emd-chart-value', `color: ${dark.headingColor} !important;`],
     ['.emd-progress-label', `color: ${dark.bodyColor} !important;`],
     ['.emd-progress-value', `color: ${dark.headingColor} !important;`],
+    ['.emd-sparkline-label', `color: ${dark.bodyColor} !important;`],
+    ['.emd-sparkline-value', `color: ${dark.headingColor} !important;`],
+    ['.emd-sparkline-delta-themed', `color: ${dark.bodyColor} !important;`],
     ...codeTokenRules(codePaletteFor(dark.cardColor), true),
   ];
 
@@ -972,6 +977,244 @@ function renderProgressSegment(segment: Segment, theme: Theme, ctx?: SegmentCont
     </mj-section>`;
 }
 
+/** Plot height of a sparkline, in pixels. */
+const SPARKLINE_HEIGHT = 36;
+
+/** Shortest column drawn, so a zero point still marks the baseline. */
+const MIN_COLUMN_PX = 2;
+
+/** Widest a single column is drawn before the plot stops growing with it. */
+const MAX_COLUMN_PX = 18;
+
+/** Gap between columns; a dense series cannot spare the wider one. */
+function columnGap(count: number): number {
+  return count > 20 ? 1 : 2;
+}
+
+/**
+ * The plot width.
+ *
+ * Left to itself the plot grows with the series and stops: columns widen only
+ * to a point, so a seven-point sparkline reads as a sparkline instead of a
+ * wall of blocks stretched across the whole email, while a dense series still
+ * fills the width. `width` overrides, in pixels or as a percentage.
+ */
+function resolvePlotWidth(
+  raw: string | undefined,
+  count: number,
+  innerPx: number,
+  ctx?: SegmentContext,
+): string {
+  if (raw !== undefined) {
+    const value = raw.trim();
+    const pct = /^(\d{1,3})%$/.exec(value);
+    if (pct && Number(pct[1]) > 0 && Number(pct[1]) <= 100) return `${pct[1]}%`;
+    const px = /^(\d+)(?:px)?$/.exec(value);
+    if (px && Number(px[1]) >= 40 && Number(px[1]) <= innerPx) return `${px[1]}px`;
+    warn(ctx, `Invalid width "${raw}" for sparkline — expected a pixel width from 40 to ${innerPx}, or a percentage; sizing to the series.`);
+  }
+
+  const natural = count * MAX_COLUMN_PX + (count - 1) * columnGap(count);
+  return natural < innerPx ? `${natural}px` : '100%';
+}
+
+/**
+ * The sparkline plot height.
+ *
+ * Unlike the other block heights this one is arithmetic, not just a style —
+ * each column's fill and the space above it are computed from it — so it only
+ * takes a pixel count, and says so when handed anything else.
+ */
+function resolvePlotHeight(raw: string | undefined, ctx?: SegmentContext): number {
+  if (raw === undefined) return SPARKLINE_HEIGHT;
+  const px = /^(\d+)(?:px)?$/.exec(raw.trim());
+  if (px) {
+    const height = parseInt(px[1], 10);
+    if (height >= 8 && height <= 200) return height;
+  }
+  warn(ctx, `Invalid height "${raw}" for sparkline — expected a pixel height from 8 to 200; using ${SPARKLINE_HEIGHT}px.`);
+  return SPARKLINE_HEIGHT;
+}
+
+/**
+ * The columns of a sparkline: one fixed-width cell per point, each holding a
+ * spacer stacked on a colored fill, so every column ends on the same baseline
+ * without relying on vertical-align — which Outlook applies unevenly to cells
+ * of differing heights.
+ */
+function renderSparklineColumns(
+  heights: number[],
+  plotPx: number,
+  plotWidth: string,
+  radius: string,
+  fill: string,
+  fillClass: string,
+  trackColor: string,
+  trackClass: string,
+  rtl: boolean,
+): string {
+  const count = heights.length;
+  const width = Math.round((100 / count) * 100) / 100;
+  const gap = columnGap(count);
+  const topCorners = radius ? `${radius} ${radius} 0 0` : '';
+
+  const cells = Array.from({ length: count }, (_, position) => {
+    // The DOM stays left-to-right, so RTL walks the series backwards to put
+    // the oldest point on the right edge and read inward.
+    const pct = heights[rtl ? count - 1 - position : position];
+
+    // Every point draws at least a stub: the series reads as one continuous
+    // shape rather than breaking open wherever a value reaches zero.
+    const fillPx = Math.max(MIN_COLUMN_PX, Math.round((pct / 100) * plotPx));
+    const spacerPx = Math.max(0, plotPx - fillPx);
+
+    // Only the top of a column is rounded — they all stand on one baseline.
+    // Where a track covers that top, the fill's own top edge is interior.
+    const fillShape: BarShape = { height: `${fillPx}px`, heightAttr: ` height="${fillPx}"`, radius };
+    const fillCorners = spacerPx > 0 && trackColor ? '' : topCorners;
+
+    let rows = '';
+    if (spacerPx > 0) {
+      const spacerShape: BarShape = { height: `${spacerPx}px`, heightAttr: ` height="${spacerPx}"`, radius };
+      rows += trackColor
+        ? `<tr>${barCell(trackClass, trackColor, 100, topCorners, spacerShape)}</tr>`
+        : `<tr><td height="${spacerPx}" style="height:${spacerPx}px;line-height:${spacerPx}px;font-size:1px;">&nbsp;</td></tr>`;
+    }
+    rows += `<tr>${barCell(fillClass, fill, 100, fillCorners, fillShape)}</tr>`;
+
+    const pad = position === count - 1 ? '0' : `0 ${gap}px 0 0`;
+    return `<td width="${width}%" style="width:${width}%;padding:${pad};">`
+      + `<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="width:100%;border-collapse:separate;">${rows}</table>`
+      + `</td>`;
+  });
+
+  const widthAttr = plotWidth.endsWith('%') ? plotWidth : String(parseInt(plotWidth, 10));
+  return `<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="${widthAttr}" style="width:${plotWidth};table-layout:fixed;border-collapse:separate;">
+              <tr>${cells.join('')}</tr>
+            </table>`;
+}
+
+/**
+ * A sparkline, and the `trend` readout that is the same block without its
+ * columns: the shape of a metric over time plus how far it moved.
+ *
+ * The delta takes its color from the theme's success and danger colors, which
+ * are the same in both palettes — so only a neutral reading needs a dark-mode
+ * hook, the same way an explicitly colored bar needs none.
+ */
+function renderSparklineSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  const bare = segment.attrs?.variant === 'trend';
+  const name = bare ? 'Trend' : 'Sparkline';
+
+  const data = parseSparkline(segment.content, segment.attrs ?? {});
+  if (!data) {
+    warn(ctx, `${name} block needs at least two numbers — rendering its content as regular text.`);
+    return renderTextSegment(segment.content, theme);
+  }
+  for (const message of data.warnings) warn(ctx, message);
+
+  const rtl = ctx?.dir === 'rtl';
+  const fill = resolveColor(segment.attrs?.color, theme.brandColor, ctx, 'sparkline color');
+  // The groove is off by default: a sparkline is read as a shape, and filling
+  // the space above every column turns it back into a bar chart.
+  const trackColor = segment.attrs?.track
+    ? resolveColor(segment.attrs.track, theme.cardColor, ctx, 'sparkline track')
+    : '';
+  const fillClass = `emd-sparkline-bar${segment.attrs?.color ? '' : ' emd-sparkline-bar-themed'}`;
+
+  // Columns are thin, so they default to a slight softening rather than the
+  // pill the wide bars take; `border-radius=0` squares them.
+  let radius = resolveLength(segment.attrs?.['border-radius'], '2px', ctx, 'sparkline border-radius');
+  if (/^0(?:[a-z%]+)?$/.test(radius)) radius = '';
+
+  const toneColor = data.tone === 'good'
+    ? theme.successColor
+    : data.tone === 'bad'
+      ? theme.dangerColor
+      : theme.bodyColor;
+  const deltaClass = `emd-sparkline-delta${data.tone === 'neutral' ? ' emd-sparkline-delta-themed' : ''}`;
+  const readout = data.showValues
+    ? `${escapeAttrValue(data.latest)} <span class="${deltaClass}" style="color:${toneColor};font-weight:700;">${TREND_ARROWS[data.direction]}&#160;${escapeAttrValue(data.delta)}</span>`
+    : '';
+
+  // Section padding is 32px a side, so that is what the plot has to fit in.
+  const innerPx = (parseInt(theme.contentWidth, 10) || 600) - 64;
+  const plotWidth = bare
+    ? '100%'
+    : resolvePlotWidth(segment.attrs?.width, data.heights.length, innerPx, ctx);
+
+  // Where the plot leaves room beside it, the readout sits there rather than
+  // flying off to the far edge — the same shape the text part draws, and the
+  // gap between a narrow sparkline and its own number reads as a mistake.
+  const beside = !bare && plotWidth !== '100%';
+
+  // The label spans the row whenever it is not sharing it with the readout, so
+  // a label wider than the plot cannot stretch the plot's column and reopen
+  // the gap the readout was moved to close.
+  const labelSpan = beside || !readout ? ' colspan="2"' : '';
+  const labelCell = `<td class="emd-sparkline-label" align="${startAlign(ctx)}"${labelSpan} style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;color:${theme.bodyColor};">${escapeAttrValue(data.label)}</td>`;
+  const valueCell = readout
+    ? `<td class="emd-sparkline-value" align="${rtl ? 'left' : 'right'}" style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;font-weight:700;color:${theme.headingColor};white-space:nowrap;">${readout}</td>`
+    : '';
+  // Same as chart and progress: MJML pins the column to direction:ltr, so cell
+  // order is what puts the label and the readout on their own edges.
+  const captionCells = beside
+    ? labelCell
+    : rtl
+      ? valueCell + labelCell
+      : labelCell + valueCell;
+  const captionRow = data.label || (readout && !beside) ? `<tr>${captionCells}</tr>` : '';
+
+  // A trend block is nothing but its caption, so an empty one has nothing left
+  // to draw.
+  if (bare && !captionRow) {
+    warn(ctx, 'Trend block has no label and no readout — rendering its content as regular text.');
+    return renderTextSegment(segment.content, theme);
+  }
+
+  const columns = renderSparklineColumns(
+    data.heights,
+    resolvePlotHeight(segment.attrs?.height, ctx),
+    plotWidth,
+    radius,
+    fill,
+    fillClass,
+    trackColor,
+    'emd-sparkline-track',
+    rtl,
+  );
+
+  let plotRow = '';
+  if (!bare && beside) {
+    const plotCell = `<td width="${parseInt(plotWidth, 10)}" style="width:${plotWidth};">${columns}</td>`;
+    // The readout takes the rest of the row so the plot keeps its own width,
+    // and hugs the plot from whichever side the series ends on.
+    const asideCell = readout
+      ? `<td class="emd-sparkline-value" align="${startAlign(ctx)}" style="padding:0 ${rtl ? '10px' : '0'} 0 ${rtl ? '0' : '10px'};font-size:${theme.fontSize};line-height:1.4;font-weight:700;color:${theme.headingColor};white-space:nowrap;">${readout}</td>`
+      : '<td></td>';
+    plotRow = `<tr>${rtl ? asideCell + plotCell : plotCell + asideCell}</tr>`;
+  } else if (!bare) {
+    // A full-width plot has no room beside it, so the readout stays on the
+    // caption row, pinned to the far edge the way a chart's values are.
+    plotRow = `<tr><td colspan="2" align="${startAlign(ctx)}">
+            ${columns}
+          </td></tr>`;
+  }
+
+  const restMjml = data.rest.trim()
+    ? `
+        <mj-text padding="8px 0 0" font-size="${theme.fontSize}" color="${theme.bodyColor}" line-height="${theme.lineHeight}">${processInlineImages(data.rest)}</mj-text>`
+    : '';
+
+  return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
+      <mj-column>
+        <mj-table css-class="emd-sparkline" role="presentation" cellpadding="0" cellspacing="0" width="100%" padding="4px 0" font-family="${theme.fontFamily}">
+          ${captionRow}${captionRow && plotRow ? '\n          ' : ''}${plotRow}
+        </mj-table>${restMjml}
+      </mj-column>
+    </mj-section>`;
+}
+
 function styleTableHtml(html: string, theme: Theme): string {
   let tableHtml = html;
 
@@ -1325,6 +1568,8 @@ function segmentToMjml(segment: Segment, theme: Theme, ctx?: SegmentContext): st
       return renderChartSegment(segment, theme, ctx);
     case 'progress':
       return renderProgressSegment(segment, theme, ctx);
+    case 'sparkline':
+      return renderSparklineSegment(segment, theme, ctx);
   }
 }
 

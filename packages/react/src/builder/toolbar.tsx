@@ -465,6 +465,30 @@ export function Toolbar({ getView, value, onChange, onReset, lastSaved, items, e
               >
                 Progress bar
               </MenuItem>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) =>
+                  insertBlock(
+                    v,
+                    '::: sparkline\nWeekly signups: 12, 19, 15, 27, 24, 31, 38\n:::',
+                    'Weekly signups'
+                  )
+                )}
+              >
+                Sparkline
+              </MenuItem>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) =>
+                  insertBlock(
+                    v,
+                    '::: trend\nSignups: 12, 19, 15, 27, 24, 31, 38\n:::',
+                    'Signups'
+                  )
+                )}
+              >
+                Trend indicator
+              </MenuItem>
             </>
           )}
         </ToolbarMenu>
