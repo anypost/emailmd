@@ -5,9 +5,10 @@ import type { RenderWarning } from './warnings.js';
 import { escapeHtml, escapeAttrValue, isCssColor, isCssLength, isSafeUrl, normalizeCssLength } from './sanitize.js';
 import { EMPTY_TABLE_HEADER_RE } from './constants.js';
 import { parseChart, resolveChartMax } from './chart.js';
-import { barPercent } from './bar.js';
+import { barPercent, TREND_ARROWS } from './bar.js';
 import { parseProgress, type ProgressData } from './progress.js';
-import { parseSparkline, TREND_ARROWS } from './sparkline.js';
+import { parseSparkline } from './sparkline.js';
+import { parseStats, defaultStatColumns, type StatItem } from './stats.js';
 
 /**
  * Overridable output strings, for localization.
@@ -214,6 +215,9 @@ function buildDarkModeStyles(dark: Theme): string {
     ['.emd-sparkline-label', `color: ${dark.bodyColor} !important;`],
     ['.emd-sparkline-value', `color: ${dark.headingColor} !important;`],
     ['.emd-sparkline-delta-themed', `color: ${dark.bodyColor} !important;`],
+    ['.emd-stat-label', `color: ${dark.bodyColor} !important;`],
+    ['.emd-stat-value-themed', `color: ${dark.headingColor} !important;`],
+    ['.emd-stat-delta-themed', `color: ${dark.bodyColor} !important;`],
     ...codeTokenRules(codePaletteFor(dark.cardColor), true),
   ];
 
@@ -1215,6 +1219,176 @@ function renderSparklineSegment(segment: Segment, theme: Theme, ctx?: SegmentCon
     </mj-section>`;
 }
 
+/** Past four across, a tile is narrower than the number it holds. */
+const MAX_STAT_COLUMNS = 4;
+
+/** Inset inside a tile card. */
+function resolveTilePadding(value: string | undefined): string {
+  if (value === 'compact') return '12px 14px';
+  if (value === 'spacious') return '24px 24px';
+  return '16px 18px';
+}
+
+/** Type sizes derived from the theme's body size, so a tile scales with it. */
+function statTypeScale(theme: Theme): { small: string; value: string } {
+  const base = parseInt(theme.fontSize, 10) || 16;
+  return { small: `${Math.round(base * 0.875)}px`, value: `${Math.round(base * 1.75)}px` };
+}
+
+/**
+ * One tile: caption, headline number, and — where the author wrote one — the
+ * change beneath it. Built from table rows rather than stacked divs, because
+ * the gaps between the three lines have to survive Outlook, which drops the
+ * margins a div stack would rely on.
+ */
+function renderStatTile(
+  item: StatItem,
+  theme: Theme,
+  align: string,
+  valueColor: string,
+  themedValue: boolean,
+  scale: { small: string; value: string },
+  valueSize: string,
+  ctx?: SegmentContext,
+): string {
+  const color = item.color
+    ? resolveColor(item.color, valueColor, ctx, `stat "${item.label}" color`)
+    : valueColor;
+  const valueClass = `emd-stat-value${themedValue && !item.color ? ' emd-stat-value-themed' : ''}`;
+
+  let rows = `<tr><td class="emd-stat-label" align="${align}" style="padding:0 0 4px 0;font-size:${scale.small};line-height:1.4;color:${theme.bodyColor};">${escapeAttrValue(item.label)}</td></tr>`
+    + `<tr><td class="${valueClass}" align="${align}" style="padding:0;font-size:${valueSize};line-height:1.25;font-weight:700;color:${color};">${escapeAttrValue(item.value)}</td></tr>`;
+
+  if (item.delta) {
+    const toneColor = item.tone === 'good' ? theme.successColor
+      : item.tone === 'bad' ? theme.dangerColor : theme.bodyColor;
+    // Only the neutral tone needs a dark-mode hook: success and danger are the
+    // same color in both palettes.
+    const deltaClass = `emd-stat-delta${item.tone === 'neutral' ? ' emd-stat-delta-themed' : ''}`;
+    rows += `<tr><td class="${deltaClass}" align="${align}" style="padding:6px 0 0 0;font-size:${scale.small};line-height:1.4;font-weight:600;color:${toneColor};white-space:nowrap;">${TREND_ARROWS[item.direction]}&#160;${escapeAttrValue(item.delta)}</td></tr>`;
+  }
+
+  return `<mj-table css-class="emd-stat" role="presentation" cellpadding="0" cellspacing="0" width="100%" padding="0" font-family="${theme.fontFamily}">${rows}</mj-table>`;
+}
+
+/**
+ * A grid of stat tiles.
+ *
+ * Tiles are `mj-column` cards rather than cells of one table: a table of KPIs
+ * stays a single unreadable row on a phone, while columns stack. Every tile
+ * keeps the width its grid position gives it, so a short last row lines up
+ * under the one above instead of stretching to fill.
+ */
+function renderStatsSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  const attrs = segment.attrs ?? {};
+  const data = parseStats(segment.content, attrs);
+
+  if (data.items.length === 0) {
+    warn(ctx, 'Stats block contains no "Label: value" list items — rendering its content as regular text.');
+    return renderTextSegment(segment.content, theme);
+  }
+  for (const message of data.warnings) warn(ctx, message);
+  if (data.skipped > 0) {
+    warn(ctx, `${data.skipped} stat${data.skipped === 1 ? '' : 's'} had no "Label: value" shape and ${data.skipped === 1 ? 'was' : 'were'} skipped.`);
+  }
+
+  let columns = defaultStatColumns(data.items.length);
+  if (attrs.columns !== undefined) {
+    const raw = attrs.columns.trim();
+    const count = /^\d+$/.test(raw) ? parseInt(raw, 10) : NaN;
+    if (count >= 1 && count <= MAX_STAT_COLUMNS) columns = count;
+    else warn(ctx, `Invalid columns "${attrs.columns}" for stats — expected a whole number from 1 to ${MAX_STAT_COLUMNS}; using ${columns}.`);
+  }
+  // An explicit count wider than the block is honoured rather than shrunk to
+  // fit: two tiles asked to sit on a three-wide grid are two tiles that line up
+  // under the three-tile block above them.
+
+  let gap = 16;
+  if (attrs.gap !== undefined) {
+    const raw = attrs.gap.replace(/px$/, '').trim();
+    if (/^\d+$/.test(raw)) gap = parseInt(raw, 10);
+    else warn(ctx, `Invalid gap "${attrs.gap}" for stats — using 16px.`);
+  }
+
+  // Tiles are cards by default — that is what makes them read as tiles rather
+  // than as a paragraph of numbers — but `bg=none` drops back to bare columns.
+  const card = attrs.bg !== 'none';
+  const bg = resolveColor(attrs.bg === 'none' ? undefined : attrs.bg, theme.cardColor, ctx, 'stats bg');
+  const themedCard = card && !attrs.bg;
+
+  const align = resolveAlign(attrs.align, startAlign(ctx), ctx, 'stats align');
+  const valueColor = resolveColor(attrs.color, theme.headingColor, ctx, 'stats color');
+  const scale = statTypeScale(theme);
+  const valueSize = resolveLength(
+    attrs.size && /^\d+$/.test(attrs.size.trim()) ? `${attrs.size.trim()}px` : attrs.size,
+    scale.value, ctx, 'stats size',
+  );
+  const radius = resolveLength(attrs['border-radius'], theme.borderRadius, ctx, 'stats border-radius');
+  const padding = resolveTilePadding(attrs.padding);
+
+  // Section padding is 32px a side, so that is the width the grid divides up.
+  const innerPx = (parseInt(theme.contentWidth, 10) || 600) - 64;
+  // Percentages are floored: inline-block columns wrap if a row exceeds 100%.
+  const pct = (n: number) => Math.floor(n * 100) / 100;
+  const gapPct = columns > 1 ? pct((gap / innerPx) * 100) : 0;
+  const tilePct = pct((100 - (columns - 1) * gapPct) / columns);
+
+  const rtl = ctx?.dir === 'rtl';
+  const vpad = Math.max(4, Math.round(gap / 2));
+
+  const sections: string[] = [];
+  if (data.intro.trim()) {
+    sections.push(`<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="${vpad}px 32px 0">
+      <mj-column>
+        <mj-text padding="0 0 4px" font-size="${theme.fontSize}" color="${theme.bodyColor}" line-height="${theme.lineHeight}">${processInlineImages(data.intro)}</mj-text>
+      </mj-column>
+    </mj-section>`);
+  }
+
+  for (let start = 0; start < data.items.length; start += columns) {
+    const row = data.items.slice(start, start + columns);
+    const parts: string[] = [];
+
+    // The gap is its own column rather than column padding: mj-column paints
+    // its background across the padding box, so padding would widen the card
+    // instead of separating it. As a column the gap also survives stacking,
+    // becoming a gap-tall row between the cards on a phone.
+    const spacer = `<mj-column css-class="emd-gap" width="${gapPct}%">
+        <mj-spacer height="${gap}px" />
+      </mj-column>`;
+
+    // A short last row keeps its tiles at grid width, so they line up under the
+    // row above. The leftover is a real column rather than nothing: a section
+    // centres its column track, so a part-full row would otherwise drift to the
+    // middle. It leads the row in RTL, since MJML pins the track left-to-right.
+    const missing = columns - row.length;
+    const filler = missing > 0
+      ? `<mj-column css-class="emd-gap" width="${pct(missing * (tilePct + gapPct))}%">
+        <mj-spacer height="1px" />
+      </mj-column>`
+      : '';
+    if (rtl && filler) parts.push(filler);
+
+    const ordered = rtl ? [...row].reverse() : row;
+    ordered.forEach((item, i) => {
+      const tileAttrs = card
+        ? `${themedCard ? ' css-class="emd-card"' : ''} background-color="${bg}" border-radius="${radius}" padding="${padding}"`
+        : ' padding="0"';
+      parts.push(`<mj-column width="${tilePct}%"${tileAttrs}>
+        ${renderStatTile(item, theme, align, valueColor, !attrs.color, scale, valueSize, ctx)}
+      </mj-column>`);
+      if (i < ordered.length - 1) parts.push(spacer);
+    });
+    if (!rtl && filler) parts.push(filler);
+
+    sections.push(`<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="${vpad}px 32px">
+      ${parts.join('\n      ')}
+    </mj-section>`);
+  }
+
+  return sections.join('\n    ');
+}
+
 function styleTableHtml(html: string, theme: Theme): string {
   let tableHtml = html;
 
@@ -1570,6 +1744,8 @@ function segmentToMjml(segment: Segment, theme: Theme, ctx?: SegmentContext): st
       return renderProgressSegment(segment, theme, ctx);
     case 'sparkline':
       return renderSparklineSegment(segment, theme, ctx);
+    case 'stats':
+      return renderStatsSegment(segment, theme, ctx);
   }
 }
 

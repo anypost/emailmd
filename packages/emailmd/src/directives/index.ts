@@ -13,6 +13,7 @@ import { registerAccordion } from './accordion.js';
 import { registerChart } from './chart.js';
 import { registerProgress } from './progress.js';
 import { registerSparkline } from './sparkline.js';
+import { registerStats } from './stats.js';
 
 export function registerDirectives(md: MarkdownIt): void {
   registerCallout(md);
@@ -29,4 +30,5 @@ export function registerDirectives(md: MarkdownIt): void {
   registerChart(md);
   registerProgress(md);
   registerSparkline(md);
+  registerStats(md);
 }

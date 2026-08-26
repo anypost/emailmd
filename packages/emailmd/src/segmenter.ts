@@ -12,11 +12,12 @@ import {
   MARKER_CHART_CLOSE,
   MARKER_PROGRESS_CLOSE,
   MARKER_SPARKLINE_CLOSE,
+  MARKER_STATS_CLOSE,
 } from './constants.js';
 import type { RenderWarning } from './warnings.js';
 
 export type SegmentType = 'text' | 'callout' | 'centered' | 'highlight' | 'header' | 'footer' | 'button' | 'button-group' | 'image' | 'hr' | 'table' | 'hero' | 'columns' | 'spacer' | 'social' | 'accordion' | 'chart'
-  | 'progress' | 'sparkline';
+  | 'progress' | 'sparkline' | 'stats';
 
 /** One cell of a `columns` segment. Cell content is itself segmented. */
 export interface ColumnCell {
@@ -53,6 +54,7 @@ const PARAMETERIZED_DIRECTIVES: Array<{
   { re: /<!--EMAILMD:CHART_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'chart', close: MARKER_CHART_CLOSE },
   { re: /<!--EMAILMD:PROGRESS_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'progress', close: MARKER_PROGRESS_CLOSE },
   { re: /<!--EMAILMD:SPARKLINE_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'sparkline', close: MARKER_SPARKLINE_CLOSE },
+  { re: /<!--EMAILMD:STATS_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'stats', close: MARKER_STATS_CLOSE },
 ];
 
 function parseMarkerAttrs(attrString: string): Record<string, string> {

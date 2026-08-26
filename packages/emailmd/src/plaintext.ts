@@ -8,9 +8,10 @@ import {
   EMPTY_TABLE_HEADER_RE,
 } from './constants.js';
 import { parseChart, resolveChartMax } from './chart.js';
-import { barPercent, parseNumber } from './bar.js';
+import { barPercent, parseNumber, TREND_ARROWS } from './bar.js';
 import { parseProgress, type ProgressData } from './progress.js';
-import { parseSparkline, TREND_ARROWS } from './sparkline.js';
+import { parseSparkline } from './sparkline.js';
+import { parseStats } from './stats.js';
 
 /**
  * Convert rendered HTML (with directive markers) into a plain text email body.
@@ -61,6 +62,13 @@ export function toPlainText(html: string): string {
   text = text.replace(
     /<!--EMAILMD:SPARKLINE_OPEN((?:\s+[\w-]+="[^"]*")*)-->([\s\S]*?)<!--EMAILMD:SPARKLINE_CLOSE-->/g,
     (_, attrString: string, inner: string) => sparklineToText(inner, attrString),
+  );
+
+  // Stat tiles flatten to aligned columns, before the generic list conversion
+  // claims their list
+  text = text.replace(
+    /<!--EMAILMD:STATS_OPEN((?:\s+[\w-]+="[^"]*")*)-->([\s\S]*?)<!--EMAILMD:STATS_CLOSE-->/g,
+    (_, attrString: string, inner: string) => statsToText(inner, attrString),
   );
 
   // Convert buttons: <p><a href="url" button="">Text</a></p> → Text: url
@@ -275,6 +283,33 @@ function sparklineToText(inner: string, attrString: string): string {
 
   // Label above, readout closing the line — the same shape progress draws.
   return `${label ? `${label}\n` : ''}${line}\n${data.rest}`;
+}
+
+/**
+ * Render a stats block as aligned columns.
+ *
+ * A grid of tiles has no meaning in a text part, so the tiles become one row
+ * each — label, value, change — padded into columns so the numbers still line
+ * up to be read down.
+ */
+function statsToText(inner: string, attrString: string): string {
+  const { intro, items } = parseStats(inner, markerAttrs(attrString));
+  if (items.length === 0) return inner;
+
+  const labels = items.map((i) => decodeEntities(i.label));
+  const values = items.map((i) => decodeEntities(i.value));
+  const labelWidth = Math.max(...labels.map((l) => l.length));
+  const valueWidth = Math.max(...values.map((v) => v.length));
+
+  const lines = items.map((item, i) => {
+    const delta = item.delta ? `  ${TREND_ARROWS[item.direction]} ${decodeEntities(item.delta)}` : '';
+    // Only the value column is padded when nothing trails it, so a block with
+    // no changes does not end every line in a run of spaces.
+    const value = delta ? values[i].padEnd(valueWidth) : values[i];
+    return `${labels[i].padEnd(labelWidth)}  ${value}${delta}`;
+  });
+
+  return `${intro}\n${lines.join('\n')}\n`;
 }
 
 function convertLists(html: string): string {

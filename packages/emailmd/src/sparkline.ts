@@ -11,27 +11,23 @@
  * so none of them can disagree about which way a metric went.
  */
 
-import { splitValueLine, parseSeries, parseNumber, formatNumber, barPercent } from './bar.js';
+import {
+  splitValueLine,
+  parseSeries,
+  parseNumber,
+  formatNumber,
+  barPercent,
+  trendTone,
+  GOOD_VALUES,
+  type TrendDirection,
+  type TrendTone,
+} from './bar.js';
 
 /** Past this, columns are thinner than a hairline in an email client. */
 export const MAX_SPARKLINE_POINTS = 60;
 
 /** Two points is the least that can show a direction. */
 const MIN_POINTS = 2;
-
-const GOOD_VALUES = new Set(['up', 'down', 'neutral']);
-
-export type TrendDirection = 'up' | 'down' | 'flat';
-
-/** Whether the move was in the direction the author called good. */
-export type TrendTone = 'good' | 'bad' | 'neutral';
-
-/** Marks the direction in both the HTML and the text part. */
-export const TREND_ARROWS: Record<TrendDirection, string> = {
-  up: '▲',
-  down: '▼',
-  flat: '▬',
-};
 
 export interface SparklineData {
   /** Text before the colon; empty when the block is a bare series. */
@@ -135,8 +131,7 @@ export function parseSparkline(
     warnings.push(`Invalid good "${attrs.good}" for sparkline — expected up, down, or neutral; treating up as good.`);
     good = 'up';
   }
-  const tone: TrendTone =
-    direction === 'flat' || good === 'neutral' ? 'neutral' : direction === good ? 'good' : 'bad';
+  const tone: TrendTone = trendTone(direction, good);
 
   return {
     label,

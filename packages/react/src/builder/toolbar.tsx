@@ -489,6 +489,18 @@ export function Toolbar({ getView, value, onChange, onReset, lastSaved, items, e
               >
                 Trend indicator
               </MenuItem>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) =>
+                  insertBlock(
+                    v,
+                    '::: stats\n- Revenue: $48,200 (+12%)\n- New customers: 340 (+8%)\n- Churn: 2.1% (-0.4pt) {good=down}\n:::',
+                    'Revenue'
+                  )
+                )}
+              >
+                Stat tiles
+              </MenuItem>
             </>
           )}
         </ToolbarMenu>

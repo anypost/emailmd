@@ -1,0 +1,127 @@
+---
+title: Stats
+description: KPI tiles — a label, the number, and how far it moved.
+---
+
+A stats block is a row of KPI tiles: a caption, the number it names, and — where you write one — how far that number moved. Each list item is one tile:
+
+```markdown
+::: stats
+- Revenue: $48,200 (+12%)
+- New customers: 340 (+8%)
+- Churn: 2.1% (-0.4pt) {good=down}
+:::
+```
+
+Tiles are columns rather than cells of one table, so they sit side by side on a desktop client and stack to full width on a phone. Everything is drawn with background colors and text — no images, no SVG — so a tile survives clients that strip both, and adapts in [dark mode](/docs/theme#automatic-dark-mode).
+
+## The change
+
+A **signed** parenthetical at the end of a value is read as the change, and the sign becomes the arrow:
+
+```markdown
+::: stats
+- Signups: 1,204 (+18%)
+- Trials: 340 (-4%)
+:::
+```
+
+The sign has to be there. `Revenue: $48,200 (last 30 days)` keeps its parenthetical as part of the value, so a note in brackets does not silently turn into a trend line.
+
+What the change is measured *against* is yours to decide — last month, last quarter, plan. A stats block reports the number you give it, unlike [sparkline](/docs/directives/sparkline), which computes the move across a series it draws.
+
+## Which direction is the win
+
+Up is treated as the win by default. For a metric where falling is the win — churn, bounce rate, cost per lead — `good=down` flips the reading, so a drop is drawn as a success rather than an alarm:
+
+```markdown
+::: stats good=down
+- Churn: 2.1% (-0.4pt)
+- Cost per lead: $18 (-12%)
+:::
+```
+
+One block routinely mixes both, so `good` is settable per tile too, with `{good=…}` after the item:
+
+```markdown
+::: stats
+- Revenue: $48,200 (+12%)
+- Churn: 2.1% (-0.4pt) {good=down}
+:::
+```
+
+`good=neutral` keeps the arrow and drops the judgement, for numbers that are neither good nor bad going up — headcount, tickets opened, days elapsed.
+
+## Layout
+
+Tiles wrap into rows on their own: one, two, or three items go in a single row, four go two-by-two rather than three with an orphan underneath, and more than that go three across. `columns` overrides, from `1` to `4`:
+
+```markdown
+::: stats columns=2
+- Monthly recurring revenue: $128,400 (+6.2%)
+- Net revenue retention: 112% (-3pt)
+:::
+```
+
+A short last row keeps its tiles at grid width, so they line up under the row above rather than drifting to the middle. A `columns` wider than the block works the same way — two tiles on a three-wide grid line up under the three-tile block above them. `gap` sets the space between tiles, in pixels, and doubles as the space between rows.
+
+Three across is as narrow as a tile gets at the default content width before a long value starts breaking mid-word. Values that are words rather than numbers want `columns=1` or `columns=2`.
+
+## Appearance
+
+Tiles are cards by default — that is what makes them read as tiles rather than as a paragraph of numbers. `bg` sets the card color and `bg=none` drops the card entirely:
+
+```markdown
+::: stats bg=none columns=1
+- Total raised: $2.4M (+40%)
+- Backers: 1,820 (+12%)
+:::
+```
+
+`color` sets the number's color, `size` its type size in pixels, and `align` moves the whole tile's text. A single tile takes its own `{color=…}`:
+
+```markdown
+::: stats center bg=#eff6ff color=#1e40af size=34
+- Deliveries: 1.2M (+3%)
+- Bounces: 0.4% (-0.2pt) {good=down}
+:::
+```
+
+Cards and numbers left at their theme colors follow the dark palette automatically; a color you set explicitly keeps it in both light and dark mode. The arrows take the theme's success and danger colors, which are the same in both palettes.
+
+Text placed before the list renders above the tiles.
+
+## Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `columns` | Tiles per row, `1` to `4`. Defaults to a layout picked from the tile count. |
+| `bg` | Tile background. Defaults to the theme's `card_color`; `bg=none` drops the card. |
+| `color` | Value color. Defaults to the theme's `heading_color`. |
+| `size` | Value type size in pixels. Defaults to 1.75× the theme's body size. |
+| `align` | `left` (default), `center`, or `right`. |
+| `gap` | Space between tiles and between rows, in pixels. Defaults to `16`. |
+| `padding` | Card inset: `compact`, `spacious`, or the default. |
+| `good` | Which direction is the win: `up` (default), `down`, or `neutral`. |
+| `border-radius` | Card rounding. Defaults to the theme's `border_radius`. |
+
+Per-item: `{good=…}` overrides the block's reading for one tile, `{color=…}` recolors one value.
+
+## Plain Text
+
+A grid has no meaning in a text part, so the tiles become one row each, padded into columns so the numbers still line up to be read down:
+
+```
+Revenue        $48,200  ▲ 12%
+New customers  340      ▲ 8%
+Churn          2.1%     ▼ 0.4pt
+```
+
+## Notes
+
+- A tile needs both halves of `Label: value` — items without a colon are dropped with a render warning, and a block with no usable items degrades to a regular text section.
+- The value is free text, so `Plan: Enterprise` and `Renews: 14 Mar 2027` are valid tiles.
+- The label splits on the **last** colon, so a label may itself contain one.
+- Rounded cards come from `border-radius`, which Outlook ignores; cards are square there.
+- In right-to-left documents the tiles run right to left and their text mirrors with them.
+- For several values compared on one scale, reach for [chart](/docs/directives/chart); for one value against a known target, [progress](/docs/directives/progress); for the shape of a metric over time, [sparkline](/docs/directives/sparkline).

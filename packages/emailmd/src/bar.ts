@@ -1,6 +1,6 @@
 /**
  * Primitives shared by the data-drawing directives (`chart`, `progress`,
- * `sparkline`).
+ * `sparkline`, `stats`).
  *
  * They all read their numbers out of the same authored text and scale a bar
  * the same way, so none of them can drift from the others — and the MJML and
@@ -134,4 +134,32 @@ export function barPercent(value: number, max: number): number {
   if (!(max > 0)) return 0;
   const pct = (value / max) * 100;
   return Math.max(0, Math.min(100, Math.round(pct * 100) / 100));
+}
+
+/** Which way a metric moved. */
+export type TrendDirection = 'up' | 'down' | 'flat';
+
+/** Whether the move was in the direction the author called good. */
+export type TrendTone = 'good' | 'bad' | 'neutral';
+
+/** Marks the direction in both the HTML and the text part. */
+export const TREND_ARROWS: Record<TrendDirection, string> = {
+  up: '\u25b2',
+  down: '\u25bc',
+  flat: '\u25ac',
+};
+
+/** Accepted values of the `good` parameter. */
+export const GOOD_VALUES = new Set(['up', 'down', 'neutral']);
+
+/**
+ * Read a move against the direction the author called good.
+ *
+ * A metric that fell is only bad if rising was the win, and some numbers —
+ * headcount, tickets opened — are neither. A flat move is never coloured: no
+ * change is no news.
+ */
+export function trendTone(direction: TrendDirection, good: string): TrendTone {
+  if (direction === 'flat' || good === 'neutral') return 'neutral';
+  return direction === good ? 'good' : 'bad';
 }
