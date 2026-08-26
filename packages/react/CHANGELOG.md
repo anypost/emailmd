@@ -4,6 +4,14 @@ All notable changes to `@emailmd/react` are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — 2026-08-26
+
+### Added
+- **A Charts & Data group in the Sections menu**, covering the emailmd 0.11.0 data directives: Bar chart, Progress bar, Sparkline, Trend indicator, Stat tiles, Steps, Status tracker, and Rating. Each inserts a worked example rather than an empty block — the status tracker arrives with its first two steps already ticked off, the stat tiles with a `{good=down}` churn tile — so the shape of the syntax is visible before anything is edited, and the first label lands selected for typing over.
+
+### Changed
+- The `emailmd` peer dependency is now `>=0.11.0`. The new insertions rely on the chart, progress, sparkline, stats, steps, and rating directives; on an older emailmd they degrade to plain markdown lists.
+
 ## [0.2.0] — 2026-07-04
 
 ### Added

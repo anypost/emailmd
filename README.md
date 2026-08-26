@@ -31,6 +31,23 @@ Thanks for signing up.
 
 > **v0.3.0 migration:** `render()` is now async. Update calls from `render(md)` to `await render(md)`. Requires Node 20+ (MJML 5).
 
+## Charts & Data
+
+Bar charts, progress meters, sparklines, KPI tiles, step trackers, and star ratings, each written as a plain markdown list:
+
+```markdown
+::: chart
+- Spotify: 16,900
+- Apple Podcasts: 12,400
+- Web player: 6,200
+- RSS: 2,900
+:::
+```
+
+![KPI tiles, a bar chart and a sparkline, rendered by emailmd from plain markdown lists](https://imgs.emailmd.dev/ss/chart_showcase.png?1)
+
+They are drawn from table cells and text glyphs rather than images or SVG, so they still render when the client blocks remote images, and they redraw themselves in the plain-text part instead of collapsing to a list of numbers. See the [directives reference](https://www.emailmd.dev/docs/directives).
+
 ## CLI
 
 emailmd also ships with a command-line interface.

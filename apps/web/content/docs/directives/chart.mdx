@@ -1,0 +1,75 @@
+---
+title: Chart
+description: Horizontal bar charts built from table cells, with no images.
+---
+
+A chart turns a list into a horizontal bar chart. Each item is one bar, written as `Label: value`:
+
+```markdown
+::: chart
+- Direct: 4,200
+- Organic search: 3,100
+- Referral: 1,800
+- Social: 640
+:::
+```
+
+Bars are table cells with a background color — no images, no SVG, no JavaScript — so they render in every client, scale with the content width, and adapt in [dark mode](/docs/theme#automatic-dark-mode). Text placed before the list renders as an intro paragraph above the chart.
+
+Values may carry any formatting you like: `4,200`, `42%`, `$1,250`, `18.5k`. The number is read out of the value for the bar width, and the value is printed beside the label exactly as you wrote it.
+
+## Scale
+
+By default, the largest item fills the track and the others are drawn in proportion to it.
+
+Percentages are the exception: when every value ends in `%`, bars scale against 100 instead, so `42%` draws a bar just under half the width rather than a full one. Set `max` to pin the scale explicitly — useful for progress toward a target, or to keep several charts comparable:
+
+```markdown
+::: chart max=10000
+- Q1: 8,400
+- Q2: 10,000
+:::
+```
+
+## Colors
+
+`color` sets the bar color and `track` the groove behind it; both default to theme colors (`brand_color` and `card_color`). A single bar can be recolored with `{color=…}` on its list item:
+
+```markdown
+::: chart track=#e4e4e7
+- Engineering: 52% {color=#2563eb}
+- Marketing: 24% {color=#16a34a}
+- Support: 15% {color=#d97706}
+:::
+```
+
+Bars left at the theme color follow the dark palette automatically. A bar you color explicitly keeps that color in both light and dark mode, the same way [hero](/docs/directives/hero) colors do.
+
+## Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `max` | Value a full-width bar represents. Defaults to the largest item, or 100 for percentages. |
+| `color` | Bar color. Defaults to the theme's `brand_color`. |
+| `track` | Groove color. Defaults to the theme's `card_color`. |
+| `height` | Bar thickness. Defaults to `10px`; a bare number means pixels. |
+| `values` | Set `values=false` to hide the numbers and show labels only. |
+| `border-radius` | Bar end rounding. Defaults to a pill (half the bar height); `border-radius=0` squares them. |
+
+## Plain Text
+
+The text part draws the same chart in ASCII, so the comparison survives instead of flattening to a bare list of numbers:
+
+```
+Direct          ████████████████████████  4,200
+Organic search  ██████████████████        3,100
+Referral        ██████████                1,800
+Social          ████                      640
+```
+
+## Notes
+
+- Rounded bar ends come from `border-radius`, which Outlook ignores — bars are square there, which is the only difference in that client. Set `border-radius=0` to square them everywhere.
+- An item with no `Label: value` shape is skipped with a render warning; a block where no item parses degrades to a regular text section.
+- The label splits on the **last** colon, so a label may itself contain one (`Q1: revenue: 400`).
+- In right-to-left documents, labels, values, and bar growth all mirror.

@@ -3,7 +3,7 @@
   "name": "dev.emailmd/emailmd",
   "title": "emailmd",
   "description": "Render markdown into email-safe HTML, lint drafts for deliverability problems, and preview emails.",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "repository": {
     "url": "https://github.com/anypost/emailmd",
     "source": "github"
@@ -12,7 +12,7 @@
     {
       "registryType": "npm",
       "identifier": "emailmd",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "transport": {
         "type": "stdio"
       }

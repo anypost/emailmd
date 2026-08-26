@@ -441,6 +441,104 @@ export function Toolbar({ getView, value, onChange, onReset, lastSaved, items, e
               >
                 Accordion (FAQ)
               </MenuItem>
+              <MenuSeparator />
+              <MenuLabel>Charts &amp; Data</MenuLabel>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) =>
+                  insertBlock(
+                    v,
+                    '::: chart\n- Direct: 4,200\n- Organic search: 3,100\n- Social: 640\n:::',
+                    'Direct'
+                  )
+                )}
+              >
+                Bar chart
+              </MenuItem>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) =>
+                  insertBlock(
+                    v,
+                    '::: progress max=10,000\nRaised so far: 8,400\n:::',
+                    'Raised so far'
+                  )
+                )}
+              >
+                Progress bar
+              </MenuItem>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) =>
+                  insertBlock(
+                    v,
+                    '::: sparkline\nWeekly signups: 12, 19, 15, 27, 24, 31, 38\n:::',
+                    'Weekly signups'
+                  )
+                )}
+              >
+                Sparkline
+              </MenuItem>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) =>
+                  insertBlock(
+                    v,
+                    '::: trend\nSignups: 12, 19, 15, 27, 24, 31, 38\n:::',
+                    'Signups'
+                  )
+                )}
+              >
+                Trend indicator
+              </MenuItem>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) =>
+                  insertBlock(
+                    v,
+                    '::: stats\n- Revenue: $48,200 (+12%)\n- New customers: 340 (+8%)\n- Churn: 2.1% (-0.4pt) {good=down}\n:::',
+                    'Revenue'
+                  )
+                )}
+              >
+                Stat tiles
+              </MenuItem>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) =>
+                  insertBlock(
+                    v,
+                    '::: steps\n1. Create your account: Takes about a minute.\n2. Connect your data: Point us at your warehouse.\n3. Invite your team\n:::',
+                    'Create your account'
+                  )
+                )}
+              >
+                Steps
+              </MenuItem>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) =>
+                  insertBlock(
+                    v,
+                    '::: steps\n- [x] Order placed: 12 Mar\n- [x] Shipped: 14 Mar\n- [ ] Out for delivery\n- [ ] Delivered\n:::',
+                    'Order placed'
+                  )
+                )}
+              >
+                Status tracker
+              </MenuItem>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) =>
+                  insertBlock(
+                    v,
+                    '::: rating\n- Comfort: 4.5\n- Value for money: 3.5\n- Customer service: 5\n:::',
+                    'Comfort'
+                  )
+                )}
+              >
+                Rating
+              </MenuItem>
             </>
           )}
         </ToolbarMenu>

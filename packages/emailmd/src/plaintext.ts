@@ -7,6 +7,13 @@ import {
   MARKER_HERO_CLOSE,
   EMPTY_TABLE_HEADER_RE,
 } from './constants.js';
+import { parseChart, resolveChartMax } from './chart.js';
+import { barPercent, parseNumber, TREND_ARROWS } from './bar.js';
+import { parseProgress, type ProgressData } from './progress.js';
+import { parseSparkline } from './sparkline.js';
+import { parseStats } from './stats.js';
+import { parseSteps, type StepState } from './steps.js';
+import { parseRating, ratingIcons, RATING_ICONS } from './rating.js';
 
 /**
  * Convert rendered HTML (with directive markers) into a plain text email body.
@@ -39,6 +46,45 @@ export function toPlainText(html: string): string {
 
   // Accordions flatten to sequential headings + content
   text = text.replace(/<!--EMAILMD:ACCORDION_(?:OPEN|CLOSE)(?:\s+[\w-]+="[^"]*")*-->/g, '');
+
+  // Charts become ASCII bars, before the generic list conversion claims them
+  text = text.replace(
+    /<!--EMAILMD:CHART_OPEN((?:\s+[\w-]+="[^"]*")*)-->([\s\S]*?)<!--EMAILMD:CHART_CLOSE-->/g,
+    (_, attrString: string, inner: string) => chartToText(inner, attrString),
+  );
+
+  // Progress bars draw the same meter in ASCII
+  text = text.replace(
+    /<!--EMAILMD:PROGRESS_OPEN((?:\s+[\w-]+="[^"]*")*)-->([\s\S]*?)<!--EMAILMD:PROGRESS_CLOSE-->/g,
+    (_, attrString: string, inner: string) => progressToText(inner, attrString),
+  );
+
+  // Sparklines keep their shape as block characters; `trend` blocks share the
+  // marker and come through as their readout alone.
+  text = text.replace(
+    /<!--EMAILMD:SPARKLINE_OPEN((?:\s+[\w-]+="[^"]*")*)-->([\s\S]*?)<!--EMAILMD:SPARKLINE_CLOSE-->/g,
+    (_, attrString: string, inner: string) => sparklineToText(inner, attrString),
+  );
+
+  // Stat tiles flatten to aligned columns, before the generic list conversion
+  // claims their list
+  text = text.replace(
+    /<!--EMAILMD:STATS_OPEN((?:\s+[\w-]+="[^"]*")*)-->([\s\S]*?)<!--EMAILMD:STATS_CLOSE-->/g,
+    (_, attrString: string, inner: string) => statsToText(inner, attrString),
+  );
+
+  // Steps become an indented outline, before the generic list conversion
+  // claims their list
+  text = text.replace(
+    /<!--EMAILMD:STEPS_OPEN((?:\s+[\w-]+="[^"]*")*)-->([\s\S]*?)<!--EMAILMD:STEPS_CLOSE-->/g,
+    (_, attrString: string, inner: string) => stepsToText(inner, attrString),
+  );
+
+  // Ratings keep their glyphs, which are the same characters the HTML draws
+  text = text.replace(
+    /<!--EMAILMD:RATING_OPEN((?:\s+[\w-]+="[^"]*")*)-->([\s\S]*?)<!--EMAILMD:RATING_CLOSE-->/g,
+    (_, attrString: string, inner: string) => ratingToText(inner, attrString),
+  );
 
   // Convert buttons: <p><a href="url" button="">Text</a></p> → Text: url
   // Handles both single and multiple buttons in one paragraph
@@ -75,11 +121,7 @@ export function toPlainText(html: string): string {
   });
 
   // Convert links: <a href="url">text</a> → text (url)
-  text = text.replace(/<a\s+[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/gi, (_, url, label) => {
-    if (label.trim() === url.trim()) return url;
-    if (url.startsWith('mailto:') && label.trim() === url.slice(7).trim()) return label.trim();
-    return `${label} (${url})`;
-  });
+  text = text.replace(LINK_RE, (_, url, label) => linkToText(url, label));
 
   // Convert definition lists: <dl><dt>term</dt><dd>definition</dd></dl>
   text = text.replace(/<dl>([\s\S]*?)<\/dl>/gi, (_, inner) => {
@@ -136,18 +178,235 @@ export function toPlainText(html: string): string {
   text = text.replace(/\u2611/g, '[x]');
 
   // Decode common HTML entities
-  text = text.replace(/&amp;/g, '&');
-  text = text.replace(/&lt;/g, '<');
-  text = text.replace(/&gt;/g, '>');
-  text = text.replace(/&quot;/g, '"');
-  text = text.replace(/&#39;/g, "'");
-  text = text.replace(/&nbsp;/g, ' ');
+  text = decodeEntities(text);
 
   // Clean up whitespace: collapse multiple blank lines, trim
   text = text.replace(/\n{3,}/g, '\n\n');
   text = text.trim();
 
   return text;
+}
+
+const LINK_RE = /<a\s+[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/gi;
+
+/** A link as text: its label, with the URL after it unless the two are the same. */
+function linkToText(url: string, label: string): string {
+  if (label.trim() === url.trim()) return url;
+  if (url.startsWith('mailto:') && label.trim() === url.slice(7).trim()) return label.trim();
+  return `${label} (${url})`;
+}
+
+function decodeEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ');
+}
+
+/** Attributes off a directive marker, e.g. ` max="10,000" steps="4"`. */
+function markerAttrs(attrString: string): Record<string, string> {
+  const attrs: Record<string, string> = {};
+  for (const match of attrString.matchAll(/([\w-]+)="([^"]*)"/g)) attrs[match[1]] = match[2];
+  return attrs;
+}
+
+/** Widest ASCII bar, in characters. */
+const TEXT_BAR_WIDTH = 24;
+
+/**
+ * Render a chart block as ASCII bars, so the text part carries the same
+ * comparison the HTML bars draw rather than a bare list of numbers.
+ *
+ * Labels and values are entity-decoded here rather than in the final pass, so
+ * the column padding is measured against the characters a reader actually sees.
+ */
+function chartToText(inner: string, attrString: string): string {
+  const { intro, items } = parseChart(inner);
+  if (items.length === 0) return inner;
+
+  const parsedMax = parseNumber(markerAttrs(attrString).max);
+  const max = resolveChartMax(items, parsedMax !== null && parsedMax > 0 ? parsedMax : undefined);
+
+  const labels = items.map((i) => decodeEntities(i.label));
+  const values = items.map((i) => decodeEntities(i.display));
+  const labelWidth = Math.max(...labels.map((l) => l.length));
+
+  const lines = items.map((item, i) => {
+    const pct = barPercent(item.value, max);
+    const filled = pct > 0 ? Math.max(1, Math.round((pct / 100) * TEXT_BAR_WIDTH)) : 0;
+    const bar = '█'.repeat(filled).padEnd(TEXT_BAR_WIDTH);
+    return `${labels[i].padEnd(labelWidth)}  ${bar}  ${values[i]}`;
+  });
+
+  return `${intro}\n${lines.join('\n')}\n`;
+}
+
+/**
+ * Render a progress block as an ASCII meter.
+ *
+ * Unlike a chart, the empty part of the track is drawn too: a lone bar has no
+ * sibling to be measured against, so without the groove a third of the way
+ * through would just look like a short bar.
+ */
+function progressToText(inner: string, attrString: string): string {
+  const data = parseProgress(inner, markerAttrs(attrString));
+  if (!data) return inner;
+
+  const bar = data.steps > 0 ? steppedTextBar(data) : continuousTextBar(data.pct);
+  const line = data.readout ? `${bar}  ${decodeEntities(data.readout)}` : bar;
+
+  // The label heads the meter and the readout closes it, the same shape the
+  // HTML draws — printing the authored "Label: value" line as well would say
+  // the number twice.
+  const heading = data.label ? `${decodeEntities(data.label)}\n` : '';
+  return `${heading}${line}\n${data.rest}`;
+}
+
+function continuousTextBar(pct: number): string {
+  const filled = pct > 0 ? Math.max(1, Math.round((pct / 100) * TEXT_BAR_WIDTH)) : 0;
+  return '█'.repeat(filled) + '░'.repeat(TEXT_BAR_WIDTH - filled);
+}
+
+function steppedTextBar(data: ProgressData): string {
+  const width = Math.max(2, Math.floor(TEXT_BAR_WIDTH / data.steps));
+  return Array.from({ length: data.steps }, (_, i) => (i < data.filled ? '█' : '░').repeat(width)).join(' ');
+}
+
+/** Eight column heights, from a baseline tick to a full column. */
+const SPARK_LEVELS = '▁▂▃▄▅▆▇█';
+
+/**
+ * Render a sparkline as block characters, so the shape of the series survives
+ * the text part instead of flattening to a row of numbers. A `trend` block has
+ * no columns to draw, so it comes through as a single readout line.
+ */
+function sparklineToText(inner: string, attrString: string): string {
+  const data = parseSparkline(inner, markerAttrs(attrString));
+  if (!data) return inner;
+
+  const label = decodeEntities(data.label);
+  const readout = data.showValues
+    ? `${decodeEntities(data.latest)}  ${TREND_ARROWS[data.direction]} ${data.delta}`
+    : '';
+
+  if (data.bare) {
+    return `${[label, readout].filter(Boolean).join('  ')}\n${data.rest}`;
+  }
+
+  const spark = data.heights
+    .map((pct) => SPARK_LEVELS[Math.max(0, Math.min(7, Math.round((pct / 100) * 7)))])
+    .join('');
+  const line = readout ? `${spark}  ${readout}` : spark;
+
+  // Label above, readout closing the line — the same shape progress draws.
+  return `${label ? `${label}\n` : ''}${line}\n${data.rest}`;
+}
+
+/**
+ * Render a stats block as aligned columns.
+ *
+ * A grid of tiles has no meaning in a text part, so the tiles become one row
+ * each — label, value, change — padded into columns so the numbers still line
+ * up to be read down.
+ */
+function statsToText(inner: string, attrString: string): string {
+  const { intro, items } = parseStats(inner, markerAttrs(attrString));
+  if (items.length === 0) return inner;
+
+  const labels = items.map((i) => decodeEntities(i.label));
+  const values = items.map((i) => decodeEntities(i.value));
+  const labelWidth = Math.max(...labels.map((l) => l.length));
+  const valueWidth = Math.max(...values.map((v) => v.length));
+
+  const lines = items.map((item, i) => {
+    const delta = item.delta ? `  ${TREND_ARROWS[item.direction]} ${decodeEntities(item.delta)}` : '';
+    // Only the value column is padded when nothing trails it, so a block with
+    // no changes does not end every line in a run of spaces.
+    const value = delta ? values[i].padEnd(valueWidth) : values[i];
+    return `${labels[i].padEnd(labelWidth)}  ${value}${delta}`;
+  });
+
+  return `${intro}\n${lines.join('\n')}\n`;
+}
+
+/**
+ * Render a rating block as the same glyphs the HTML draws.
+ *
+ * The glyphs are plain characters either way, so the text part loses nothing
+ * but the color — except at a half, which a character cannot express: the row
+ * rounds down and the readout beside it carries the fraction, spelled `4.5 / 5`
+ * so the scale is not left to be counted.
+ */
+function ratingToText(inner: string, attrString: string): string {
+  const data = parseRating(inner, markerAttrs(attrString));
+  if (data.items.length === 0) return inner;
+
+  const attrs = markerAttrs(attrString);
+  const [filled, hollow] = ratingIcons(attrs.icon) ?? RATING_ICONS.star;
+
+  const labels = data.items.map((item) => decodeEntities(item.label));
+  const labelWidth = Math.max(...labels.map((l) => l.length));
+
+  const lines = data.items.map((item, i) => {
+    const lit = Math.floor(item.lit);
+    const glyphs = filled.repeat(lit) + hollow.repeat(data.max - lit);
+    const readout = data.showValues ? `  ${decodeEntities(item.display)} / ${data.max}` : '';
+    const label = labelWidth > 0 ? `${labels[i].padEnd(labelWidth)}  ` : '';
+    return `${label}${glyphs}${readout}`;
+  });
+
+  return `${data.intro}\n${lines.join('\n')}\n${data.rest}`;
+}
+
+/** How a tracker's stops are marked in a text part. */
+const STEP_TEXT_MARKERS: Record<StepState, string> = {
+  plain: '',
+  done: '[\u2713]',
+  current: '[\u2192]',
+  todo: '[ ]',
+  failed: '[\u2715]',
+};
+
+/** Flatten one step's inline HTML into text lines, keeping its breaks. */
+function stepLines(html: string): string[] {
+  // Links are spelled out here rather than left to the generic pass below,
+  // which runs after this block has already been flattened to text.
+  return decodeEntities(
+    html
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(new RegExp(LINK_RE.source, 'gi'), (_, url: string, label: string) => linkToText(url, label))
+      .replace(/<[^>]*>/g, ''),
+  )
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Render a steps block as an indented outline.
+ *
+ * The markers carry over as the closest thing text has to them — a number, or
+ * a ticked box — and detail is indented under its own step, so a reader
+ * skimming the left edge still sees where the walk has got to.
+ */
+function stepsToText(inner: string, attrString: string): string {
+  const { intro, items, tracker } = parseSteps(inner, markerAttrs(attrString));
+  if (items.length === 0) return inner;
+
+  const prefixes = items.map((item) => (tracker ? STEP_TEXT_MARKERS[item.state] : `${item.number}.`));
+  const width = Math.max(...prefixes.map((p) => p.length));
+  const indent = ' '.repeat(width + 1);
+
+  const lines: string[] = [];
+  items.forEach((item, i) => {
+    lines.push(`${prefixes[i].padEnd(width)} ${stepLines(item.title).join(' ')}`);
+    for (const line of stepLines(item.description)) lines.push(indent + line);
+  });
+
+  return `${intro}\n${lines.join('\n')}\n`;
 }
 
 function convertLists(html: string): string {

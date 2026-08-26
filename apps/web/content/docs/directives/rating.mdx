@@ -1,0 +1,115 @@
+---
+title: Rating
+description: Star ratings — a score drawn on a fixed scale.
+---
+
+A rating is a score drawn on a fixed scale: the star row under a product, the breakdown under a review. The score is written `Label: value`, the same shape [chart](/docs/directives/chart), [progress](/docs/directives/progress) and [sparkline](/docs/directives/sparkline) use:
+
+```markdown
+::: rating
+Overall: 4.5
+:::
+```
+
+The glyphs are text characters, not images, so the score still shows in a client that blocks them — and it follows the theme into [dark mode](/docs/theme#automatic-dark-mode).
+
+## A breakdown
+
+Write the scores as a list and each one gets its own row, labels lined up in a column:
+
+```markdown
+::: rating
+- Comfort: 4.5
+- Value for money: 3.5
+- Customer service: 5
+- Noise: 2
+:::
+```
+
+The label splits on the **last** colon, so a label may itself contain one. A score with no label at all is fine — `::: rating` around a bare `4.5` draws the row and nothing else. (Note that this is the opposite of [steps](/docs/directives/steps), which splits on the *first* colon: a step's detail is prose and routinely contains one, where a score is a number and never does.)
+
+## Halves
+
+Scores round to the nearest half, and a half is drawn as a whole glyph faded into the page — a dimmer star rather than a differently colored one:
+
+```markdown
+::: rating
+Overall: 4.3
+:::
+```
+
+A glyph cannot be cut down the middle; no email client would honour the clipping that would take, and one that got it wrong would draw the row a glyph too wide. Fading is the cue that survives everywhere. `precision=full` rounds to whole glyphs instead, and the readout still reports the exact score:
+
+```markdown
+::: rating precision=full
+Build quality: 4.3
+:::
+```
+
+## The scale
+
+`max` sets how many glyphs the scale has, from 1 to 10 — five by default:
+
+```markdown
+::: rating max=10
+Would recommend: 8
+:::
+```
+
+A score outside the scale is clamped, with a render warning, and the readout is rewritten to the number actually drawn — a readout saying 7 beside five lit stars would just look like a bug.
+
+## Appearance
+
+`icon` picks the shape: `star` (default), `heart`, `circle`, or `square`. `color` sets the lit glyphs, `track` the unlit ones, and `size` their type size in pixels:
+
+```markdown
+::: rating icon=heart color=#e11d48 size=26
+Would recommend: 4.5
+:::
+```
+
+Lit glyphs default to the theme's `warning_color` — the amber both palettes share — so a star row looks the same in dark mode without anything having to flip. Colors you set explicitly keep their exact shades in both light and dark mode, halves included.
+
+`align` moves the row, and `values=false` drops the numeric readout:
+
+```markdown
+::: rating align=center values=false icon=circle
+- Speed: 4
+- Accuracy: 3
+:::
+```
+
+Text placed before the scores renders above them, and text after renders below.
+
+## Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `max` | Glyphs in the scale, `1` to `10`. Defaults to `5`. |
+| `icon` | `star` (default), `heart`, `circle`, or `square`. |
+| `color` | Lit glyphs. Defaults to the theme's `warning_color`. |
+| `track` | Unlit glyphs. Defaults to the theme's `body_color`. |
+| `size` | Glyph type size in pixels, `10` to `64`. Defaults to 1.25× the theme's body size. |
+| `precision` | `half` (default) or `full`. |
+| `align` | `left` (default), `center`, or `right`. |
+| `values` | `values=false` hides the numeric readout. |
+
+## Plain Text
+
+The glyphs are plain characters either way, so the text part loses nothing but the color — except at a half, which no character expresses: the row rounds down and the number beside it carries the fraction.
+
+```
+Comfort           ★★★★☆  4.5 / 5
+Value for money   ★★★☆☆  3.5 / 5
+Customer service  ★★★★★  5 / 5
+Noise             ★★☆☆☆  2 / 5
+```
+
+The scale is spelled out (`4.5 / 5`) rather than left to be counted. `values=false` drops it here too, and a half score is then indistinguishable from the whole one below it.
+
+## Notes
+
+- A block with no number at all renders as regular text, with a warning; list items carrying no number are skipped.
+- Each glyph is its own table cell, so the spacing between them survives Outlook — which drops `letter-spacing` and would otherwise close the row into a solid block.
+- In right-to-left documents the lit glyphs lead from the right edge and the label and readout swap sides with them.
+- For one value against a target, reach for [progress](/docs/directives/progress); for several values compared on one scale, [chart](/docs/directives/chart); for a headline number and how far it moved, [stats](/docs/directives/stats).

@@ -25,6 +25,14 @@ Content goes here
 | [divider](/docs/directives/divider) | Styled horizontal rule |
 | [social](/docs/directives/social) | Social link icon row |
 | [accordion](/docs/directives/accordion) | Collapsible FAQ panels |
+| [chart](/docs/directives/chart) | Horizontal bar chart |
+| [progress](/docs/directives/progress) | Progress bar or stepped meter |
+| [sparkline](/docs/directives/sparkline) | Inline trend line drawn from a series |
+| [trend](/docs/directives/sparkline) | Trend indicator: latest value and its change |
+| [stats](/docs/directives/stats) | KPI tiles: a label, the number, and its change |
+| [steps](/docs/directives/steps) | Numbered steps, or a tracker of where something has got to |
+| [timeline](/docs/directives/steps) | The same walk with dots instead of numbers |
+| [rating](/docs/directives/rating) | A star rating, as one score or a breakdown |
 | [footer](/docs/directives/footer) | Footer with links and legal text |
 
 The `spacer` and `divider` directives are single-line: they take no content and need no closing `:::`.
@@ -47,11 +55,13 @@ Compact, centered highlight with custom background
 
 | Parameter | Syntax | Values | Applies To |
 |-----------|--------|--------|------------|
-| **align** | Bare keyword | `center`, `left`, `right` | callout, highlight, header, footer |
-| **padding** | Bare keyword | `compact`, `spacious` | callout, highlight |
-| **color** | `color=<color>` | Hex, named, `rgb()`, or `hsl()` color | callout, highlight, centered, header, footer |
-| **bg** | `bg=<color>` | Hex, named, `rgb()`, or `hsl()` color | callout, highlight |
-| **border-radius** | `border-radius=<value>` | Any CSS length (e.g. `16px`, `0`) | callout, highlight |
+| **align** | Bare keyword | `center`, `left`, `right` | callout, highlight, header, footer, stats, rating |
+| **padding** | Bare keyword | `compact`, `spacious` | callout, highlight, stats |
+| **color** | `color=<color>` | Hex, named, `rgb()`, or `hsl()` color | callout, highlight, centered, header, footer, and every data directive |
+| **bg** | `bg=<color>` | Hex, named, `rgb()`, or `hsl()` color | callout, highlight, stats |
+| **border-radius** | `border-radius=<value>` | Any CSS length (e.g. `16px`, `0`) | callout, highlight, chart, progress, sparkline, stats |
+
+The data directives — [chart](/docs/directives/chart), [progress](/docs/directives/progress), [sparkline](/docs/directives/sparkline), [stats](/docs/directives/stats), [steps](/docs/directives/steps), and [rating](/docs/directives/rating) — all take `color` for the drawn part, and each has its own parameters for the scale, the size, and the ground behind the drawing. See their pages.
 
 Parameter values are validated: an unrecognized color, alignment, or length falls back to the theme default and surfaces a [render warning](/docs/api-reference#renderwarning) rather than breaking the email. Template tags like `{{brand_color}}` are passed through for your sending app to resolve.
 

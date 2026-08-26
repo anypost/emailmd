@@ -83,26 +83,11 @@ Please let your other plants know a new sibling is on the way.
 
 [Track Order](https://example.com/track/RTD-7742){button}
 
-:::: columns gap=0
-::: column 31 center bg=#E4EDE0 compact
-✓ **Ordered**
-Feb 12
+::: steps
+- [x] Ordered: Feb 12 — potted and packed the same afternoon
+- [x] Shipped: Feb 13 — USPS Ground, no signature needed
+- [ ] Arrives: Wednesday, Feb 15
 :::
-::: column 3.5
-::: spacer 8
-:::
-::: column 31 center bg=#E4EDE0 compact
-✓ **Shipped**
-Feb 13
-:::
-::: column 3.5
-::: spacer 8
-:::
-::: column 31 center bg=#F3EFE7 compact
-Delivery
-Feb 15
-:::
-::::
 
 ::: centered
 Order **#RTD-7742** · [View order details](https://example.com/orders/7742)
@@ -278,6 +263,106 @@ Hand-roasted. Farm-direct. You get it. So here's the news: three new single-orig
 `,
   },
   {
+    id: "monthly-report",
+    title: "Monthly Report",
+    category: "Analytics",
+    author: "emailmd",
+    markdown: `---
+preheader: "March at a glance — $48,200 in sales, your best month yet"
+background_color: "#F2F6F5"
+content_color: "#FFFFFF"
+heading_color: "#0F241D"
+body_color: "#4B5A55"
+brand_color: "#0F766E"
+button_color: "#0F766E"
+button_text_color: "#FFFFFF"
+card_color: "#EDF5F3"
+divider_color: "#E0EAE7"
+border_radius: "10px"
+---
+
+::: header
+### Counter
+:::
+
+# March, in numbers.
+
+Your best month since Wildflower opened — and the first one where returning customers outspent new ones.
+
+::: stats
+- Sales: $48,200 (+12%)
+- Orders: 612 (+8%)
+- Average order: $78.75 (+3.7%)
+- Refunds: 1.4% (-0.6pt) {good=down}
+:::
+
+::: sparkline
+Weekly sales, this quarter: 7,200 8,100 7,600 9,400 8,800 10,200 9,600 11,100 9,800 11,400 12,600 14,400
+March closed four weeks up in a row. That has not happened before.
+:::
+
+[Open your dashboard](https://example.com/dashboard){button width="full"}
+
+## Where it came from
+
+::: chart
+- Storefront: $21,400
+- In person: $16,900
+- Instagram: $6,300
+- Wholesale: $3,600
+:::
+
+Instagram is small but it doubled, and it brings the highest average order of the four.
+
+::: divider
+
+## Also worth knowing
+
+::: trend
+Returning customers: 214, 248, 266, 299
+:::
+
+::: trend good=down
+Abandoned carts: 340, 318, 296, 271
+:::
+
+::: trend
+Email signups: 210, 245, 260, 312
+:::
+
+::: divider
+
+## Your 2026 goal
+
+::: progress max=$250,000
+Earned so far: $128,400
+Hold March's pace and you clear it in early October.
+:::
+
+## How shoppers rated you
+
+::: rating
+- Product quality: 4.8
+- Support: 4.6
+- Shipping speed: 4.2
+
+Across 214 reviews left in March.
+:::
+
+::: callout
+:bulb: **Shipping speed is your softest number.** Three of the four one-star reviews last month said the same thing. [Turn on same-day pickup](https://example.com/settings/pickup) and it stops being a queue.
+:::
+
+::: divider
+
+::: footer
+**Counter** · Payments and storefronts for small shops
+
+You get this because you run **Wildflower Provisions**. [Change what lands here](https://example.com/prefs) · [Turn monthly reports off](https://example.com/unsub)
+:::
+`,
+  },
+  {
     id: "invoice",
     title: "Invoice",
     category: "Billing",
@@ -304,33 +389,11 @@ breaks: true
 
 #NEB-2026-0217 · February 2026
 
-:::: columns gap=0
-::: column 32 bg=#F7F5FC compact color=#6E6889
-**AMOUNT DUE**
-
-::: spacer 2
-
-## $65.00
+::: stats columns=3 size=20 gap=8
+- Amount due: $65.00
+- Due date: Mar 17, 2026
+- Status: Unpaid
 :::
-::: column 2
-:::
-::: column 32 bg=#F7F5FC compact color=#6E6889
-**DUE DATE**
-
-::: spacer 8
-
-### Mar 17, 2026
-:::
-::: column 2
-:::
-::: column 32 bg=#F7F5FC compact color=#6E6889
-**STATUS**
-
-::: spacer 8
-
-### Unpaid
-:::
-::::
 
 [Pay This Invoice](https://example.com/invoices/217/pay){button width="full"}
 
@@ -421,25 +484,16 @@ We built StageDive for people who'd rather *be there* than scroll past it — ev
 
 ## Three moves and you're set
 
-::: callout
-### 1 — Follow your first artist
-Tell us who you love. We ping you the second their tickets drop — before anyone else.
+::: steps gap=20
+1. Follow your first artist
 
-[Pick your artists →](https://example.com/artists)
-:::
+   Tell us who you love. We ping you the second their tickets drop — before anyone else. [Pick your artists →](https://example.com/artists)
+2. Preview your seat
 
-::: callout
-### 2 — Preview your seat
-Check the exact view from any seat in the venue before you commit a dollar.
+   Check the exact view from any seat in the venue before you commit a dollar. [Try the seat preview →](https://example.com/seatview)
+3. Walk in with your phone
 
-[Try the seat preview →](https://example.com/seatview)
-:::
-
-::: callout
-### 3 — Walk in with your phone
-Your ticket lives in the app. No printing, no will-call line, no stress.
-
-[Get the app →](https://example.com/app)
+   Your ticket lives in the app. No printing, no will-call line, no stress. [Get the app →](https://example.com/app)
 :::
 
 ::: centered
@@ -520,6 +574,15 @@ No it doesn't, Sarah. It tastes like oats, whey, and responsible decisions. But 
 We would never claim to taste like candy. Candy doesn't have 22g of protein, and candy doesn't judge you for eating three.
 
 [SHOP RESPONSIBLE DECISIONS](https://example.com/shop){button border-radius="999px"}
+
+::: rating color=#0A0A0A track=#F5B9E4
+- Taste: 4.8
+- Texture: 4.6
+- Value: 4.1
+- Resembles candy: 1.2
+
+2,410 reviews. Derek's counted once.
+:::
 
 ::: centered
 Now that we've set the record straight, here are some *less* dramatic reviews:
@@ -745,13 +808,28 @@ Traffic shifts back in seconds, and the bad deploy stays archived for the postmo
 
 ::: divider color=#26272B
 
+## A cold start that's 40% less cold
+
+::: chart max=520
+Cold start, p50 across every region — lower is better.
+
+- Nebula 2.3: 420ms {color=#4B4B55}
+- Nebula 2.4: 250ms
+:::
+
+Same runtime, same regions. We just stopped re-reading the bundle on every boot.
+
+::: spacer 16
+
+::: divider color=#26272B
+
 ::: spacer 16
 
 :::: columns
 ::: column
 **Also in 2.4**
 
-- 40% faster cold starts
+- Preview URLs on forked pull requests
 - \`--json\` output on every command
 - Log tailing across regions
 :::
@@ -820,68 +898,21 @@ No vendor keynotes. No "synergy." Two days of engineers showing their work.
 [Save Your Seat](https://example.com/register){button.secondary}
 :::
 
-:::: columns
-::: column 32 center bg=#EEF2FF
-## 2
-
-**DAYS**
+::: stats center columns=3
+- Days: 2
+- Talks: 28
+- Builders: 800
 :::
-::: column 2
-:::
-::: column 32 center bg=#EEF2FF
-## 28
-
-**TALKS**
-:::
-::: column 2
-:::
-::: column 32 center bg=#EEF2FF
-## 800
-
-**BUILDERS**
-:::
-::::
 
 You build things for a living. So does everyone else in the room — every talk comes from a practitioner who shipped it, broke it, or wrote the postmortem.
 
 ## The shape of it
 
-:::: columns
-::: column 25
-**Morning**
+::: timeline
+- Morning: **Day 1** systems that survived · **Day 2** live incident reviews
+- Afternoon: **Day 1** hands-on workshops · **Day 2** the hallway track, formalized
+- Evening: **Day 1** food carts and demo night · **Day 2** the closing show
 :::
-::: column 75
-**Day 1** · Systems that survived
-
-**Day 2** · Live incident reviews
-:::
-::::
-
-::: divider color=#E4E4E7
-
-:::: columns
-::: column 25
-**Afternoon**
-:::
-::: column 75
-**Day 1** · Hands-on workshops
-
-**Day 2** · The hallway track, formalized
-:::
-::::
-
-::: divider color=#E4E4E7
-
-:::: columns
-::: column 25
-**Evening**
-:::
-::: column 75
-**Day 1** · Food carts + demo night
-
-**Day 2** · Closing show
-:::
-::::
 
 ## Pick your track
 
@@ -968,8 +999,9 @@ Easy care · Bright indirect light
 :::
 ::::
 
-::: callout center compact
-**$8 to go** — orders over $50 ship free.
+::: progress max=$50
+Cart total: $42.00
+$8 to go — orders over $50 ship free.
 :::
 
 ::: highlight center bg=#1F4030 color=#F3EDE2

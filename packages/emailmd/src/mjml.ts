@@ -4,6 +4,13 @@ import type { Theme } from './theme.js';
 import type { RenderWarning } from './warnings.js';
 import { escapeHtml, escapeAttrValue, isCssColor, isCssLength, isSafeUrl, normalizeCssLength } from './sanitize.js';
 import { EMPTY_TABLE_HEADER_RE } from './constants.js';
+import { parseChart, resolveChartMax } from './chart.js';
+import { barPercent, TREND_ARROWS } from './bar.js';
+import { parseProgress, type ProgressData } from './progress.js';
+import { parseSparkline } from './sparkline.js';
+import { parseStats, defaultStatColumns, type StatItem } from './stats.js';
+import { parseSteps, type StepItem } from './steps.js';
+import { parseRating, ratingIcons, RATING_ICONS, type RatingItem } from './rating.js';
 
 /**
  * Overridable output strings, for localization.
@@ -185,6 +192,15 @@ function buildDarkModeStyles(dark: Theme): string {
     ['.emd-s code, .emd-s pre', `background-color: ${dark.cardColor} !important;`],
     ['.emd-s mark', `background-color: ${dark.brandColor}33 !important;`],
     ['.emd-acc td', `background-color: ${dark.contentColor} !important;`],
+    ['.emd-chart-bar-themed', `background-color: ${dark.brandColor} !important;`],
+    ['.emd-chart-track-themed', `background-color: ${dark.cardColor} !important;`],
+    ['.emd-progress-bar-themed', `background-color: ${dark.brandColor} !important;`],
+    ['.emd-progress-track-themed', `background-color: ${dark.cardColor} !important;`],
+    ['.emd-sparkline-bar-themed', `background-color: ${dark.brandColor} !important;`],
+    ['.emd-step-marker-themed', `background-color: ${dark.brandColor} !important;`],
+    ['.emd-step-marker-todo', `background-color: ${dark.cardColor} !important;`],
+    ['.emd-step-rail-themed', `background-color: ${dark.dividerColor} !important;`],
+    ['.emd-step-rail-lit', `background-color: ${dark.brandColor} !important;`],
   ];
   const colorRules: CssRule[] = [
     ['.emd-s div', `color: ${dark.bodyColor} !important;`],
@@ -198,6 +214,26 @@ function buildDarkModeStyles(dark: Theme): string {
     ['.emd-acc table', `border-color: ${dark.dividerColor} !important;`],
     ['.emd-acc .mj-accordion-title td', `color: ${dark.headingColor} !important;`],
     ['.emd-acc .mj-accordion-content td', `color: ${dark.bodyColor} !important;`],
+    ['.emd-chart-label', `color: ${dark.bodyColor} !important;`],
+    ['.emd-chart-value', `color: ${dark.headingColor} !important;`],
+    ['.emd-progress-label', `color: ${dark.bodyColor} !important;`],
+    ['.emd-progress-value', `color: ${dark.headingColor} !important;`],
+    ['.emd-sparkline-label', `color: ${dark.bodyColor} !important;`],
+    ['.emd-sparkline-value', `color: ${dark.headingColor} !important;`],
+    ['.emd-sparkline-delta-themed', `color: ${dark.bodyColor} !important;`],
+    ['.emd-stat-label', `color: ${dark.bodyColor} !important;`],
+    ['.emd-stat-value-themed', `color: ${dark.headingColor} !important;`],
+    ['.emd-stat-delta-themed', `color: ${dark.bodyColor} !important;`],
+    ['.emd-step-marker-themed', `color: ${dark.buttonTextColor} !important;`],
+    ['.emd-step-marker-todo', `color: ${dark.bodyColor} !important;`],
+    ['.emd-step-title-themed', `color: ${dark.headingColor} !important;`],
+    ['.emd-step-muted, .emd-step-desc', `color: ${dark.bodyColor} !important;`],
+    ['.emd-steps a', `color: ${dark.brandColor} !important;`],
+    ['.emd-rating-on-themed', `color: ${dark.warningColor} !important;`],
+    ['.emd-rating-off-themed', `color: ${dark.bodyColor} !important;`],
+    ['.emd-rating-half-themed', `color: ${halfLitColor(dark.warningColor, dark.contentColor)} !important;`],
+    ['.emd-rating-label', `color: ${dark.bodyColor} !important;`],
+    ['.emd-rating-value', `color: ${dark.headingColor} !important;`],
     ...codeTokenRules(codePaletteFor(dark.cardColor), true),
   ];
 
@@ -720,6 +756,1035 @@ function renderAccordionSegment(segment: Segment, theme: Theme, ctx?: SegmentCon
   return mjml;
 }
 
+/** Bar geometry: thickness, its attribute backstop, and end rounding. */
+interface BarShape {
+  height: string;
+  heightAttr: string;
+  radius: string;
+}
+
+/**
+ * Bar thickness and end rounding, shared by `chart` and `progress` so the two
+ * take the same values and default the same way.
+ */
+function resolveBarShape(
+  attrs: Record<string, string> | undefined,
+  fallbackHeight: string,
+  name: string,
+  ctx?: SegmentContext,
+): BarShape {
+  const rawHeight = attrs?.height;
+  const height = resolveLength(
+    rawHeight && /^\d+$/.test(rawHeight) ? `${rawHeight}px` : rawHeight,
+    fallbackHeight,
+    ctx,
+    `${name} height`,
+  );
+
+  // The height attribute is a backstop for clients that drop the inline
+  // height; it only takes a bare pixel count, so other units go without.
+  const heightPx = /^(\d+)px$/.exec(height)?.[1];
+
+  // Bars default to a pill — half the bar height — but take an explicit
+  // `border-radius` like the other rounded blocks do, so `border-radius=0`
+  // gets square ends. A zero radius emits no declaration at all.
+  const derivedRadius = heightPx ? `${Math.round(parseInt(heightPx, 10) / 2)}px` : '';
+  const rawRadius = attrs?.['border-radius'];
+  let radius = rawRadius !== undefined
+    ? resolveLength(rawRadius, derivedRadius, ctx, `${name} border-radius`)
+    : derivedRadius;
+  if (/^0(?:[a-z%]+)?$/.test(radius)) radius = '';
+
+  return { height, heightAttr: heightPx ? ` height="${heightPx}"` : '', radius };
+}
+
+/** One segment of a bar: a colored cell with no content but its own height. */
+function barCell(cls: string, color: string, width: number, corners: string, shape: BarShape): string {
+  return `<td class="${cls}" bgcolor="${color}" width="${width}%"${shape.heightAttr} style="width:${width}%;height:${shape.height};line-height:${shape.height};font-size:1px;background-color:${color};${corners ? `border-radius:${corners};` : ''}">&nbsp;</td>`;
+}
+
+/**
+ * A horizontal bar: the fill and the remaining groove, inside a fixed-layout
+ * table so the split lands on the same percentage in every client, Outlook
+ * included. Only the outer ends are rounded, so a partly-filled bar reads as
+ * one pill rather than two; in RTL the groove comes first and the bar grows
+ * from the right edge.
+ */
+function renderBar(
+  pct: number,
+  fill: string,
+  fillClass: string,
+  trackColor: string,
+  trackClass: string,
+  shape: BarShape,
+  rtl: boolean,
+): string {
+  const { radius } = shape;
+  const startCorners = radius ? (rtl ? `0 ${radius} ${radius} 0` : `${radius} 0 0 ${radius}`) : '';
+  const endCorners = radius ? (rtl ? `${radius} 0 0 ${radius}` : `0 ${radius} ${radius} 0`) : '';
+
+  let cells: string;
+  if (pct >= 100) {
+    cells = barCell(fillClass, fill, 100, radius, shape);
+  } else if (pct <= 0) {
+    cells = barCell(trackClass, trackColor, 100, radius, shape);
+  } else {
+    const filled = barCell(fillClass, fill, pct, startCorners, shape);
+    const rest = barCell(trackClass, trackColor, 100 - pct, endCorners, shape);
+    cells = rtl ? rest + filled : filled + rest;
+  }
+
+  return `<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="width:100%;table-layout:fixed;border-collapse:separate;">
+              <tr>${cells}</tr>
+            </table>`;
+}
+
+/**
+ * Horizontal bar chart, built entirely from table cells with background
+ * colors: no images, no SVG, no CSS that clients strip.
+ * The `emd-chart-*` classes are dark-mode hooks; only bars left at their theme
+ * color carry the `-themed` variant, so an author's explicit color survives
+ * the dark palette the way hero colors do.
+ */
+function renderChartSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  const { intro, items, skipped } = parseChart(segment.content);
+
+  if (items.length === 0) {
+    warn(ctx, 'Chart contains no "Label: value" list items — rendering its content as regular text.');
+    return renderTextSegment(segment.content, theme);
+  }
+  if (skipped > 0) {
+    warn(ctx, `${skipped} chart item${skipped === 1 ? '' : 's'} had no "Label: value" shape and ${skipped === 1 ? 'was' : 'were'} skipped.`);
+  }
+
+  const barColor = resolveColor(segment.attrs?.color, theme.brandColor, ctx, 'chart color');
+  const trackColor = resolveColor(segment.attrs?.track, theme.cardColor, ctx, 'chart track');
+  const shape = resolveBarShape(segment.attrs, '10px', 'chart', ctx);
+  const showValues = segment.attrs?.values !== 'false';
+
+  let maxOverride: number | undefined;
+  if (segment.attrs?.max !== undefined) {
+    const parsed = parseFloat(segment.attrs.max.replace(/,/g, ''));
+    if (Number.isFinite(parsed) && parsed > 0) {
+      maxOverride = parsed;
+    } else {
+      warn(ctx, `Invalid max "${segment.attrs.max}" for chart — scaling to the largest value.`);
+    }
+  }
+  const max = resolveChartMax(items, maxOverride);
+
+  const rtl = ctx?.dir === 'rtl';
+  const labelAlign = startAlign(ctx);
+  const valueAlign = rtl ? 'left' : 'right';
+
+  const themedBar = !segment.attrs?.color;
+  const trackClass = `emd-chart-track${segment.attrs?.track ? '' : ' emd-chart-track-themed'}`;
+
+  const rows = items.map((item, i) => {
+    const fill = item.color
+      ? resolveColor(item.color, barColor, ctx, `chart bar "${item.label}"`)
+      : barColor;
+    const barClass = `emd-chart-bar${themedBar && !item.color ? ' emd-chart-bar-themed' : ''}`;
+    const bar = renderBar(barPercent(item.value, max), fill, barClass, trackColor, trackClass, shape, rtl);
+
+    const labelCell = `<td class="emd-chart-label" align="${labelAlign}"${showValues ? '' : ' colspan="2"'} style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;color:${theme.bodyColor};">${escapeAttrValue(item.label)}</td>`;
+    const valueCell = showValues
+      ? `<td class="emd-chart-value" align="${valueAlign}" style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;font-weight:700;color:${theme.headingColor};white-space:nowrap;">${escapeAttrValue(item.display)}</td>`
+      : '';
+    // MJML pins the column to direction:ltr, so cell *order* is what puts each
+    // one on its edge — aligning the text alone leaves both stranded mid-row.
+    const captionCells = rtl ? valueCell + labelCell : labelCell + valueCell;
+    const gap = i === items.length - 1 ? '0' : '0 0 14px 0';
+
+    return `<tr>${captionCells}</tr>
+          <tr><td colspan="2" style="padding:${gap};">
+            ${bar}
+          </td></tr>`;
+  });
+
+  const introMjml = intro.trim()
+    ? `<mj-text padding="0 0 8px" font-size="${theme.fontSize}" color="${theme.bodyColor}" line-height="${theme.lineHeight}">${processInlineImages(intro)}</mj-text>
+        `
+    : '';
+
+  return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
+      <mj-column>
+        ${introMjml}<mj-table css-class="emd-chart" role="presentation" cellpadding="0" cellspacing="0" width="100%" padding="4px 0" font-family="${theme.fontFamily}">
+          ${rows.join('\n          ')}
+        </mj-table>
+      </mj-column>
+    </mj-section>`;
+}
+
+/** Gap between the segments of a stepped meter. */
+const STEP_GAP = '6px';
+
+/**
+ * A stepped meter: one rounded segment per step, with the gaps made from cell
+ * padding rather than border-spacing, which Outlook ignores. The DOM stays
+ * left-to-right, so RTL walks the steps backwards to put the first one on the
+ * right edge.
+ */
+function renderSteppedBar(
+  data: ProgressData,
+  fill: string,
+  fillClass: string,
+  trackColor: string,
+  trackClass: string,
+  shape: BarShape,
+  rtl: boolean,
+): string {
+  const width = Math.round((100 / data.steps) * 100) / 100;
+  const cells = Array.from({ length: data.steps }, (_, position) => {
+    const step = rtl ? data.steps - 1 - position : position;
+    const on = step < data.filled;
+    const pad = position === data.steps - 1 ? '0' : `0 ${STEP_GAP} 0 0`;
+    const segment = `<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="width:100%;border-collapse:separate;"><tr>${barCell(on ? fillClass : trackClass, on ? fill : trackColor, 100, shape.radius, shape)}</tr></table>`;
+    return `<td width="${width}%" style="width:${width}%;padding:${pad};">${segment}</td>`;
+  });
+
+  return `<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="width:100%;table-layout:fixed;border-collapse:separate;">
+              <tr>${cells.join('')}</tr>
+            </table>`;
+}
+
+/**
+ * A progress bar: one value against a known maximum, drawn from the same
+ * table cells as a chart bar. The unfilled groove always shows — a lone bar
+ * has no sibling to be read against, so the gap to the goal is the point.
+ */
+function renderProgressSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  const data = parseProgress(segment.content, segment.attrs ?? {});
+  if (!data) {
+    warn(ctx, 'Progress block has no numeric value — rendering its content as regular text.');
+    return renderTextSegment(segment.content, theme);
+  }
+  for (const message of data.warnings) warn(ctx, message);
+
+  const fill = resolveColor(segment.attrs?.color, theme.brandColor, ctx, 'progress color');
+  const trackColor = resolveColor(segment.attrs?.track, theme.cardColor, ctx, 'progress track');
+  const shape = resolveBarShape(segment.attrs, '10px', 'progress', ctx);
+  const rtl = ctx?.dir === 'rtl';
+  const fillClass = `emd-progress-bar${segment.attrs?.color ? '' : ' emd-progress-bar-themed'}`;
+  const trackClass = `emd-progress-track${segment.attrs?.track ? '' : ' emd-progress-track-themed'}`;
+
+  const bar = data.steps > 0
+    ? renderSteppedBar(data, fill, fillClass, trackColor, trackClass, shape, rtl)
+    : renderBar(data.pct, fill, fillClass, trackColor, trackClass, shape, rtl);
+
+  const labelCell = `<td class="emd-progress-label" align="${startAlign(ctx)}"${data.readout ? '' : ' colspan="2"'} style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;color:${theme.bodyColor};">${escapeAttrValue(data.label)}</td>`;
+  const valueCell = data.readout
+    ? `<td class="emd-progress-value" align="${rtl ? 'left' : 'right'}" style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;font-weight:700;color:${theme.headingColor};white-space:nowrap;">${escapeAttrValue(data.readout)}</td>`
+    : '';
+  // Same as chart: MJML pins the column to direction:ltr, so cell order is
+  // what puts the label and the readout on their own edges.
+  const captionCells = rtl ? valueCell + labelCell : labelCell + valueCell;
+  const captionRow = data.label || data.readout ? `<tr>${captionCells}</tr>\n          ` : '';
+
+  const restMjml = data.rest.trim()
+    ? `
+        <mj-text padding="8px 0 0" font-size="${theme.fontSize}" color="${theme.bodyColor}" line-height="${theme.lineHeight}">${processInlineImages(data.rest)}</mj-text>`
+    : '';
+
+  return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
+      <mj-column>
+        <mj-table css-class="emd-progress" role="presentation" cellpadding="0" cellspacing="0" width="100%" padding="4px 0" font-family="${theme.fontFamily}">
+          ${captionRow}<tr><td colspan="2">
+            ${bar}
+          </td></tr>
+        </mj-table>${restMjml}
+      </mj-column>
+    </mj-section>`;
+}
+
+/** Plot height of a sparkline, in pixels. */
+const SPARKLINE_HEIGHT = 36;
+
+/** Shortest column drawn, so a zero point still marks the baseline. */
+const MIN_COLUMN_PX = 2;
+
+/** Widest a single column is drawn before the plot stops growing with it. */
+const MAX_COLUMN_PX = 18;
+
+/** Gap between columns; a dense series cannot spare the wider one. */
+function columnGap(count: number): number {
+  return count > 20 ? 1 : 2;
+}
+
+/**
+ * The plot width.
+ *
+ * Left to itself the plot grows with the series and stops: columns widen only
+ * to a point, so a seven-point sparkline reads as a sparkline instead of a
+ * wall of blocks stretched across the whole email, while a dense series still
+ * fills the width. `width` overrides, in pixels or as a percentage.
+ */
+function resolvePlotWidth(
+  raw: string | undefined,
+  count: number,
+  innerPx: number,
+  ctx?: SegmentContext,
+): string {
+  if (raw !== undefined) {
+    const value = raw.trim();
+    const pct = /^(\d{1,3})%$/.exec(value);
+    if (pct && Number(pct[1]) > 0 && Number(pct[1]) <= 100) return `${pct[1]}%`;
+    const px = /^(\d+)(?:px)?$/.exec(value);
+    if (px && Number(px[1]) >= 40 && Number(px[1]) <= innerPx) return `${px[1]}px`;
+    warn(ctx, `Invalid width "${raw}" for sparkline — expected a pixel width from 40 to ${innerPx}, or a percentage; sizing to the series.`);
+  }
+
+  const natural = count * MAX_COLUMN_PX + (count - 1) * columnGap(count);
+  return natural < innerPx ? `${natural}px` : '100%';
+}
+
+/**
+ * The sparkline plot height.
+ *
+ * Unlike the other block heights this one is arithmetic, not just a style —
+ * each column's fill and the space above it are computed from it — so it only
+ * takes a pixel count, and says so when handed anything else.
+ */
+function resolvePlotHeight(raw: string | undefined, ctx?: SegmentContext): number {
+  if (raw === undefined) return SPARKLINE_HEIGHT;
+  const px = /^(\d+)(?:px)?$/.exec(raw.trim());
+  if (px) {
+    const height = parseInt(px[1], 10);
+    if (height >= 8 && height <= 200) return height;
+  }
+  warn(ctx, `Invalid height "${raw}" for sparkline — expected a pixel height from 8 to 200; using ${SPARKLINE_HEIGHT}px.`);
+  return SPARKLINE_HEIGHT;
+}
+
+/**
+ * The columns of a sparkline: one fixed-width cell per point, each holding a
+ * spacer stacked on a colored fill, so every column ends on the same baseline
+ * without relying on vertical-align — which Outlook applies unevenly to cells
+ * of differing heights.
+ */
+function renderSparklineColumns(
+  heights: number[],
+  plotPx: number,
+  plotWidth: string,
+  radius: string,
+  fill: string,
+  fillClass: string,
+  trackColor: string,
+  trackClass: string,
+  rtl: boolean,
+): string {
+  const count = heights.length;
+  const width = Math.round((100 / count) * 100) / 100;
+  const gap = columnGap(count);
+  const topCorners = radius ? `${radius} ${radius} 0 0` : '';
+
+  const cells = Array.from({ length: count }, (_, position) => {
+    // The DOM stays left-to-right, so RTL walks the series backwards to put
+    // the oldest point on the right edge and read inward.
+    const pct = heights[rtl ? count - 1 - position : position];
+
+    // Every point draws at least a stub: the series reads as one continuous
+    // shape rather than breaking open wherever a value reaches zero.
+    const fillPx = Math.max(MIN_COLUMN_PX, Math.round((pct / 100) * plotPx));
+    const spacerPx = Math.max(0, plotPx - fillPx);
+
+    // Only the top of a column is rounded — they all stand on one baseline.
+    // Where a track covers that top, the fill's own top edge is interior.
+    const fillShape: BarShape = { height: `${fillPx}px`, heightAttr: ` height="${fillPx}"`, radius };
+    const fillCorners = spacerPx > 0 && trackColor ? '' : topCorners;
+
+    let rows = '';
+    if (spacerPx > 0) {
+      const spacerShape: BarShape = { height: `${spacerPx}px`, heightAttr: ` height="${spacerPx}"`, radius };
+      rows += trackColor
+        ? `<tr>${barCell(trackClass, trackColor, 100, topCorners, spacerShape)}</tr>`
+        : `<tr><td height="${spacerPx}" style="height:${spacerPx}px;line-height:${spacerPx}px;font-size:1px;">&nbsp;</td></tr>`;
+    }
+    rows += `<tr>${barCell(fillClass, fill, 100, fillCorners, fillShape)}</tr>`;
+
+    const pad = position === count - 1 ? '0' : `0 ${gap}px 0 0`;
+    return `<td width="${width}%" style="width:${width}%;padding:${pad};">`
+      + `<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="width:100%;border-collapse:separate;">${rows}</table>`
+      + `</td>`;
+  });
+
+  const widthAttr = plotWidth.endsWith('%') ? plotWidth : String(parseInt(plotWidth, 10));
+  return `<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="${widthAttr}" style="width:${plotWidth};table-layout:fixed;border-collapse:separate;">
+              <tr>${cells.join('')}</tr>
+            </table>`;
+}
+
+/**
+ * A sparkline, and the `trend` readout that is the same block without its
+ * columns: the shape of a metric over time plus how far it moved.
+ *
+ * The delta takes its color from the theme's success and danger colors, which
+ * are the same in both palettes — so only a neutral reading needs a dark-mode
+ * hook, the same way an explicitly colored bar needs none.
+ */
+function renderSparklineSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  const bare = segment.attrs?.variant === 'trend';
+  const name = bare ? 'Trend' : 'Sparkline';
+
+  const data = parseSparkline(segment.content, segment.attrs ?? {});
+  if (!data) {
+    warn(ctx, `${name} block needs at least two numbers — rendering its content as regular text.`);
+    return renderTextSegment(segment.content, theme);
+  }
+  for (const message of data.warnings) warn(ctx, message);
+
+  const rtl = ctx?.dir === 'rtl';
+  const fill = resolveColor(segment.attrs?.color, theme.brandColor, ctx, 'sparkline color');
+  // The groove is off by default: a sparkline is read as a shape, and filling
+  // the space above every column turns it back into a bar chart.
+  const trackColor = segment.attrs?.track
+    ? resolveColor(segment.attrs.track, theme.cardColor, ctx, 'sparkline track')
+    : '';
+  const fillClass = `emd-sparkline-bar${segment.attrs?.color ? '' : ' emd-sparkline-bar-themed'}`;
+
+  // Columns are thin, so they default to a slight softening rather than the
+  // pill the wide bars take; `border-radius=0` squares them.
+  let radius = resolveLength(segment.attrs?.['border-radius'], '2px', ctx, 'sparkline border-radius');
+  if (/^0(?:[a-z%]+)?$/.test(radius)) radius = '';
+
+  const toneColor = data.tone === 'good'
+    ? theme.successColor
+    : data.tone === 'bad'
+      ? theme.dangerColor
+      : theme.bodyColor;
+  const deltaClass = `emd-sparkline-delta${data.tone === 'neutral' ? ' emd-sparkline-delta-themed' : ''}`;
+  const readout = data.showValues
+    ? `${escapeAttrValue(data.latest)} <span class="${deltaClass}" style="color:${toneColor};font-weight:700;">${TREND_ARROWS[data.direction]}&#160;${escapeAttrValue(data.delta)}</span>`
+    : '';
+
+  // Section padding is 32px a side, so that is what the plot has to fit in.
+  const innerPx = (parseInt(theme.contentWidth, 10) || 600) - 64;
+  const plotWidth = bare
+    ? '100%'
+    : resolvePlotWidth(segment.attrs?.width, data.heights.length, innerPx, ctx);
+
+  // Where the plot leaves room beside it, the readout sits there rather than
+  // flying off to the far edge — the same shape the text part draws, and the
+  // gap between a narrow sparkline and its own number reads as a mistake.
+  const beside = !bare && plotWidth !== '100%';
+
+  // The label spans the row whenever it is not sharing it with the readout, so
+  // a label wider than the plot cannot stretch the plot's column and reopen
+  // the gap the readout was moved to close.
+  const labelSpan = beside || !readout ? ' colspan="2"' : '';
+  const labelCell = `<td class="emd-sparkline-label" align="${startAlign(ctx)}"${labelSpan} style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;color:${theme.bodyColor};">${escapeAttrValue(data.label)}</td>`;
+  const valueCell = readout
+    ? `<td class="emd-sparkline-value" align="${rtl ? 'left' : 'right'}" style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;font-weight:700;color:${theme.headingColor};white-space:nowrap;">${readout}</td>`
+    : '';
+  // Same as chart and progress: MJML pins the column to direction:ltr, so cell
+  // order is what puts the label and the readout on their own edges.
+  const captionCells = beside
+    ? labelCell
+    : rtl
+      ? valueCell + labelCell
+      : labelCell + valueCell;
+  const captionRow = data.label || (readout && !beside) ? `<tr>${captionCells}</tr>` : '';
+
+  // A trend block is nothing but its caption, so an empty one has nothing left
+  // to draw.
+  if (bare && !captionRow) {
+    warn(ctx, 'Trend block has no label and no readout — rendering its content as regular text.');
+    return renderTextSegment(segment.content, theme);
+  }
+
+  const columns = renderSparklineColumns(
+    data.heights,
+    resolvePlotHeight(segment.attrs?.height, ctx),
+    plotWidth,
+    radius,
+    fill,
+    fillClass,
+    trackColor,
+    'emd-sparkline-track',
+    rtl,
+  );
+
+  let plotRow = '';
+  if (!bare && beside) {
+    const plotCell = `<td width="${parseInt(plotWidth, 10)}" style="width:${plotWidth};">${columns}</td>`;
+    // The readout takes the rest of the row so the plot keeps its own width,
+    // and hugs the plot from whichever side the series ends on.
+    const asideCell = readout
+      ? `<td class="emd-sparkline-value" align="${startAlign(ctx)}" style="padding:0 ${rtl ? '10px' : '0'} 0 ${rtl ? '0' : '10px'};font-size:${theme.fontSize};line-height:1.4;font-weight:700;color:${theme.headingColor};white-space:nowrap;">${readout}</td>`
+      : '<td></td>';
+    plotRow = `<tr>${rtl ? asideCell + plotCell : plotCell + asideCell}</tr>`;
+  } else if (!bare) {
+    // A full-width plot has no room beside it, so the readout stays on the
+    // caption row, pinned to the far edge the way a chart's values are.
+    plotRow = `<tr><td colspan="2" align="${startAlign(ctx)}">
+            ${columns}
+          </td></tr>`;
+  }
+
+  const restMjml = data.rest.trim()
+    ? `
+        <mj-text padding="8px 0 0" font-size="${theme.fontSize}" color="${theme.bodyColor}" line-height="${theme.lineHeight}">${processInlineImages(data.rest)}</mj-text>`
+    : '';
+
+  return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
+      <mj-column>
+        <mj-table css-class="emd-sparkline" role="presentation" cellpadding="0" cellspacing="0" width="100%" padding="4px 0" font-family="${theme.fontFamily}">
+          ${captionRow}${captionRow && plotRow ? '\n          ' : ''}${plotRow}
+        </mj-table>${restMjml}
+      </mj-column>
+    </mj-section>`;
+}
+
+/** Past four across, a tile is narrower than the number it holds. */
+const MAX_STAT_COLUMNS = 4;
+
+/** Inset inside a tile card. */
+function resolveTilePadding(value: string | undefined): string {
+  if (value === 'compact') return '12px 14px';
+  if (value === 'spacious') return '24px 24px';
+  return '16px 18px';
+}
+
+/** Type sizes derived from the theme's body size, so a tile scales with it. */
+function statTypeScale(theme: Theme): { small: string; value: string } {
+  const base = parseInt(theme.fontSize, 10) || 16;
+  return { small: `${Math.round(base * 0.875)}px`, value: `${Math.round(base * 1.75)}px` };
+}
+
+/**
+ * One tile: caption, headline number, and — where the author wrote one — the
+ * change beneath it. Built from table rows rather than stacked divs, because
+ * the gaps between the three lines have to survive Outlook, which drops the
+ * margins a div stack would rely on.
+ */
+function renderStatTile(
+  item: StatItem,
+  theme: Theme,
+  align: string,
+  valueColor: string,
+  themedValue: boolean,
+  scale: { small: string; value: string },
+  valueSize: string,
+  ctx?: SegmentContext,
+): string {
+  const color = item.color
+    ? resolveColor(item.color, valueColor, ctx, `stat "${item.label}" color`)
+    : valueColor;
+  const valueClass = `emd-stat-value${themedValue && !item.color ? ' emd-stat-value-themed' : ''}`;
+
+  let rows = `<tr><td class="emd-stat-label" align="${align}" style="padding:0 0 4px 0;font-size:${scale.small};line-height:1.4;color:${theme.bodyColor};">${escapeAttrValue(item.label)}</td></tr>`
+    + `<tr><td class="${valueClass}" align="${align}" style="padding:0;font-size:${valueSize};line-height:1.25;font-weight:700;color:${color};">${escapeAttrValue(item.value)}</td></tr>`;
+
+  if (item.delta) {
+    const toneColor = item.tone === 'good' ? theme.successColor
+      : item.tone === 'bad' ? theme.dangerColor : theme.bodyColor;
+    // Only the neutral tone needs a dark-mode hook: success and danger are the
+    // same color in both palettes.
+    const deltaClass = `emd-stat-delta${item.tone === 'neutral' ? ' emd-stat-delta-themed' : ''}`;
+    rows += `<tr><td class="${deltaClass}" align="${align}" style="padding:6px 0 0 0;font-size:${scale.small};line-height:1.4;font-weight:600;color:${toneColor};white-space:nowrap;">${TREND_ARROWS[item.direction]}&#160;${escapeAttrValue(item.delta)}</td></tr>`;
+  }
+
+  return `<mj-table css-class="emd-stat" role="presentation" cellpadding="0" cellspacing="0" width="100%" padding="0" font-family="${theme.fontFamily}">${rows}</mj-table>`;
+}
+
+/**
+ * A grid of stat tiles.
+ *
+ * Tiles are `mj-column` cards rather than cells of one table: a table of KPIs
+ * stays a single unreadable row on a phone, while columns stack. Every tile
+ * keeps the width its grid position gives it, so a short last row lines up
+ * under the one above instead of stretching to fill.
+ */
+function renderStatsSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  const attrs = segment.attrs ?? {};
+  const data = parseStats(segment.content, attrs);
+
+  if (data.items.length === 0) {
+    warn(ctx, 'Stats block contains no "Label: value" list items — rendering its content as regular text.');
+    return renderTextSegment(segment.content, theme);
+  }
+  for (const message of data.warnings) warn(ctx, message);
+  if (data.skipped > 0) {
+    warn(ctx, `${data.skipped} stat${data.skipped === 1 ? '' : 's'} had no "Label: value" shape and ${data.skipped === 1 ? 'was' : 'were'} skipped.`);
+  }
+
+  let columns = defaultStatColumns(data.items.length);
+  if (attrs.columns !== undefined) {
+    const raw = attrs.columns.trim();
+    const count = /^\d+$/.test(raw) ? parseInt(raw, 10) : NaN;
+    if (count >= 1 && count <= MAX_STAT_COLUMNS) columns = count;
+    else warn(ctx, `Invalid columns "${attrs.columns}" for stats — expected a whole number from 1 to ${MAX_STAT_COLUMNS}; using ${columns}.`);
+  }
+  // An explicit count wider than the block is honoured rather than shrunk to
+  // fit: two tiles asked to sit on a three-wide grid are two tiles that line up
+  // under the three-tile block above them.
+
+  let gap = 16;
+  if (attrs.gap !== undefined) {
+    const raw = attrs.gap.replace(/px$/, '').trim();
+    if (/^\d+$/.test(raw)) gap = parseInt(raw, 10);
+    else warn(ctx, `Invalid gap "${attrs.gap}" for stats — using 16px.`);
+  }
+
+  // Tiles are cards by default — that is what makes them read as tiles rather
+  // than as a paragraph of numbers — but `bg=none` drops back to bare columns.
+  const card = attrs.bg !== 'none';
+  const bg = resolveColor(attrs.bg === 'none' ? undefined : attrs.bg, theme.cardColor, ctx, 'stats bg');
+  const themedCard = card && !attrs.bg;
+
+  const align = resolveAlign(attrs.align, startAlign(ctx), ctx, 'stats align');
+  const valueColor = resolveColor(attrs.color, theme.headingColor, ctx, 'stats color');
+  const scale = statTypeScale(theme);
+  const valueSize = resolveLength(
+    attrs.size && /^\d+$/.test(attrs.size.trim()) ? `${attrs.size.trim()}px` : attrs.size,
+    scale.value, ctx, 'stats size',
+  );
+  const radius = resolveLength(attrs['border-radius'], theme.borderRadius, ctx, 'stats border-radius');
+  const padding = resolveTilePadding(attrs.padding);
+
+  // Section padding is 32px a side, so that is the width the grid divides up.
+  const innerPx = (parseInt(theme.contentWidth, 10) || 600) - 64;
+  // Percentages are floored: inline-block columns wrap if a row exceeds 100%.
+  const pct = (n: number) => Math.floor(n * 100) / 100;
+  const gapPct = columns > 1 ? pct((gap / innerPx) * 100) : 0;
+  const tilePct = pct((100 - (columns - 1) * gapPct) / columns);
+
+  const rtl = ctx?.dir === 'rtl';
+  const vpad = Math.max(4, Math.round(gap / 2));
+
+  const sections: string[] = [];
+  if (data.intro.trim()) {
+    sections.push(`<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="${vpad}px 32px 0">
+      <mj-column>
+        <mj-text padding="0 0 4px" font-size="${theme.fontSize}" color="${theme.bodyColor}" line-height="${theme.lineHeight}">${processInlineImages(data.intro)}</mj-text>
+      </mj-column>
+    </mj-section>`);
+  }
+
+  for (let start = 0; start < data.items.length; start += columns) {
+    const row = data.items.slice(start, start + columns);
+    const parts: string[] = [];
+
+    // The gap is its own column rather than column padding: mj-column paints
+    // its background across the padding box, so padding would widen the card
+    // instead of separating it. As a column the gap also survives stacking,
+    // becoming a gap-tall row between the cards on a phone.
+    const spacer = `<mj-column css-class="emd-gap" width="${gapPct}%">
+        <mj-spacer height="${gap}px" />
+      </mj-column>`;
+
+    // A short last row keeps its tiles at grid width, so they line up under the
+    // row above. The leftover is a real column rather than nothing: a section
+    // centres its column track, so a part-full row would otherwise drift to the
+    // middle. It leads the row in RTL, since MJML pins the track left-to-right.
+    const missing = columns - row.length;
+    const filler = missing > 0
+      ? `<mj-column css-class="emd-gap" width="${pct(missing * (tilePct + gapPct))}%">
+        <mj-spacer height="1px" />
+      </mj-column>`
+      : '';
+    if (rtl && filler) parts.push(filler);
+
+    const ordered = rtl ? [...row].reverse() : row;
+    ordered.forEach((item, i) => {
+      const tileAttrs = card
+        ? `${themedCard ? ' css-class="emd-card"' : ''} background-color="${bg}" border-radius="${radius}" padding="${padding}"`
+        : ' padding="0"';
+      parts.push(`<mj-column width="${tilePct}%"${tileAttrs}>
+        ${renderStatTile(item, theme, align, valueColor, !attrs.color, scale, valueSize, ctx)}
+      </mj-column>`);
+      if (i < ordered.length - 1) parts.push(spacer);
+    });
+    if (!rtl && filler) parts.push(filler);
+
+    sections.push(`<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="${vpad}px 32px">
+      ${parts.join('\n      ')}
+    </mj-section>`);
+  }
+
+  return sections.join('\n    ');
+}
+
+/** Width of the connector, which is a line rather than a stripe at any marker size. */
+const STEP_RAIL_WIDTH = 2;
+
+/** Space between the marker column and the text beside it. */
+const STEP_TEXT_GAP = 12;
+
+const STEP_MARKERS = new Set(['number', 'dot', 'none']);
+
+/** Read a marker diameter, which may be written bare or with a unit. */
+function resolveDiameter(value: string | undefined, fallback: number, ctx: SegmentContext | undefined): number {
+  if (value === undefined) return fallback;
+  const raw = value.replace(/px$/, '').trim();
+  const size = /^\d+$/.test(raw) ? parseInt(raw, 10) : NaN;
+  if (size >= 8 && size <= 64) return size;
+  warn(ctx, `Invalid size "${value}" for steps — expected a whole number of pixels from 8 to 64; using ${fallback}.`);
+  return fallback;
+}
+
+/**
+ * The marker for one step: a filled disc holding its number, a tick once the
+ * step is behind the reader, or a cross where it went wrong.
+ *
+ * It is a nested table rather than a styled div because the disc has to keep
+ * its width in Outlook, which does not honour width on a block element. The
+ * rounding is the one thing Outlook drops — the marker degrades to a square,
+ * which still reads as a marker.
+ */
+function renderStepMarker(
+  item: StepItem,
+  theme: Theme,
+  diameter: number,
+  showGlyph: boolean,
+  accent: string,
+  themedAccent: boolean,
+): string {
+  const muted = item.state === 'todo';
+  const failed = item.state === 'failed';
+  const fill = failed ? theme.dangerColor : muted ? theme.cardColor : accent;
+  const color = failed ? theme.dangerTextColor : muted ? theme.bodyColor : theme.buttonTextColor;
+
+  // The tone classes carry the dark palette; a marker the author coloured
+  // themselves is left alone, and danger is one color in both palettes.
+  const cls = muted
+    ? ' class="emd-step-marker emd-step-marker-todo"'
+    : failed || !themedAccent
+      ? ' class="emd-step-marker"'
+      : ' class="emd-step-marker emd-step-marker-themed"';
+
+  const glyph = !showGlyph
+    ? '&#160;'
+    : item.state === 'done'
+      ? '&#10003;'
+      : failed
+        ? '&#10005;'
+        : String(item.number);
+  const fontSize = Math.max(10, Math.round(diameter * 0.5));
+
+  return `<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse:separate;"><tr>`
+    + `<td${cls} align="center" valign="middle" width="${diameter}" height="${diameter}" style="width:${diameter}px;height:${diameter}px;background-color:${fill};border-radius:${Math.round(diameter / 2)}px;color:${color};font-size:${fontSize}px;line-height:${diameter}px;font-weight:700;text-align:center;mso-line-height-rule:exactly;">${glyph}</td>`
+    + `</tr></table>`;
+}
+
+/**
+ * A walk through numbered steps, or through a tracker's stops.
+ *
+ * The connector is a table cell carrying a background color, so it takes the
+ * height of whatever text sits beside it without being told what that height
+ * is. That is why a step is two rows — headline, then detail — split across
+ * four columns: the middle one is two pixels wide and lands exactly under the
+ * marker's centre, which is the only way to draw a line a marker sits on
+ * without positioning an email client would ignore.
+ */
+function renderStepsSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  const attrs = segment.attrs ?? {};
+  const data = parseSteps(segment.content, attrs);
+
+  if (data.items.length === 0) {
+    warn(ctx, 'Steps block contains no list items — rendering its content as regular text.');
+    return renderTextSegment(segment.content, theme);
+  }
+  for (const message of data.warnings) warn(ctx, message);
+  if (data.skipped > 0) {
+    warn(ctx, `${data.skipped} step${data.skipped === 1 ? '' : 's'} had no text and ${data.skipped === 1 ? 'was' : 'were'} skipped.`);
+  }
+
+  // A timeline's stops are events rather than instructions, so they are marked
+  // rather than numbered.
+  const timeline = attrs.variant === 'timeline';
+  let marker = timeline ? 'dot' : 'number';
+  if (attrs.marker !== undefined) {
+    if (STEP_MARKERS.has(attrs.marker)) marker = attrs.marker;
+    else warn(ctx, `Invalid marker "${attrs.marker}" for steps — expected number, dot, or none; using ${marker}.`);
+  }
+  const diameter = resolveDiameter(attrs.size, marker === 'dot' ? 14 : 28, ctx);
+
+  let gap = 14;
+  if (attrs.gap !== undefined) {
+    const raw = attrs.gap.replace(/px$/, '').trim();
+    if (/^\d+$/.test(raw)) gap = parseInt(raw, 10);
+    else warn(ctx, `Invalid gap "${attrs.gap}" for steps — using 14px.`);
+  }
+
+  const accent = resolveColor(attrs.color, theme.brandColor, ctx, 'steps color');
+  const themedAccent = !attrs.color;
+  const railOff = attrs.rail === 'none';
+  const rail = resolveColor(railOff ? undefined : attrs.rail, theme.dividerColor, ctx, 'steps rail');
+  const themedRail = !attrs.rail;
+
+  const rtl = ctx?.dir === 'rtl';
+  const showMarker = marker !== 'none';
+  const textGap = showMarker ? STEP_TEXT_GAP : 16;
+
+  // The marker column splits into a left pad, the rail, and a right pad, so
+  // the rail runs under the marker's centre rather than past its edge.
+  const railPadLeft = Math.floor((diameter - STEP_RAIL_WIDTH) / 2);
+  const railPadRight = diameter - STEP_RAIL_WIDTH - railPadLeft;
+
+  // A marker shorter than the line beside it is centred against that line, so
+  // a small dot sits level with its title with an even break above and below.
+  const titleLine = Math.round((parseInt(theme.fontSize, 10) || 16) * 1.4);
+  const markerPadTop = Math.max(0, Math.round((titleLine - diameter) / 2));
+  const titlePadTop = Math.max(0, Math.round((diameter - titleLine) / 2));
+
+  // The rail is accented over ground the reader has already covered. What lies
+  // past the step they are on is drawn in the neutral tone, because nothing has
+  // happened there yet.
+  const covered = (item: StepItem) => item.state === 'done' || item.state === 'plain';
+  const pad = (width: number) => `<td width="${width}" style="width:${width}px;font-size:0;line-height:0;">&#160;</td>`;
+  const railCells = (lit: boolean, show: boolean) => {
+    const draw = show && !railOff;
+    const on = draw && lit;
+    // A lit length of rail is the accent color and a spent one is the neutral
+    // tone, so each takes the dark hook that belongs to the color it is drawn
+    // in — and neither takes one the author has coloured themselves.
+    const cls = !draw
+      ? ''
+      : on
+        ? themedAccent ? ' class="emd-step-rail emd-step-rail-lit"' : ' class="emd-step-rail"'
+        : themedRail ? ' class="emd-step-rail emd-step-rail-themed"' : ' class="emd-step-rail"';
+    const fill = draw ? `background-color:${on ? accent : rail};` : '';
+    return pad(railPadLeft)
+      + `<td${cls} width="${STEP_RAIL_WIDTH}" style="width:${STEP_RAIL_WIDTH}px;font-size:0;line-height:0;${fill}">&#160;</td>`
+      + pad(railPadRight);
+  };
+
+  const rows: string[] = [];
+  data.items.forEach((item, index) => {
+    const last = index === data.items.length - 1;
+    const muted = item.state === 'todo';
+    const titleColor = item.state === 'failed'
+      ? theme.dangerColor
+      : muted ? theme.bodyColor : theme.headingColor;
+    const titleClass = item.state === 'failed'
+      ? 'emd-step-title'
+      : muted ? 'emd-step-title emd-step-muted' : 'emd-step-title emd-step-title-themed';
+
+    // Marker cells lead the row, except in RTL, where MJML pins the column to
+    // direction:ltr and cell order is the only thing that moves them.
+    const headCells = showMarker
+      ? `<td colspan="3" width="${diameter}" valign="top" style="width:${diameter}px;padding:${markerPadTop}px 0 0 0;">${renderStepMarker(item, theme, diameter, marker !== 'dot', accent, themedAccent)}</td>`
+      : railCells(item.state !== 'todo', true);
+    const titleCell = `<td class="${titleClass}" valign="top" align="${startAlign(ctx)}" style="padding:${titlePadTop}px ${rtl ? textGap : 0}px 0 ${rtl ? 0 : textGap}px;font-size:${theme.fontSize};line-height:1.4;font-weight:${item.state === 'current' ? 700 : 600};color:${titleColor};">${item.title}</td>`;
+    rows.push(`<tr>${rtl ? titleCell + headCells : headCells + titleCell}</tr>`);
+
+    // The trailing row carries the detail and, with it, the length of rail that
+    // reaches the next marker. The last step has nowhere to reach, so its rail
+    // stops at its own marker.
+    const bottom = last ? 0 : gap;
+    if (!item.description && !bottom) return;
+    // The rail stops at the last marker rather than trailing past it — unless
+    // there is no marker to stop at, in which case the bar runs the length of
+    // the block the way a quote bar does.
+    const bodyCells = railCells(covered(item), !showMarker || !last);
+    const descCell = `<td class="emd-step-desc" valign="top" align="${startAlign(ctx)}" style="padding:${item.description ? 3 : 0}px ${rtl ? textGap : 0}px ${bottom}px ${rtl ? 0 : textGap}px;font-size:${theme.fontSize};line-height:${theme.lineHeight};color:${theme.bodyColor};">${item.description || '&#160;'}</td>`;
+    rows.push(`<tr>${rtl ? descCell + bodyCells : bodyCells + descCell}</tr>`);
+  });
+
+  const introMjml = data.intro.trim()
+    ? `
+        <mj-text padding="0 0 8px" font-size="${theme.fontSize}" color="${theme.bodyColor}" line-height="${theme.lineHeight}">${processInlineImages(data.intro)}</mj-text>`
+    : '';
+
+  return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
+      <mj-column>${introMjml}
+        <mj-table css-class="emd-steps" role="presentation" cellpadding="0" cellspacing="0" width="100%" padding="4px 0" font-family="${theme.fontFamily}">
+          ${rows.join('\n          ')}
+        </mj-table>
+      </mj-column>
+    </mj-section>`;
+}
+
+/** Gap between glyphs, as a fraction of the glyph's own size. */
+const RATING_GAP_RATIO = 0.14;
+
+const HEX_RE = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+/** Expand `#abc` to `#aabbcc` so both forms mix the same way. */
+function hexChannels(color: string): [number, number, number] | null {
+  if (!HEX_RE.test(color)) return null;
+  const hex = color.slice(1);
+  const full = hex.length === 3 ? hex.replace(/./g, (c) => c + c) : hex;
+  return [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16)) as [number, number, number];
+}
+
+/**
+ * The color a half-lit glyph is drawn in: the lit color, half faded into the
+ * page behind it.
+ *
+ * A glyph cannot be cut down the middle — an email client that would honour
+ * `overflow` on half a character is not one worth designing for — so half a
+ * score is drawn as a whole glyph at half the strength. Fading toward the page
+ * rather than toward the unlit color is what makes it read as a dimmer version
+ * of a lit glyph instead of a differently colored one. The mix needs both
+ * colors in hex; either written some other way (`rgb()`, a keyword) gives back
+ * null, and the caller falls back to a hollow glyph in the lit color.
+ */
+function halfLitColor(on: string, page: string): string | null {
+  const a = hexChannels(on);
+  const b = hexChannels(page);
+  if (!a || !b) return null;
+  const mixed = a.map((channel, i) => Math.round((channel + b[i]) / 2));
+  return `#${mixed.map((c) => c.toString(16).padStart(2, '0')).join('')}`;
+}
+
+interface RatingStyle {
+  /** Filled and hollow glyphs of the chosen icon. */
+  icons: readonly [string, string];
+  on: string;
+  off: string;
+  /** Null when the colors cannot be mixed; halves fall back to a hollow lit glyph. */
+  half: string | null;
+  /** Class hooks, empty for a color the author set — those keep it in dark mode. */
+  onClass: string;
+  offClass: string;
+  halfClass: string;
+  size: number;
+  gap: number;
+}
+
+/**
+ * One row of glyphs.
+ *
+ * Each glyph is its own cell rather than a run of characters in one, so the
+ * lit, half-lit and unlit parts of the row can be colored separately and the
+ * spacing between them comes from cell padding — letter-spacing is dropped by
+ * Outlook, which would close the row up into a solid block.
+ */
+function renderRatingGlyphs(item: RatingItem, max: number, style: RatingStyle, rtl: boolean): string {
+  const [filled, hollow] = style.icons;
+
+  const cells = Array.from({ length: max }, (_, i) => {
+    const remaining = item.lit - i;
+    const state = remaining >= 1 ? 'on' : remaining === 0.5 ? 'half' : 'off';
+    const glyph = state === 'off' || (state === 'half' && !style.half) ? hollow : filled;
+    const color = state === 'on' ? style.on
+      : state === 'half' ? (style.half ?? style.on)
+      : style.off;
+    const cls = state === 'on' ? style.onClass : state === 'half' ? style.halfClass : style.offClass;
+    const pad = i === max - 1 ? '0' : `0 ${style.gap}px 0 0`;
+    return `<td${cls}${` `}style="padding:${pad};font-size:${style.size}px;line-height:${style.size}px;color:${color};mso-line-height-rule:exactly;">${glyph}</td>`;
+  });
+
+  if (rtl) cells.reverse();
+  return `<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;"><tr>${cells.join('')}</tr></table>`;
+}
+
+/**
+ * A rating: a score drawn on a fixed scale, as one headline row or as a
+ * breakdown with a label against each.
+ *
+ * The glyphs are text, not images — a client that blocks images still shows
+ * the score — and they default to the theme's warning color, which is the
+ * amber both palettes share, so a star row looks the same in dark mode without
+ * anything having to flip.
+ */
+function renderRatingSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  const attrs = segment.attrs ?? {};
+  const data = parseRating(segment.content, attrs);
+
+  if (data.items.length === 0) {
+    warn(ctx, 'Rating block has no numeric score — rendering its content as regular text.');
+    return renderTextSegment(segment.content, theme);
+  }
+  for (const message of data.warnings) warn(ctx, message);
+  if (data.skipped > 0) {
+    warn(ctx, `${data.skipped} rating item${data.skipped === 1 ? '' : 's'} had no number and ${data.skipped === 1 ? 'was' : 'were'} skipped.`);
+  }
+
+  let icons = RATING_ICONS.star;
+  if (attrs.icon !== undefined) {
+    const chosen = ratingIcons(attrs.icon);
+    if (chosen) icons = chosen;
+    else warn(ctx, `Invalid icon "${attrs.icon}" for rating — expected ${Object.keys(RATING_ICONS).join(', ')}; using star.`);
+  }
+
+  const on = resolveColor(attrs.color, theme.warningColor, ctx, 'rating color');
+  const off = resolveColor(attrs.track, theme.bodyColor, ctx, 'rating track');
+
+  const base = parseInt(theme.fontSize, 10) || 16;
+  const size = resolveGlyphSize(attrs.size, Math.round(base * 1.25), ctx);
+
+  const style: RatingStyle = {
+    icons,
+    on,
+    off,
+    half: halfLitColor(on, theme.contentColor),
+    onClass: attrs.color ? '' : ' class="emd-rating-on-themed"',
+    offClass: attrs.track ? '' : ' class="emd-rating-off-themed"',
+    // A half glyph is the lit color faded, so it follows the dark palette on
+    // the same terms a lit one does.
+    halfClass: attrs.color ? '' : ' class="emd-rating-half-themed"',
+    size,
+    gap: Math.max(1, Math.round(size * RATING_GAP_RATIO)),
+  };
+
+  const rtl = ctx?.dir === 'rtl';
+  const align = resolveAlign(attrs.align, startAlign(ctx), ctx, 'rating align');
+  const labelled = data.items.some((item) => item.label);
+  const rowGap = Math.max(4, Math.round(size * 0.4));
+
+  // Space between the glyphs and the text either side of them. It is cell
+  // padding rather than a couple of spaces in the text, so it stays on the side
+  // facing the glyphs when the row is mirrored for a right-to-left document.
+  const textGap = Math.max(6, Math.round(size * 0.35));
+
+  const rows = data.items.map((item, i) => {
+    const bottom = i === data.items.length - 1 ? 0 : rowGap;
+    const labelPad = rtl ? `0 0 ${bottom}px ${textGap}px` : `0 ${textGap}px ${bottom}px 0`;
+    const valuePad = rtl ? `0 ${textGap}px ${bottom}px 0` : `0 0 ${bottom}px ${textGap}px`;
+    const cells: string[] = [];
+
+    if (labelled) {
+      cells.push(`<td class="emd-rating-label" align="${startAlign(ctx)}" valign="middle" style="padding:${labelPad};font-size:${theme.fontSize};line-height:1.4;color:${theme.bodyColor};white-space:nowrap;">${escapeAttrValue(item.label)}</td>`);
+    }
+    cells.push(`<td valign="middle" style="padding:0 0 ${bottom}px 0;">${renderRatingGlyphs(item, data.max, style, rtl)}</td>`);
+    if (data.showValues) {
+      cells.push(`<td class="emd-rating-value" valign="middle" style="padding:${valuePad};font-size:${theme.fontSize};line-height:1.4;font-weight:700;color:${theme.headingColor};white-space:nowrap;">${escapeAttrValue(item.display)}</td>`);
+    }
+    // The glyphs sit next to their number rather than at opposite edges of the
+    // row, so the two read as one thing; a slack cell soaks up the rest of the
+    // width and decides which edge the group is pushed to.
+    const slack = (width: number) => `<td width="${width}%" style="width:${width}%;font-size:0;line-height:0;">&#160;</td>`;
+    if (align === 'right') cells.unshift(slack(100));
+    // Centring takes two slack cells of equal share: both asking for the whole
+    // width leaves it to the client to decide how to split what is left over.
+    else if (align === 'center') { cells.unshift(slack(50)); cells.push(slack(50)); }
+    else cells.push(slack(100));
+
+    if (rtl) cells.reverse();
+    return `<tr>${cells.join('')}</tr>`;
+  });
+
+  const introMjml = data.intro.trim()
+    ? `<mj-text padding="0 0 8px" font-size="${theme.fontSize}" color="${theme.bodyColor}" line-height="${theme.lineHeight}">${processInlineImages(data.intro)}</mj-text>
+        `
+    : '';
+  const restMjml = data.rest.trim()
+    ? `
+        <mj-text padding="8px 0 0" font-size="${theme.fontSize}" color="${theme.bodyColor}" line-height="${theme.lineHeight}">${processInlineImages(data.rest)}</mj-text>`
+    : '';
+
+  return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
+      <mj-column>
+        ${introMjml}<mj-table css-class="emd-rating" role="presentation" cellpadding="0" cellspacing="0" width="100%" padding="4px 0" font-family="${theme.fontFamily}">
+          ${rows.join('\n          ')}
+        </mj-table>${restMjml}
+      </mj-column>
+    </mj-section>`;
+}
+
+/** Read a glyph size, which may be written bare or with a unit. */
+function resolveGlyphSize(value: string | undefined, fallback: number, ctx: SegmentContext | undefined): number {
+  if (value === undefined) return fallback;
+  const raw = value.replace(/px$/, '').trim();
+  const size = /^\d+$/.test(raw) ? parseInt(raw, 10) : NaN;
+  if (size >= 10 && size <= 64) return size;
+  warn(ctx, `Invalid size "${value}" for rating — expected a whole number of pixels from 10 to 64; using ${fallback}.`);
+  return fallback;
+}
+
 function styleTableHtml(html: string, theme: Theme): string {
   let tableHtml = html;
 
@@ -978,13 +2043,25 @@ function renderColumnsSegment(segment: Segment, theme: Theme, ctx?: SegmentConte
     const explicitTotal = widths.reduce((sum, w) =>
       w ? sum + (w.endsWith('px') ? (parseFloat(w) / innerPx) * 100 : parseFloat(w)) : sum, 0);
     const flexible = widths.filter((w) => !w).length;
-    if (flexible > 0) {
-      fillWidthPct = pct((100 - spacerTotal - explicitTotal) / flexible);
-      if (fillWidthPct <= 0) {
-        warn(ctx, 'Column widths plus gaps exceed 100% — layout may overflow.');
-        fillWidthPct = 1;
-      }
+    // Widths are written as if they fill the row on their own — 48/4/48 reads
+    // as a full row — but the spacer columns are extra, so a row that already
+    // adds up overflows the moment they join it and the cards wrap onto their
+    // own lines. Scale the widths into what the gaps leave instead, keeping
+    // the proportions as written. A flexible column keeps a 1% floor.
+    const room = Math.max(1, 100 - spacerTotal - flexible);
+    let explicitPct = explicitTotal;
+    if (explicitTotal > room) {
+      // Only worth reporting when the author's own numbers left no room: the
+      // gaps pushing a 100% row over is the renderer's doing, not a mistake.
+      if (flexible > 0) warn(ctx, 'Column widths plus gaps exceed 100% — the remaining columns were squeezed to fit.');
+      const scale = room / explicitTotal;
+      widths.forEach((w, i) => {
+        const parts = w ? /^([\d.]+)(.*)$/.exec(w) : null;
+        if (parts) widths[i] = `${pct(parseFloat(parts[1]) * scale)}${parts[2] || '%'}`;
+      });
+      explicitPct = room;
     }
+    if (flexible > 0) fillWidthPct = pct((100 - spacerTotal - explicitPct) / flexible);
   }
 
   const parts: string[] = [];
@@ -1069,6 +2146,18 @@ function segmentToMjml(segment: Segment, theme: Theme, ctx?: SegmentContext): st
       return renderSocialSegment(segment, theme, ctx);
     case 'accordion':
       return renderAccordionSegment(segment, theme, ctx);
+    case 'chart':
+      return renderChartSegment(segment, theme, ctx);
+    case 'progress':
+      return renderProgressSegment(segment, theme, ctx);
+    case 'sparkline':
+      return renderSparklineSegment(segment, theme, ctx);
+    case 'stats':
+      return renderStatsSegment(segment, theme, ctx);
+    case 'steps':
+      return renderStepsSegment(segment, theme, ctx);
+    case 'rating':
+      return renderRatingSegment(segment, theme, ctx);
   }
 }
 

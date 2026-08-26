@@ -150,6 +150,38 @@ describe('columns directive', () => {
     expect(html).toContain('emd-gap');
   });
 
+  it('scales explicit widths that already fill the row so the gaps fit', async () => {
+    // 48/4/48 reads as a full row, but two spacer columns join it — without
+    // scaling the row runs to ~106% and the cards wrap onto their own lines.
+    const { html, warnings } = await render(
+      ':::: columns\n::: column 48 bg=#eee\nA\n:::\n::: column 4\n:::\n::: column 48 bg=#eee\nB\n:::\n::::',
+    );
+    const widths = columnWidths(html);
+    expect(widths).toHaveLength(5); // 3 authored + 2 spacers
+    expect(widths.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(100);
+    // The authored proportions survive: the two cards still match each other.
+    expect(widths[0]).toBe(widths[4]);
+    expect(widths[0]).toBeGreaterThan(widths[2]);
+    // The gaps pushing the row over is the renderer's doing, not the author's.
+    expect(warnings).toBeUndefined();
+  });
+
+  it('leaves explicit widths alone when the gaps already fit', async () => {
+    const { html } = await render(
+      ':::: columns\n::: column 48 bg=#eee\nA\n:::\n::: column 48 bg=#eee\nB\n:::\n::::',
+    );
+    expect(columnWidths(html)).toEqual([48, 2.98, 48]);
+  });
+
+  it('keeps three explicitly sized cards on one row', async () => {
+    const { html } = await render(
+      ':::: columns\n::: column 32 bg=#eee\nA\n:::\n::: column 2\n:::\n::: column 32 bg=#eee\nB\n:::\n::: column 2\n:::\n::: column 32 bg=#eee\nC\n:::\n::::',
+    );
+    const widths = columnWidths(html);
+    expect(widths).toHaveLength(9); // 5 authored + 4 spacers
+    expect(widths.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(100);
+  });
+
   it('warns when explicit widths plus gaps exceed 100%', async () => {
     const { warnings } = await render(
       ':::: columns gap=40\n::: column width=99% bg=#f3e7d8\nA\n:::\n::: column\nB\n:::\n::::',

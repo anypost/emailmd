@@ -1,0 +1,99 @@
+---
+title: Progress
+description: Progress bars and stepped meters built from table cells, with no images.
+---
+
+A progress block draws one value against a known maximum. The value is written `Label: value`, the same shape [chart](/docs/directives/chart) uses:
+
+```markdown
+::: progress max=10,000
+Raised so far: 8,400
+:::
+```
+
+The bar is a table cell with a background color — no images, no SVG, no JavaScript — so it renders in every client and adapts in [dark mode](/docs/theme#automatic-dark-mode). Unlike a chart bar, the unfilled groove always shows: a lone bar has no sibling to be measured against, so the distance left to go is the point.
+
+## Scale
+
+A bare number is out of 100, the scale a progress bar implies:
+
+```markdown
+::: progress
+Profile complete: 72
+:::
+```
+
+Set `max` for any other unit — a fundraising goal, a storage quota, a step count. When `max` is set, the readout spells out the denominator (`8,400 / 10,000`) so the number reads as progress rather than a bare total. Values above the maximum draw a full bar.
+
+The label is optional. A block holding nothing but a value renders as a bar with the value beside it:
+
+```markdown
+::: progress
+64%
+:::
+```
+
+Any text below the value line renders underneath the bar, which is where a note about the number belongs:
+
+```markdown
+::: progress
+Storage used: 91%
+You're close to your plan limit — upgrade any time.
+:::
+```
+
+## Steps
+
+`steps` draws a discrete meter instead of a continuous bar — one segment per step, with the completed ones filled. The value is how many are done, and `steps` is the maximum, so `max` is not needed:
+
+```markdown
+::: progress steps=4
+Account setup: 2
+:::
+```
+
+Steps run from 2 to 12; past that the segments are too thin to read, and an out-of-range count falls back to one continuous bar with a render warning.
+
+## Colors
+
+`color` sets the fill and `track` the groove, both defaulting to theme colors (`brand_color` and `card_color`):
+
+```markdown
+::: progress color=#dc2626 track=#fee2e2
+Storage used: 91%
+:::
+```
+
+A bar left at the theme color follows the dark palette automatically. A bar you color explicitly keeps that color in both light and dark mode, the same way [hero](/docs/directives/hero) colors do.
+
+## Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `max` | Value a full bar represents. Defaults to `100`. |
+| `steps` | Draw this many discrete segments instead of one bar. 2–12. |
+| `color` | Fill color. Defaults to the theme's `brand_color`. |
+| `track` | Groove color. Defaults to the theme's `card_color`. |
+| `height` | Bar thickness. Defaults to `10px`; a bare number means pixels. |
+| `values` | Set `values=false` to hide the readout and show the label only. |
+| `border-radius` | Bar end rounding. Defaults to a pill (half the bar height); `border-radius=0` squares it. |
+
+## Plain Text
+
+The text part draws the same meter in ASCII, filled and unfilled:
+
+```
+Raised so far
+████████████████████░░░░  8,400 / 10,000
+
+Account setup
+██████ ██████ ░░░░░░ ░░░░░░  2 / 4
+```
+
+## Notes
+
+- Rounded ends come from `border-radius`, which Outlook ignores — bars are square there, which is the only difference in that client. Set `border-radius=0` to square them everywhere.
+- A block with no number in it is rendered as regular text with a render warning.
+- The label splits on the **last** colon, so a label may itself contain one (`Q1: revenue: 400`).
+- In right-to-left documents the label, readout, and bar growth all mirror, and stepped meters count from the right.
+- For several values side by side, use [chart](/docs/directives/chart) instead — its bars share one scale so they can be compared.

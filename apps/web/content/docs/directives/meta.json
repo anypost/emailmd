@@ -12,6 +12,12 @@
     "divider",
     "social",
     "accordion",
+    "chart",
+    "progress",
+    "sparkline",
+    "stats",
+    "steps",
+    "rating",
     "footer"
   ]
 }

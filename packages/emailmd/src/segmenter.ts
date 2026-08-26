@@ -9,10 +9,17 @@ import {
   MARKER_COLUMN_CLOSE,
   MARKER_SOCIAL_CLOSE,
   MARKER_ACCORDION_CLOSE,
+  MARKER_CHART_CLOSE,
+  MARKER_PROGRESS_CLOSE,
+  MARKER_SPARKLINE_CLOSE,
+  MARKER_STATS_CLOSE,
+  MARKER_STEPS_CLOSE,
+  MARKER_RATING_CLOSE,
 } from './constants.js';
 import type { RenderWarning } from './warnings.js';
 
-export type SegmentType = 'text' | 'callout' | 'centered' | 'highlight' | 'header' | 'footer' | 'button' | 'button-group' | 'image' | 'hr' | 'table' | 'hero' | 'columns' | 'spacer' | 'social' | 'accordion';
+export type SegmentType = 'text' | 'callout' | 'centered' | 'highlight' | 'header' | 'footer' | 'button' | 'button-group' | 'image' | 'hr' | 'table' | 'hero' | 'columns' | 'spacer' | 'social' | 'accordion' | 'chart'
+  | 'progress' | 'sparkline' | 'stats' | 'steps' | 'rating';
 
 /** One cell of a `columns` segment. Cell content is itself segmented. */
 export interface ColumnCell {
@@ -46,6 +53,12 @@ const PARAMETERIZED_DIRECTIVES: Array<{
   { re: /<!--EMAILMD:COLUMNS_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'columns', close: MARKER_COLUMNS_CLOSE },
   { re: /<!--EMAILMD:SOCIAL_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'social', close: MARKER_SOCIAL_CLOSE },
   { re: /<!--EMAILMD:ACCORDION_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'accordion', close: MARKER_ACCORDION_CLOSE },
+  { re: /<!--EMAILMD:CHART_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'chart', close: MARKER_CHART_CLOSE },
+  { re: /<!--EMAILMD:PROGRESS_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'progress', close: MARKER_PROGRESS_CLOSE },
+  { re: /<!--EMAILMD:SPARKLINE_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'sparkline', close: MARKER_SPARKLINE_CLOSE },
+  { re: /<!--EMAILMD:STATS_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'stats', close: MARKER_STATS_CLOSE },
+  { re: /<!--EMAILMD:STEPS_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'steps', close: MARKER_STEPS_CLOSE },
+  { re: /<!--EMAILMD:RATING_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'rating', close: MARKER_RATING_CLOSE },
 ];
 
 function parseMarkerAttrs(attrString: string): Record<string, string> {
