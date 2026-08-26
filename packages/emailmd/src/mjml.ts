@@ -9,6 +9,7 @@ import { barPercent, TREND_ARROWS } from './bar.js';
 import { parseProgress, type ProgressData } from './progress.js';
 import { parseSparkline } from './sparkline.js';
 import { parseStats, defaultStatColumns, type StatItem } from './stats.js';
+import { parseSteps, type StepItem } from './steps.js';
 
 /**
  * Overridable output strings, for localization.
@@ -195,6 +196,10 @@ function buildDarkModeStyles(dark: Theme): string {
     ['.emd-progress-bar-themed', `background-color: ${dark.brandColor} !important;`],
     ['.emd-progress-track-themed', `background-color: ${dark.cardColor} !important;`],
     ['.emd-sparkline-bar-themed', `background-color: ${dark.brandColor} !important;`],
+    ['.emd-step-marker-themed', `background-color: ${dark.brandColor} !important;`],
+    ['.emd-step-marker-todo', `background-color: ${dark.cardColor} !important;`],
+    ['.emd-step-rail-themed', `background-color: ${dark.dividerColor} !important;`],
+    ['.emd-step-rail-lit', `background-color: ${dark.brandColor} !important;`],
   ];
   const colorRules: CssRule[] = [
     ['.emd-s div', `color: ${dark.bodyColor} !important;`],
@@ -218,6 +223,11 @@ function buildDarkModeStyles(dark: Theme): string {
     ['.emd-stat-label', `color: ${dark.bodyColor} !important;`],
     ['.emd-stat-value-themed', `color: ${dark.headingColor} !important;`],
     ['.emd-stat-delta-themed', `color: ${dark.bodyColor} !important;`],
+    ['.emd-step-marker-themed', `color: ${dark.buttonTextColor} !important;`],
+    ['.emd-step-marker-todo', `color: ${dark.bodyColor} !important;`],
+    ['.emd-step-title-themed', `color: ${dark.headingColor} !important;`],
+    ['.emd-step-muted, .emd-step-desc', `color: ${dark.bodyColor} !important;`],
+    ['.emd-steps a', `color: ${dark.brandColor} !important;`],
     ...codeTokenRules(codePaletteFor(dark.cardColor), true),
   ];
 
@@ -1389,6 +1399,197 @@ function renderStatsSegment(segment: Segment, theme: Theme, ctx?: SegmentContext
   return sections.join('\n    ');
 }
 
+/** Width of the connector, which is a line rather than a stripe at any marker size. */
+const STEP_RAIL_WIDTH = 2;
+
+/** Space between the marker column and the text beside it. */
+const STEP_TEXT_GAP = 12;
+
+const STEP_MARKERS = new Set(['number', 'dot', 'none']);
+
+/** Read a marker diameter, which may be written bare or with a unit. */
+function resolveDiameter(value: string | undefined, fallback: number, ctx: SegmentContext | undefined): number {
+  if (value === undefined) return fallback;
+  const raw = value.replace(/px$/, '').trim();
+  const size = /^\d+$/.test(raw) ? parseInt(raw, 10) : NaN;
+  if (size >= 8 && size <= 64) return size;
+  warn(ctx, `Invalid size "${value}" for steps — expected a whole number of pixels from 8 to 64; using ${fallback}.`);
+  return fallback;
+}
+
+/**
+ * The marker for one step: a filled disc holding its number, a tick once the
+ * step is behind the reader, or a cross where it went wrong.
+ *
+ * It is a nested table rather than a styled div because the disc has to keep
+ * its width in Outlook, which does not honour width on a block element. The
+ * rounding is the one thing Outlook drops — the marker degrades to a square,
+ * which still reads as a marker.
+ */
+function renderStepMarker(
+  item: StepItem,
+  theme: Theme,
+  diameter: number,
+  showGlyph: boolean,
+  accent: string,
+  themedAccent: boolean,
+): string {
+  const muted = item.state === 'todo';
+  const failed = item.state === 'failed';
+  const fill = failed ? theme.dangerColor : muted ? theme.cardColor : accent;
+  const color = failed ? theme.dangerTextColor : muted ? theme.bodyColor : theme.buttonTextColor;
+
+  // The tone classes carry the dark palette; a marker the author coloured
+  // themselves is left alone, and danger is one color in both palettes.
+  const cls = muted
+    ? ' class="emd-step-marker emd-step-marker-todo"'
+    : failed || !themedAccent
+      ? ' class="emd-step-marker"'
+      : ' class="emd-step-marker emd-step-marker-themed"';
+
+  const glyph = !showGlyph
+    ? '&#160;'
+    : item.state === 'done'
+      ? '&#10003;'
+      : failed
+        ? '&#10005;'
+        : String(item.number);
+  const fontSize = Math.max(10, Math.round(diameter * 0.5));
+
+  return `<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse:separate;"><tr>`
+    + `<td${cls} align="center" valign="middle" width="${diameter}" height="${diameter}" style="width:${diameter}px;height:${diameter}px;background-color:${fill};border-radius:${Math.round(diameter / 2)}px;color:${color};font-size:${fontSize}px;line-height:${diameter}px;font-weight:700;text-align:center;mso-line-height-rule:exactly;">${glyph}</td>`
+    + `</tr></table>`;
+}
+
+/**
+ * A walk through numbered steps, or through a tracker's stops.
+ *
+ * The connector is a table cell carrying a background color, so it takes the
+ * height of whatever text sits beside it without being told what that height
+ * is. That is why a step is two rows — headline, then detail — split across
+ * four columns: the middle one is two pixels wide and lands exactly under the
+ * marker's centre, which is the only way to draw a line a marker sits on
+ * without positioning an email client would ignore.
+ */
+function renderStepsSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  const attrs = segment.attrs ?? {};
+  const data = parseSteps(segment.content, attrs);
+
+  if (data.items.length === 0) {
+    warn(ctx, 'Steps block contains no list items — rendering its content as regular text.');
+    return renderTextSegment(segment.content, theme);
+  }
+  for (const message of data.warnings) warn(ctx, message);
+  if (data.skipped > 0) {
+    warn(ctx, `${data.skipped} step${data.skipped === 1 ? '' : 's'} had no text and ${data.skipped === 1 ? 'was' : 'were'} skipped.`);
+  }
+
+  // A timeline's stops are events rather than instructions, so they are marked
+  // rather than numbered.
+  const timeline = attrs.variant === 'timeline';
+  let marker = timeline ? 'dot' : 'number';
+  if (attrs.marker !== undefined) {
+    if (STEP_MARKERS.has(attrs.marker)) marker = attrs.marker;
+    else warn(ctx, `Invalid marker "${attrs.marker}" for steps — expected number, dot, or none; using ${marker}.`);
+  }
+  const diameter = resolveDiameter(attrs.size, marker === 'dot' ? 14 : 28, ctx);
+
+  let gap = 14;
+  if (attrs.gap !== undefined) {
+    const raw = attrs.gap.replace(/px$/, '').trim();
+    if (/^\d+$/.test(raw)) gap = parseInt(raw, 10);
+    else warn(ctx, `Invalid gap "${attrs.gap}" for steps — using 14px.`);
+  }
+
+  const accent = resolveColor(attrs.color, theme.brandColor, ctx, 'steps color');
+  const themedAccent = !attrs.color;
+  const railOff = attrs.rail === 'none';
+  const rail = resolveColor(railOff ? undefined : attrs.rail, theme.dividerColor, ctx, 'steps rail');
+  const themedRail = !attrs.rail;
+
+  const rtl = ctx?.dir === 'rtl';
+  const showMarker = marker !== 'none';
+  const textGap = showMarker ? STEP_TEXT_GAP : 16;
+
+  // The marker column splits into a left pad, the rail, and a right pad, so
+  // the rail runs under the marker's centre rather than past its edge.
+  const railPadLeft = Math.floor((diameter - STEP_RAIL_WIDTH) / 2);
+  const railPadRight = diameter - STEP_RAIL_WIDTH - railPadLeft;
+
+  // A marker shorter than the line beside it is centred against that line, so
+  // a small dot sits level with its title with an even break above and below.
+  const titleLine = Math.round((parseInt(theme.fontSize, 10) || 16) * 1.4);
+  const markerPadTop = Math.max(0, Math.round((titleLine - diameter) / 2));
+  const titlePadTop = Math.max(0, Math.round((diameter - titleLine) / 2));
+
+  // The rail is accented over ground the reader has already covered. What lies
+  // past the step they are on is drawn in the neutral tone, because nothing has
+  // happened there yet.
+  const covered = (item: StepItem) => item.state === 'done' || item.state === 'plain';
+  const pad = (width: number) => `<td width="${width}" style="width:${width}px;font-size:0;line-height:0;">&#160;</td>`;
+  const railCells = (lit: boolean, show: boolean) => {
+    const draw = show && !railOff;
+    const on = draw && lit;
+    // A lit length of rail is the accent color and a spent one is the neutral
+    // tone, so each takes the dark hook that belongs to the color it is drawn
+    // in — and neither takes one the author has coloured themselves.
+    const cls = !draw
+      ? ''
+      : on
+        ? themedAccent ? ' class="emd-step-rail emd-step-rail-lit"' : ' class="emd-step-rail"'
+        : themedRail ? ' class="emd-step-rail emd-step-rail-themed"' : ' class="emd-step-rail"';
+    const fill = draw ? `background-color:${on ? accent : rail};` : '';
+    return pad(railPadLeft)
+      + `<td${cls} width="${STEP_RAIL_WIDTH}" style="width:${STEP_RAIL_WIDTH}px;font-size:0;line-height:0;${fill}">&#160;</td>`
+      + pad(railPadRight);
+  };
+
+  const rows: string[] = [];
+  data.items.forEach((item, index) => {
+    const last = index === data.items.length - 1;
+    const muted = item.state === 'todo';
+    const titleColor = item.state === 'failed'
+      ? theme.dangerColor
+      : muted ? theme.bodyColor : theme.headingColor;
+    const titleClass = item.state === 'failed'
+      ? 'emd-step-title'
+      : muted ? 'emd-step-title emd-step-muted' : 'emd-step-title emd-step-title-themed';
+
+    // Marker cells lead the row, except in RTL, where MJML pins the column to
+    // direction:ltr and cell order is the only thing that moves them.
+    const headCells = showMarker
+      ? `<td colspan="3" width="${diameter}" valign="top" style="width:${diameter}px;padding:${markerPadTop}px 0 0 0;">${renderStepMarker(item, theme, diameter, marker !== 'dot', accent, themedAccent)}</td>`
+      : railCells(item.state !== 'todo', true);
+    const titleCell = `<td class="${titleClass}" valign="top" align="${startAlign(ctx)}" style="padding:${titlePadTop}px ${rtl ? textGap : 0}px 0 ${rtl ? 0 : textGap}px;font-size:${theme.fontSize};line-height:1.4;font-weight:${item.state === 'current' ? 700 : 600};color:${titleColor};">${item.title}</td>`;
+    rows.push(`<tr>${rtl ? titleCell + headCells : headCells + titleCell}</tr>`);
+
+    // The trailing row carries the detail and, with it, the length of rail that
+    // reaches the next marker. The last step has nowhere to reach, so its rail
+    // stops at its own marker.
+    const bottom = last ? 0 : gap;
+    if (!item.description && !bottom) return;
+    // The rail stops at the last marker rather than trailing past it — unless
+    // there is no marker to stop at, in which case the bar runs the length of
+    // the block the way a quote bar does.
+    const bodyCells = railCells(covered(item), !showMarker || !last);
+    const descCell = `<td class="emd-step-desc" valign="top" align="${startAlign(ctx)}" style="padding:${item.description ? 3 : 0}px ${rtl ? textGap : 0}px ${bottom}px ${rtl ? 0 : textGap}px;font-size:${theme.fontSize};line-height:${theme.lineHeight};color:${theme.bodyColor};">${item.description || '&#160;'}</td>`;
+    rows.push(`<tr>${rtl ? descCell + bodyCells : bodyCells + descCell}</tr>`);
+  });
+
+  const introMjml = data.intro.trim()
+    ? `
+        <mj-text padding="0 0 8px" font-size="${theme.fontSize}" color="${theme.bodyColor}" line-height="${theme.lineHeight}">${processInlineImages(data.intro)}</mj-text>`
+    : '';
+
+  return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
+      <mj-column>${introMjml}
+        <mj-table css-class="emd-steps" role="presentation" cellpadding="0" cellspacing="0" width="100%" padding="4px 0" font-family="${theme.fontFamily}">
+          ${rows.join('\n          ')}
+        </mj-table>
+      </mj-column>
+    </mj-section>`;
+}
+
 function styleTableHtml(html: string, theme: Theme): string {
   let tableHtml = html;
 
@@ -1746,6 +1947,8 @@ function segmentToMjml(segment: Segment, theme: Theme, ctx?: SegmentContext): st
       return renderSparklineSegment(segment, theme, ctx);
     case 'stats':
       return renderStatsSegment(segment, theme, ctx);
+    case 'steps':
+      return renderStepsSegment(segment, theme, ctx);
   }
 }
 

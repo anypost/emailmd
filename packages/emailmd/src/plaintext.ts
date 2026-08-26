@@ -12,6 +12,7 @@ import { barPercent, parseNumber, TREND_ARROWS } from './bar.js';
 import { parseProgress, type ProgressData } from './progress.js';
 import { parseSparkline } from './sparkline.js';
 import { parseStats } from './stats.js';
+import { parseSteps, type StepState } from './steps.js';
 
 /**
  * Convert rendered HTML (with directive markers) into a plain text email body.
@@ -71,6 +72,13 @@ export function toPlainText(html: string): string {
     (_, attrString: string, inner: string) => statsToText(inner, attrString),
   );
 
+  // Steps become an indented outline, before the generic list conversion
+  // claims their list
+  text = text.replace(
+    /<!--EMAILMD:STEPS_OPEN((?:\s+[\w-]+="[^"]*")*)-->([\s\S]*?)<!--EMAILMD:STEPS_CLOSE-->/g,
+    (_, attrString: string, inner: string) => stepsToText(inner, attrString),
+  );
+
   // Convert buttons: <p><a href="url" button="">Text</a></p> → Text: url
   // Handles both single and multiple buttons in one paragraph
   text = text.replace(/<p>\s*((?:<a\s+[^>]*>[^<]*<\/a>\s*)+)<\/p>/g, (match, inner) => {
@@ -106,11 +114,7 @@ export function toPlainText(html: string): string {
   });
 
   // Convert links: <a href="url">text</a> → text (url)
-  text = text.replace(/<a\s+[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/gi, (_, url, label) => {
-    if (label.trim() === url.trim()) return url;
-    if (url.startsWith('mailto:') && label.trim() === url.slice(7).trim()) return label.trim();
-    return `${label} (${url})`;
-  });
+  text = text.replace(LINK_RE, (_, url, label) => linkToText(url, label));
 
   // Convert definition lists: <dl><dt>term</dt><dd>definition</dd></dl>
   text = text.replace(/<dl>([\s\S]*?)<\/dl>/gi, (_, inner) => {
@@ -174,6 +178,15 @@ export function toPlainText(html: string): string {
   text = text.trim();
 
   return text;
+}
+
+const LINK_RE = /<a\s+[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/gi;
+
+/** A link as text: its label, with the URL after it unless the two are the same. */
+function linkToText(url: string, label: string): string {
+  if (label.trim() === url.trim()) return url;
+  if (url.startsWith('mailto:') && label.trim() === url.slice(7).trim()) return label.trim();
+  return `${label} (${url})`;
 }
 
 function decodeEntities(text: string): string {
@@ -307,6 +320,54 @@ function statsToText(inner: string, attrString: string): string {
     // no changes does not end every line in a run of spaces.
     const value = delta ? values[i].padEnd(valueWidth) : values[i];
     return `${labels[i].padEnd(labelWidth)}  ${value}${delta}`;
+  });
+
+  return `${intro}\n${lines.join('\n')}\n`;
+}
+
+/** How a tracker's stops are marked in a text part. */
+const STEP_TEXT_MARKERS: Record<StepState, string> = {
+  plain: '',
+  done: '[\u2713]',
+  current: '[\u2192]',
+  todo: '[ ]',
+  failed: '[\u2715]',
+};
+
+/** Flatten one step's inline HTML into text lines, keeping its breaks. */
+function stepLines(html: string): string[] {
+  // Links are spelled out here rather than left to the generic pass below,
+  // which runs after this block has already been flattened to text.
+  return decodeEntities(
+    html
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(new RegExp(LINK_RE.source, 'gi'), (_, url: string, label: string) => linkToText(url, label))
+      .replace(/<[^>]*>/g, ''),
+  )
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Render a steps block as an indented outline.
+ *
+ * The markers carry over as the closest thing text has to them — a number, or
+ * a ticked box — and detail is indented under its own step, so a reader
+ * skimming the left edge still sees where the walk has got to.
+ */
+function stepsToText(inner: string, attrString: string): string {
+  const { intro, items, tracker } = parseSteps(inner, markerAttrs(attrString));
+  if (items.length === 0) return inner;
+
+  const prefixes = items.map((item) => (tracker ? STEP_TEXT_MARKERS[item.state] : `${item.number}.`));
+  const width = Math.max(...prefixes.map((p) => p.length));
+  const indent = ' '.repeat(width + 1);
+
+  const lines: string[] = [];
+  items.forEach((item, i) => {
+    lines.push(`${prefixes[i].padEnd(width)} ${stepLines(item.title).join(' ')}`);
+    for (const line of stepLines(item.description)) lines.push(indent + line);
   });
 
   return `${intro}\n${lines.join('\n')}\n`;

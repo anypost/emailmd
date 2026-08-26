@@ -1,0 +1,176 @@
+---
+title: Steps
+description: Numbered steps and status trackers, drawn on a connecting rail.
+---
+
+A steps block is an ordered walk. Each list item is one step, written `Title: detail`:
+
+```markdown
+::: steps
+1. Create your account: Takes about a minute — no card needed.
+2. Connect your data: Point us at your warehouse and we'll do the rest.
+3. Invite your team
+:::
+```
+
+Markers sit on a connecting rail down the side, drawn with background colors and text — no images, no SVG — so the walk survives clients that strip both, and adapts in [dark mode](/docs/theme#automatic-dark-mode). The rail is a table cell rather than a border, so it takes the height of whatever text sits beside it: a step whose detail wraps to three lines on a phone gets three lines of rail.
+
+## Turning a list into a tracker
+
+Tick a step off and the block stops being instructions and starts being a status:
+
+```markdown
+::: steps
+- [x] Order placed: 12 Mar, 9:04am
+- [x] Shipped: 14 Mar — DHL, tracking 4829 1120 88
+- [ ] Out for delivery
+- [ ] Delivered: Expected 16 Mar
+:::
+```
+
+Ticked steps are behind the reader: their markers carry a tick and the rail below them is drawn in the accent color. Unticked steps are ahead of the reader, and every one of them is drawn the same quiet way — an unticked box says the step has not happened, and which of them the reader is *on* is not something the render will guess at.
+
+## The two states a checkbox cannot hold
+
+A box is ticked or it is not. A tracker has two more positions than that, and `{state=…}` after a step is how you write them.
+
+**`current`** — the step being worked on right now. Not done, and not merely pending:
+
+```markdown
+::: steps
+- [x] Order placed: 12 Mar
+- Out for delivery {state=current}
+- [ ] Delivered: Expected 16 Mar
+:::
+```
+
+**`failed`** — the step that went wrong, drawn as a cross in the theme's danger color with the title to match:
+
+```markdown
+::: steps
+- [x] Card charged: 1 Mar
+- Payment confirmed {state=failed}
+
+  We'll retry on the 1st. [Update your card](https://example.com).
+- [ ] Renews: Mar 2027
+:::
+```
+
+A stated step needs no checkbox — the state has already said everything the box would. The other two values, `done` and `todo`, are exactly `[x]` and `[ ]`; they exist so a block can use one vocabulary throughout rather than mixing the two:
+
+```markdown
+::: steps
+- Order placed {state=done}
+- Out for delivery {state=current}
+- Delivered {state=todo}
+:::
+```
+
+| State | Marker | Checkbox equivalent |
+| --- | --- | --- |
+| `done` | A tick, in the accent color | `[x]` |
+| `todo` | Its number, in the theme's muted card color | `[ ]` |
+| `current` | Its number, in the accent color, with the title at full weight | — |
+| `failed` | A cross, in the theme's danger color, with the title to match | — |
+
+A block with any `state` on it is a tracker, ticks or no ticks; steps left unmarked in one are `todo`.
+
+## Detail under a step
+
+The text after the first colon becomes the line under the title. The colon has to be followed by a space to count, so a bare `https://example.com` in a title does not tear the step in half.
+
+For detail that runs longer than a phrase — or a title that contains a colon of its own — write the step as two paragraphs instead. The paragraph break is the split, and the colon is left alone:
+
+```markdown
+::: steps
+1. Pick a plan: monthly or yearly
+
+   Yearly saves you two months, and you can switch whenever you like.
+2. Add your team
+:::
+```
+
+## Timelines
+
+`::: timeline` is the same block with dots instead of numbers, for stops that are events rather than instructions:
+
+```markdown
+::: timeline
+- [x] Signed up: Jan 2024
+- [x] Upgraded to Pro: Mar 2024
+- [ ] Renews: Mar 2027
+:::
+```
+
+It is exactly `::: steps marker=dot`, so everything below applies to it too.
+
+## Appearance
+
+`color` sets the accent the markers and the covered rail are drawn in, `size` the marker diameter in pixels, and `gap` the space between steps:
+
+```markdown
+::: steps color=#2563eb size=32 gap=20
+1. Draft the copy
+2. Send a test
+3. Ship it
+:::
+```
+
+`rail` recolors the connector, and `rail=none` drops it, leaving markers alone down the side. `marker=none` does the opposite — no markers, and the rail becomes a bar running the length of the block:
+
+```markdown
+::: steps marker=none
+1. Draft the copy
+2. Send a test
+:::
+```
+
+Numbering follows the list, so an ordered list starting at `4.` starts the markers there; `start=` overrides. Markers and rails left at their theme colors follow the dark palette automatically; a color you set explicitly keeps it in both light and dark mode.
+
+Text placed before the list renders above the steps.
+
+## Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `marker` | `number` (default), `dot`, or `none`. `::: timeline` defaults to `dot`. |
+| `color` | Marker and covered-rail color. Defaults to the theme's `brand_color`. |
+| `rail` | Connector color. Defaults to the theme's `divider_color`; `rail=none` drops it. |
+| `size` | Marker diameter in pixels, `8` to `64`. Defaults to `28`, or `14` for dots. |
+| `gap` | Space between steps, in pixels. Defaults to `14`. |
+| `start` | First number. Defaults to the list's own start. |
+
+Per-item: `{state=…}` sets one step to `done`, `current`, `todo`, or `failed`.
+
+## Plain Text
+
+Steps become an indented outline. A tracker keeps its markers as the closest thing text has to them, so a reader skimming the left edge still sees where the walk has got to:
+
+```
+[✓] Order placed
+    12 Mar, 9:04am
+[✓] Shipped
+    14 Mar — DHL, tracking 4829 1120 88
+[ ] Out for delivery
+[ ] Delivered
+    Expected 16 Mar
+```
+
+A step marked `{state=current}` reads `[→]`, and `{state=failed}` reads `[✕]`.
+
+A list that tracks nothing keeps its numbers instead:
+
+```
+1. Create your account
+   Takes about a minute — no card needed.
+2. Connect your data
+```
+
+## Notes
+
+- A step needs a title. Items with no text are dropped with a render warning, and a block with no list at all degrades to a regular text section.
+- The rail stops at the last marker rather than trailing past it. With `marker=none` there is no marker to stop at, so the bar runs to the end of the last step's text.
+- A marker smaller than the line beside it — a timeline dot, say — is centred against that line, which leaves an even break in the rail above and below it.
+- Round markers come from `border-radius`, which Outlook ignores; markers are square there.
+- In right-to-left documents the markers and the rail move to the right edge and the text mirrors with them.
+- For a walk with no order to it, a plain [task list](/docs/markdown#task-lists) is lighter. For one value against a known target, reach for [progress](/docs/directives/progress); for a row of headline numbers, [stats](/docs/directives/stats).

@@ -501,6 +501,30 @@ export function Toolbar({ getView, value, onChange, onReset, lastSaved, items, e
               >
                 Stat tiles
               </MenuItem>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) =>
+                  insertBlock(
+                    v,
+                    '::: steps\n1. Create your account: Takes about a minute.\n2. Connect your data: Point us at your warehouse.\n3. Invite your team\n:::',
+                    'Create your account'
+                  )
+                )}
+              >
+                Steps
+              </MenuItem>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) =>
+                  insertBlock(
+                    v,
+                    '::: steps\n- [x] Order placed: 12 Mar\n- [x] Shipped: 14 Mar\n- [ ] Out for delivery\n- [ ] Delivered\n:::',
+                    'Order placed'
+                  )
+                )}
+              >
+                Status tracker
+              </MenuItem>
             </>
           )}
         </ToolbarMenu>
