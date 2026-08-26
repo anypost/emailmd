@@ -13,5 +13,5 @@ export const screenshotVersions: Record<string, string> = {
   "release-notes": "22dff23c",
   "event-invite": "c2111631",
   "abandoned-cart": "d69d7489",
-  "product-announcement": "861c7092",
+  "product-announcement": "5ddda70c",
 };

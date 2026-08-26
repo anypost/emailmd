@@ -2043,13 +2043,25 @@ function renderColumnsSegment(segment: Segment, theme: Theme, ctx?: SegmentConte
     const explicitTotal = widths.reduce((sum, w) =>
       w ? sum + (w.endsWith('px') ? (parseFloat(w) / innerPx) * 100 : parseFloat(w)) : sum, 0);
     const flexible = widths.filter((w) => !w).length;
-    if (flexible > 0) {
-      fillWidthPct = pct((100 - spacerTotal - explicitTotal) / flexible);
-      if (fillWidthPct <= 0) {
-        warn(ctx, 'Column widths plus gaps exceed 100% — layout may overflow.');
-        fillWidthPct = 1;
-      }
+    // Widths are written as if they fill the row on their own — 48/4/48 reads
+    // as a full row — but the spacer columns are extra, so a row that already
+    // adds up overflows the moment they join it and the cards wrap onto their
+    // own lines. Scale the widths into what the gaps leave instead, keeping
+    // the proportions as written. A flexible column keeps a 1% floor.
+    const room = Math.max(1, 100 - spacerTotal - flexible);
+    let explicitPct = explicitTotal;
+    if (explicitTotal > room) {
+      // Only worth reporting when the author's own numbers left no room: the
+      // gaps pushing a 100% row over is the renderer's doing, not a mistake.
+      if (flexible > 0) warn(ctx, 'Column widths plus gaps exceed 100% — the remaining columns were squeezed to fit.');
+      const scale = room / explicitTotal;
+      widths.forEach((w, i) => {
+        const parts = w ? /^([\d.]+)(.*)$/.exec(w) : null;
+        if (parts) widths[i] = `${pct(parseFloat(parts[1]) * scale)}${parts[2] || '%'}`;
+      });
+      explicitPct = room;
     }
+    if (flexible > 0) fillWidthPct = pct((100 - spacerTotal - explicitPct) / flexible);
   }
 
   const parts: string[] = [];
