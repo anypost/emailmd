@@ -7,7 +7,9 @@ import {
   MARKER_HERO_CLOSE,
   EMPTY_TABLE_HEADER_RE,
 } from './constants.js';
-import { parseChart, resolveChartMax, barPercent } from './chart.js';
+import { parseChart, resolveChartMax } from './chart.js';
+import { barPercent, parseNumber } from './bar.js';
+import { parseProgress, type ProgressData } from './progress.js';
 
 /**
  * Convert rendered HTML (with directive markers) into a plain text email body.
@@ -45,6 +47,12 @@ export function toPlainText(html: string): string {
   text = text.replace(
     /<!--EMAILMD:CHART_OPEN((?:\s+[\w-]+="[^"]*")*)-->([\s\S]*?)<!--EMAILMD:CHART_CLOSE-->/g,
     (_, attrString: string, inner: string) => chartToText(inner, attrString),
+  );
+
+  // Progress bars draw the same meter in ASCII
+  text = text.replace(
+    /<!--EMAILMD:PROGRESS_OPEN((?:\s+[\w-]+="[^"]*")*)-->([\s\S]*?)<!--EMAILMD:PROGRESS_CLOSE-->/g,
+    (_, attrString: string, inner: string) => progressToText(inner, attrString),
   );
 
   // Convert buttons: <p><a href="url" button="">Text</a></p> → Text: url
@@ -162,6 +170,13 @@ function decodeEntities(text: string): string {
     .replace(/&nbsp;/g, ' ');
 }
 
+/** Attributes off a directive marker, e.g. ` max="10,000" steps="4"`. */
+function markerAttrs(attrString: string): Record<string, string> {
+  const attrs: Record<string, string> = {};
+  for (const match of attrString.matchAll(/([\w-]+)="([^"]*)"/g)) attrs[match[1]] = match[2];
+  return attrs;
+}
+
 /** Widest ASCII bar, in characters. */
 const TEXT_BAR_WIDTH = 24;
 
@@ -176,9 +191,8 @@ function chartToText(inner: string, attrString: string): string {
   const { intro, items } = parseChart(inner);
   if (items.length === 0) return inner;
 
-  const rawMax = /\bmax="([^"]*)"/.exec(attrString)?.[1];
-  const parsedMax = rawMax ? parseFloat(rawMax.replace(/,/g, '')) : NaN;
-  const max = resolveChartMax(items, Number.isFinite(parsedMax) && parsedMax > 0 ? parsedMax : undefined);
+  const parsedMax = parseNumber(markerAttrs(attrString).max);
+  const max = resolveChartMax(items, parsedMax !== null && parsedMax > 0 ? parsedMax : undefined);
 
   const labels = items.map((i) => decodeEntities(i.label));
   const values = items.map((i) => decodeEntities(i.display));
@@ -192,6 +206,37 @@ function chartToText(inner: string, attrString: string): string {
   });
 
   return `${intro}\n${lines.join('\n')}\n`;
+}
+
+/**
+ * Render a progress block as an ASCII meter.
+ *
+ * Unlike a chart, the empty part of the track is drawn too: a lone bar has no
+ * sibling to be measured against, so without the groove a third of the way
+ * through would just look like a short bar.
+ */
+function progressToText(inner: string, attrString: string): string {
+  const data = parseProgress(inner, markerAttrs(attrString));
+  if (!data) return inner;
+
+  const bar = data.steps > 0 ? steppedTextBar(data) : continuousTextBar(data.pct);
+  const line = data.readout ? `${bar}  ${decodeEntities(data.readout)}` : bar;
+
+  // The label heads the meter and the readout closes it, the same shape the
+  // HTML draws — printing the authored "Label: value" line as well would say
+  // the number twice.
+  const heading = data.label ? `${decodeEntities(data.label)}\n` : '';
+  return `${heading}${line}\n${data.rest}`;
+}
+
+function continuousTextBar(pct: number): string {
+  const filled = pct > 0 ? Math.max(1, Math.round((pct / 100) * TEXT_BAR_WIDTH)) : 0;
+  return '█'.repeat(filled) + '░'.repeat(TEXT_BAR_WIDTH - filled);
+}
+
+function steppedTextBar(data: ProgressData): string {
+  const width = Math.max(2, Math.floor(TEXT_BAR_WIDTH / data.steps));
+  return Array.from({ length: data.steps }, (_, i) => (i < data.filled ? '█' : '░').repeat(width)).join(' ');
 }
 
 function convertLists(html: string): string {

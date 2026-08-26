@@ -4,7 +4,9 @@ import type { Theme } from './theme.js';
 import type { RenderWarning } from './warnings.js';
 import { escapeHtml, escapeAttrValue, isCssColor, isCssLength, isSafeUrl, normalizeCssLength } from './sanitize.js';
 import { EMPTY_TABLE_HEADER_RE } from './constants.js';
-import { parseChart, resolveChartMax, barPercent } from './chart.js';
+import { parseChart, resolveChartMax } from './chart.js';
+import { barPercent } from './bar.js';
+import { parseProgress, type ProgressData } from './progress.js';
 
 /**
  * Overridable output strings, for localization.
@@ -188,6 +190,8 @@ function buildDarkModeStyles(dark: Theme): string {
     ['.emd-acc td', `background-color: ${dark.contentColor} !important;`],
     ['.emd-chart-bar-themed', `background-color: ${dark.brandColor} !important;`],
     ['.emd-chart-track-themed', `background-color: ${dark.cardColor} !important;`],
+    ['.emd-progress-bar-themed', `background-color: ${dark.brandColor} !important;`],
+    ['.emd-progress-track-themed', `background-color: ${dark.cardColor} !important;`],
   ];
   const colorRules: CssRule[] = [
     ['.emd-s div', `color: ${dark.bodyColor} !important;`],
@@ -203,6 +207,8 @@ function buildDarkModeStyles(dark: Theme): string {
     ['.emd-acc .mj-accordion-content td', `color: ${dark.bodyColor} !important;`],
     ['.emd-chart-label', `color: ${dark.bodyColor} !important;`],
     ['.emd-chart-value', `color: ${dark.headingColor} !important;`],
+    ['.emd-progress-label', `color: ${dark.bodyColor} !important;`],
+    ['.emd-progress-value', `color: ${dark.headingColor} !important;`],
     ...codeTokenRules(codePaletteFor(dark.cardColor), true),
   ];
 
@@ -725,11 +731,92 @@ function renderAccordionSegment(segment: Segment, theme: Theme, ctx?: SegmentCon
   return mjml;
 }
 
+/** Bar geometry: thickness, its attribute backstop, and end rounding. */
+interface BarShape {
+  height: string;
+  heightAttr: string;
+  radius: string;
+}
+
+/**
+ * Bar thickness and end rounding, shared by `chart` and `progress` so the two
+ * take the same values and default the same way.
+ */
+function resolveBarShape(
+  attrs: Record<string, string> | undefined,
+  fallbackHeight: string,
+  name: string,
+  ctx?: SegmentContext,
+): BarShape {
+  const rawHeight = attrs?.height;
+  const height = resolveLength(
+    rawHeight && /^\d+$/.test(rawHeight) ? `${rawHeight}px` : rawHeight,
+    fallbackHeight,
+    ctx,
+    `${name} height`,
+  );
+
+  // The height attribute is a backstop for clients that drop the inline
+  // height; it only takes a bare pixel count, so other units go without.
+  const heightPx = /^(\d+)px$/.exec(height)?.[1];
+
+  // Bars default to a pill — half the bar height — but take an explicit
+  // `border-radius` like the other rounded blocks do, so `border-radius=0`
+  // gets square ends. A zero radius emits no declaration at all.
+  const derivedRadius = heightPx ? `${Math.round(parseInt(heightPx, 10) / 2)}px` : '';
+  const rawRadius = attrs?.['border-radius'];
+  let radius = rawRadius !== undefined
+    ? resolveLength(rawRadius, derivedRadius, ctx, `${name} border-radius`)
+    : derivedRadius;
+  if (/^0(?:[a-z%]+)?$/.test(radius)) radius = '';
+
+  return { height, heightAttr: heightPx ? ` height="${heightPx}"` : '', radius };
+}
+
+/** One segment of a bar: a colored cell with no content but its own height. */
+function barCell(cls: string, color: string, width: number, corners: string, shape: BarShape): string {
+  return `<td class="${cls}" bgcolor="${color}" width="${width}%"${shape.heightAttr} style="width:${width}%;height:${shape.height};line-height:${shape.height};font-size:1px;background-color:${color};${corners ? `border-radius:${corners};` : ''}">&nbsp;</td>`;
+}
+
+/**
+ * A horizontal bar: the fill and the remaining groove, inside a fixed-layout
+ * table so the split lands on the same percentage in every client, Outlook
+ * included. Only the outer ends are rounded, so a partly-filled bar reads as
+ * one pill rather than two; in RTL the groove comes first and the bar grows
+ * from the right edge.
+ */
+function renderBar(
+  pct: number,
+  fill: string,
+  fillClass: string,
+  trackColor: string,
+  trackClass: string,
+  shape: BarShape,
+  rtl: boolean,
+): string {
+  const { radius } = shape;
+  const startCorners = radius ? (rtl ? `0 ${radius} ${radius} 0` : `${radius} 0 0 ${radius}`) : '';
+  const endCorners = radius ? (rtl ? `${radius} 0 0 ${radius}` : `0 ${radius} ${radius} 0`) : '';
+
+  let cells: string;
+  if (pct >= 100) {
+    cells = barCell(fillClass, fill, 100, radius, shape);
+  } else if (pct <= 0) {
+    cells = barCell(trackClass, trackColor, 100, radius, shape);
+  } else {
+    const filled = barCell(fillClass, fill, pct, startCorners, shape);
+    const rest = barCell(trackClass, trackColor, 100 - pct, endCorners, shape);
+    cells = rtl ? rest + filled : filled + rest;
+  }
+
+  return `<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="width:100%;table-layout:fixed;border-collapse:separate;">
+              <tr>${cells}</tr>
+            </table>`;
+}
+
 /**
  * Horizontal bar chart, built entirely from table cells with background
- * colors: no images, no SVG, no CSS that clients strip. Each bar is a pair of
- * cells — the fill and the remaining groove — inside a fixed-layout table, so
- * the split lands on the same percentage in every client, Outlook included.
+ * colors: no images, no SVG, no CSS that clients strip.
  * The `emd-chart-*` classes are dark-mode hooks; only bars left at their theme
  * color carry the `-themed` variant, so an author's explicit color survives
  * the dark palette the way hero colors do.
@@ -747,13 +834,7 @@ function renderChartSegment(segment: Segment, theme: Theme, ctx?: SegmentContext
 
   const barColor = resolveColor(segment.attrs?.color, theme.brandColor, ctx, 'chart color');
   const trackColor = resolveColor(segment.attrs?.track, theme.cardColor, ctx, 'chart track');
-  const rawHeight = segment.attrs?.height;
-  const height = resolveLength(
-    rawHeight && /^\d+$/.test(rawHeight) ? `${rawHeight}px` : rawHeight,
-    '10px',
-    ctx,
-    'chart height',
-  );
+  const shape = resolveBarShape(segment.attrs, '10px', 'chart', ctx);
   const showValues = segment.attrs?.values !== 'false';
 
   let maxOverride: number | undefined;
@@ -767,53 +848,19 @@ function renderChartSegment(segment: Segment, theme: Theme, ctx?: SegmentContext
   }
   const max = resolveChartMax(items, maxOverride);
 
-  // The height attribute is a backstop for clients that drop the inline
-  // height; it only takes a bare pixel count, so other units go without.
-  const heightPx = /^(\d+)px$/.exec(height)?.[1];
-  const heightAttr = heightPx ? ` height="${heightPx}"` : '';
-  // Bars default to a pill — half the bar height — but take an explicit
-  // `border-radius` like the other rounded blocks do, so `border-radius=0`
-  // gets square ends. A zero radius emits no declaration at all.
-  const derivedRadius = heightPx ? `${Math.round(parseInt(heightPx, 10) / 2)}px` : '';
-  const rawRadius = segment.attrs?.['border-radius'];
-  let radius = rawRadius !== undefined
-    ? resolveLength(rawRadius, derivedRadius, ctx, 'chart border-radius')
-    : derivedRadius;
-  if (/^0(?:[a-z%]+)?$/.test(radius)) radius = '';
   const rtl = ctx?.dir === 'rtl';
   const labelAlign = startAlign(ctx);
   const valueAlign = rtl ? 'left' : 'right';
 
   const themedBar = !segment.attrs?.color;
-  const themedTrack = !segment.attrs?.track;
-  const trackClass = `emd-chart-track${themedTrack ? ' emd-chart-track-themed' : ''}`;
-
-  const cell = (cls: string, color: string, width: number, corners: string) =>
-    `<td class="${cls}" bgcolor="${color}" width="${width}%"${heightAttr} style="width:${width}%;height:${height};line-height:${height};font-size:1px;background-color:${color};${corners ? `border-radius:${corners};` : ''}">&nbsp;</td>`;
+  const trackClass = `emd-chart-track${segment.attrs?.track ? '' : ' emd-chart-track-themed'}`;
 
   const rows = items.map((item, i) => {
-    const pct = barPercent(item.value, max);
     const fill = item.color
       ? resolveColor(item.color, barColor, ctx, `chart bar "${item.label}"`)
       : barColor;
     const barClass = `emd-chart-bar${themedBar && !item.color ? ' emd-chart-bar-themed' : ''}`;
-
-    // Round only the outer ends of the groove, so a partly-filled bar reads as
-    // one pill rather than two. Clients without border-radius get square bars.
-    const startCorners = radius ? (rtl ? `0 ${radius} ${radius} 0` : `${radius} 0 0 ${radius}`) : '';
-    const endCorners = radius ? (rtl ? `${radius} 0 0 ${radius}` : `0 ${radius} ${radius} 0`) : '';
-
-    let bar: string;
-    if (pct >= 100) {
-      bar = cell(barClass, fill, 100, radius);
-    } else if (pct <= 0) {
-      bar = cell(trackClass, trackColor, 100, radius);
-    } else {
-      const filled = cell(barClass, fill, pct, startCorners);
-      const rest = cell(trackClass, trackColor, 100 - pct, endCorners);
-      // In RTL the bar grows from the right edge, so the groove comes first.
-      bar = rtl ? rest + filled : filled + rest;
-    }
+    const bar = renderBar(barPercent(item.value, max), fill, barClass, trackColor, trackClass, shape, rtl);
 
     const labelCell = `<td class="emd-chart-label" align="${labelAlign}"${showValues ? '' : ' colspan="2"'} style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;color:${theme.bodyColor};">${escapeAttrValue(item.label)}</td>`;
     const valueCell = showValues
@@ -826,9 +873,7 @@ function renderChartSegment(segment: Segment, theme: Theme, ctx?: SegmentContext
 
     return `<tr>${captionCells}</tr>
           <tr><td colspan="2" style="padding:${gap};">
-            <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="width:100%;table-layout:fixed;border-collapse:separate;">
-              <tr>${bar}</tr>
-            </table>
+            ${bar}
           </td></tr>`;
   });
 
@@ -842,6 +887,87 @@ function renderChartSegment(segment: Segment, theme: Theme, ctx?: SegmentContext
         ${introMjml}<mj-table css-class="emd-chart" role="presentation" cellpadding="0" cellspacing="0" width="100%" padding="4px 0" font-family="${theme.fontFamily}">
           ${rows.join('\n          ')}
         </mj-table>
+      </mj-column>
+    </mj-section>`;
+}
+
+/** Gap between the segments of a stepped meter. */
+const STEP_GAP = '6px';
+
+/**
+ * A stepped meter: one rounded segment per step, with the gaps made from cell
+ * padding rather than border-spacing, which Outlook ignores. The DOM stays
+ * left-to-right, so RTL walks the steps backwards to put the first one on the
+ * right edge.
+ */
+function renderSteppedBar(
+  data: ProgressData,
+  fill: string,
+  fillClass: string,
+  trackColor: string,
+  trackClass: string,
+  shape: BarShape,
+  rtl: boolean,
+): string {
+  const width = Math.round((100 / data.steps) * 100) / 100;
+  const cells = Array.from({ length: data.steps }, (_, position) => {
+    const step = rtl ? data.steps - 1 - position : position;
+    const on = step < data.filled;
+    const pad = position === data.steps - 1 ? '0' : `0 ${STEP_GAP} 0 0`;
+    const segment = `<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="width:100%;border-collapse:separate;"><tr>${barCell(on ? fillClass : trackClass, on ? fill : trackColor, 100, shape.radius, shape)}</tr></table>`;
+    return `<td width="${width}%" style="width:${width}%;padding:${pad};">${segment}</td>`;
+  });
+
+  return `<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="width:100%;table-layout:fixed;border-collapse:separate;">
+              <tr>${cells.join('')}</tr>
+            </table>`;
+}
+
+/**
+ * A progress bar: one value against a known maximum, drawn from the same
+ * table cells as a chart bar. The unfilled groove always shows — a lone bar
+ * has no sibling to be read against, so the gap to the goal is the point.
+ */
+function renderProgressSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  const data = parseProgress(segment.content, segment.attrs ?? {});
+  if (!data) {
+    warn(ctx, 'Progress block has no numeric value — rendering its content as regular text.');
+    return renderTextSegment(segment.content, theme);
+  }
+  for (const message of data.warnings) warn(ctx, message);
+
+  const fill = resolveColor(segment.attrs?.color, theme.brandColor, ctx, 'progress color');
+  const trackColor = resolveColor(segment.attrs?.track, theme.cardColor, ctx, 'progress track');
+  const shape = resolveBarShape(segment.attrs, '10px', 'progress', ctx);
+  const rtl = ctx?.dir === 'rtl';
+  const fillClass = `emd-progress-bar${segment.attrs?.color ? '' : ' emd-progress-bar-themed'}`;
+  const trackClass = `emd-progress-track${segment.attrs?.track ? '' : ' emd-progress-track-themed'}`;
+
+  const bar = data.steps > 0
+    ? renderSteppedBar(data, fill, fillClass, trackColor, trackClass, shape, rtl)
+    : renderBar(data.pct, fill, fillClass, trackColor, trackClass, shape, rtl);
+
+  const labelCell = `<td class="emd-progress-label" align="${startAlign(ctx)}"${data.readout ? '' : ' colspan="2"'} style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;color:${theme.bodyColor};">${escapeAttrValue(data.label)}</td>`;
+  const valueCell = data.readout
+    ? `<td class="emd-progress-value" align="${rtl ? 'left' : 'right'}" style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;font-weight:700;color:${theme.headingColor};white-space:nowrap;">${escapeAttrValue(data.readout)}</td>`
+    : '';
+  // Same as chart: MJML pins the column to direction:ltr, so cell order is
+  // what puts the label and the readout on their own edges.
+  const captionCells = rtl ? valueCell + labelCell : labelCell + valueCell;
+  const captionRow = data.label || data.readout ? `<tr>${captionCells}</tr>\n          ` : '';
+
+  const restMjml = data.rest.trim()
+    ? `
+        <mj-text padding="8px 0 0" font-size="${theme.fontSize}" color="${theme.bodyColor}" line-height="${theme.lineHeight}">${processInlineImages(data.rest)}</mj-text>`
+    : '';
+
+  return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
+      <mj-column>
+        <mj-table css-class="emd-progress" role="presentation" cellpadding="0" cellspacing="0" width="100%" padding="4px 0" font-family="${theme.fontFamily}">
+          ${captionRow}<tr><td colspan="2">
+            ${bar}
+          </td></tr>
+        </mj-table>${restMjml}
       </mj-column>
     </mj-section>`;
 }
@@ -1197,6 +1323,8 @@ function segmentToMjml(segment: Segment, theme: Theme, ctx?: SegmentContext): st
       return renderAccordionSegment(segment, theme, ctx);
     case 'chart':
       return renderChartSegment(segment, theme, ctx);
+    case 'progress':
+      return renderProgressSegment(segment, theme, ctx);
   }
 }
 

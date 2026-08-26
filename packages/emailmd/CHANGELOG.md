@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 - **`::: chart` directive** — horizontal bar charts written as a `Label: value` list. Bars are table cells with a background color (no images, no SVG, no JavaScript), so they render in every client, follow the theme into automatic dark mode, and mirror in RTL documents. Percentages scale against 100 rather than the largest item, so `42%` never draws as a full bar; anything else scales to the largest value, and `max=` pins the scale explicitly. Params: `max`, `color`, `track`, `height`, `values=false`, and `border-radius` (defaults to a pill, `0` squares the ends); a single bar takes `{color=…}` on its list item and keeps that color in both light and dark mode. The plain-text part draws the same chart in ASCII instead of flattening to a list of numbers.
+- **`::: progress` directive** — a progress bar or stepped meter for one value against a known maximum, written `Label: value` like a chart bar. The unfilled groove always shows, so the distance left to go reads as clearly as the distance covered. A bare number is out of 100; `max=` takes any other unit and spells out the denominator in the readout (`8,400 / 10,000`), and `steps=` draws 2–12 discrete segments instead of a continuous bar. Params: `max`, `steps`, `color`, `track`, `height`, `values=false`, `border-radius`. Text below the value line renders under the bar, and the plain-text part draws the same meter in ASCII.
 
 ## [0.10.0] — 2026-07-25
 

@@ -6,6 +6,8 @@
  * outputs can never disagree about which items or scale a chart has.
  */
 
+import { parseLabelValue, stripTags } from './bar.js';
+
 /** One bar: a label, the value as written, and its numeric magnitude. */
 export interface ChartItem {
   /** Bar label, plain text with tags stripped. */
@@ -29,29 +31,14 @@ export interface ChartData {
 // The first list in the block is the data; `<ol>` works the same as `<ul>`.
 const LIST_RE = /<([uo])l[^>]*>([\s\S]*?)<\/\1l>/;
 const ITEM_RE = /<li([^>]*)>([\s\S]*?)<\/li>/g;
-// Leading digit required, so a bare "$" or "%" is not read as a value.
-const NUMBER_RE = /-?\d[\d,]*(?:\.\d+)?/;
-
-function stripTags(html: string): string {
-  return html.replace(/<[^>]*>/g, '');
-}
 
 function parseItem(attrString: string, inner: string): ChartItem | null {
-  const text = stripTags(inner).trim();
-  // Split on the last colon, so a label may contain one ("Q1: revenue: 400").
-  const sep = text.lastIndexOf(':');
-  if (sep === -1) return null;
-  const label = text.slice(0, sep).trim();
-  const display = text.slice(sep + 1).trim();
-  if (!label || !display) return null;
-
-  const num = NUMBER_RE.exec(display);
-  if (!num) return null;
-  const value = parseFloat(num[0].replace(/,/g, ''));
-  if (!Number.isFinite(value)) return null;
+  // A chart bar needs a label; a bare number has nothing to name it.
+  const parsed = parseLabelValue(stripTags(inner));
+  if (!parsed || !parsed.label) return null;
 
   const color = /\bcolor="([^"]*)"/.exec(attrString)?.[1];
-  return { label, display, value, ...(color ? { color } : {}) };
+  return { ...parsed, ...(color ? { color } : {}) };
 }
 
 /** Pull the intro text and `Label: value` bars out of a chart block's HTML. */
@@ -89,9 +76,3 @@ export function resolveChartMax(items: ChartItem[], override?: number): number {
   return largest > 0 ? largest : 1;
 }
 
-/** Bar fill as a percentage of the track, clamped to 0–100. */
-export function barPercent(value: number, max: number): number {
-  if (!(max > 0)) return 0;
-  const pct = (value / max) * 100;
-  return Math.max(0, Math.min(100, Math.round(pct * 100) / 100));
-}

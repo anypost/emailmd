@@ -453,6 +453,18 @@ export function Toolbar({ getView, value, onChange, onReset, lastSaved, items, e
               >
                 Bar chart
               </MenuItem>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) =>
+                  insertBlock(
+                    v,
+                    '::: progress max=10,000\nRaised so far: 8,400\n:::',
+                    'Raised so far'
+                  )
+                )}
+              >
+                Progress bar
+              </MenuItem>
             </>
           )}
         </ToolbarMenu>

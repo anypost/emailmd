@@ -11,6 +11,7 @@ import { registerDivider } from './divider.js';
 import { registerSocial } from './social.js';
 import { registerAccordion } from './accordion.js';
 import { registerChart } from './chart.js';
+import { registerProgress } from './progress.js';
 
 export function registerDirectives(md: MarkdownIt): void {
   registerCallout(md);
@@ -25,4 +26,5 @@ export function registerDirectives(md: MarkdownIt): void {
   registerSocial(md);
   registerAccordion(md);
   registerChart(md);
+  registerProgress(md);
 }
