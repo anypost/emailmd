@@ -1,0 +1,59 @@
+/*
+ * Home page motion. Two effects, both pure CSS so the page stays a Server
+ * Component and nothing listens to scroll.
+ */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(1.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Hero load-in. Staggered with an inline animation-delay per element. */
+  .load {
+    animation: rise 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /*
+   * Scroll reveal, driven by the element's own view() timeline. Firefox has no
+   * support yet and falls out of the @supports block, which leaves the content
+   * rendered in place: the right fallback, and the same one reduced-motion gets.
+   */
+  @supports (animation-timeline: view()) {
+    /* revealKids stages a grid cell at a time rather than the grid as one block. */
+    .reveal,
+    .revealKids > * {
+      animation: rise linear both;
+      animation-timeline: view();
+      animation-range: cover 0% cover 18%;
+    }
+  }
+}
+
+/*
+ * Template strip. The first card lines up with the shell above it, and
+ * scroll-padding has to match the inset or mandatory snapping lands the strip
+ * already scrolled past its own left padding.
+ */
+.strip {
+  --inset: max(1rem, calc((100% - 72rem) / 2 + 1rem));
+  padding-inline: var(--inset);
+  scroll-padding-inline: var(--inset);
+  scrollbar-width: thin;
+}
+
+/*
+ * The plain-text chart draws its bars with U+2588. Geist Mono carries no block
+ * elements, so those characters fall back to a face with a wider advance and
+ * the columns go ragged. Render this one sample in the system terminal font,
+ * which has the blocks at the right width.
+ */
+.ascii {
+  font-family: ui-monospace, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+}
