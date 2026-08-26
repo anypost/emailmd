@@ -15,4 +15,5 @@ export const screenshotVersions: Record<string, string> = {
   "abandoned-cart": "d69d7489",
   "product-announcement": "5ddda70c",
   "directive-showcase": "23a162f0",
+  "chart-showcase": "828db6c3",
 };

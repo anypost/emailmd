@@ -37,11 +37,14 @@ Bar charts, progress meters, sparklines, KPI tiles, step trackers, and star rati
 
 ```markdown
 ::: chart
-- Direct: 4,200
-- Organic search: 3,100
-- Social: 640
+- Spotify: 16,900
+- Apple Podcasts: 12,400
+- Web player: 6,200
+- RSS: 2,900
 :::
 ```
+
+![KPI tiles, a bar chart and a sparkline, rendered by emailmd from plain markdown lists](https://imgs.emailmd.dev/ss/chart_showcase.png?1)
 
 They are drawn from table cells and text glyphs rather than images or SVG, so they still render when the client blocks remote images, and they redraw themselves in the plain-text part instead of collapsing to a list of numbers. See the [directives reference](https://www.emailmd.dev/docs/directives).
 

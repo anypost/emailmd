@@ -27,17 +27,25 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const VIEWPORT = { width: 720, height: 600 };
 
 /**
- * One-off renders that exist for the marketing site, not the gallery. They
- * live as loose markdown under showcase/ and are deliberately absent from
- * lib/templates.ts, so nothing links to them from /templates. Each one names
- * the viewport it is framed for, since these are composed to fill a specific
- * slot rather than to be cropped from the top.
+ * One-off renders that fill a specific slot, such as a cell on the home page
+ * or a section of the README, rather than a gallery card. They live as loose
+ * markdown under showcase/ and are deliberately absent from lib/templates.ts,
+ * so nothing links to them from /templates. Each one names the viewport it is
+ * framed for, since these are composed to fit rather than cropped from the top.
+ *
+ * README images are served from imgs.emailmd.dev, not from this repo, so a new
+ * PNG here has to be uploaded there before the README will show it.
  */
 const showcase = [
   {
     id: "directive-showcase",
     file: "directives.md",
     viewport: { width: 720, height: 420 },
+  },
+  {
+    id: "chart-showcase",
+    file: "charts.md",
+    viewport: { width: 600, height: 542 },
   },
 ];
 
