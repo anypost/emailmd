@@ -7,6 +7,7 @@ import {
   MARKER_HERO_CLOSE,
   EMPTY_TABLE_HEADER_RE,
 } from './constants.js';
+import { parseChart, resolveChartMax, barPercent } from './chart.js';
 
 /**
  * Convert rendered HTML (with directive markers) into a plain text email body.
@@ -39,6 +40,12 @@ export function toPlainText(html: string): string {
 
   // Accordions flatten to sequential headings + content
   text = text.replace(/<!--EMAILMD:ACCORDION_(?:OPEN|CLOSE)(?:\s+[\w-]+="[^"]*")*-->/g, '');
+
+  // Charts become ASCII bars, before the generic list conversion claims them
+  text = text.replace(
+    /<!--EMAILMD:CHART_OPEN((?:\s+[\w-]+="[^"]*")*)-->([\s\S]*?)<!--EMAILMD:CHART_CLOSE-->/g,
+    (_, attrString: string, inner: string) => chartToText(inner, attrString),
+  );
 
   // Convert buttons: <p><a href="url" button="">Text</a></p> → Text: url
   // Handles both single and multiple buttons in one paragraph
@@ -136,18 +143,55 @@ export function toPlainText(html: string): string {
   text = text.replace(/\u2611/g, '[x]');
 
   // Decode common HTML entities
-  text = text.replace(/&amp;/g, '&');
-  text = text.replace(/&lt;/g, '<');
-  text = text.replace(/&gt;/g, '>');
-  text = text.replace(/&quot;/g, '"');
-  text = text.replace(/&#39;/g, "'");
-  text = text.replace(/&nbsp;/g, ' ');
+  text = decodeEntities(text);
 
   // Clean up whitespace: collapse multiple blank lines, trim
   text = text.replace(/\n{3,}/g, '\n\n');
   text = text.trim();
 
   return text;
+}
+
+function decodeEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ');
+}
+
+/** Widest ASCII bar, in characters. */
+const TEXT_BAR_WIDTH = 24;
+
+/**
+ * Render a chart block as ASCII bars, so the text part carries the same
+ * comparison the HTML bars draw rather than a bare list of numbers.
+ *
+ * Labels and values are entity-decoded here rather than in the final pass, so
+ * the column padding is measured against the characters a reader actually sees.
+ */
+function chartToText(inner: string, attrString: string): string {
+  const { intro, items } = parseChart(inner);
+  if (items.length === 0) return inner;
+
+  const rawMax = /\bmax="([^"]*)"/.exec(attrString)?.[1];
+  const parsedMax = rawMax ? parseFloat(rawMax.replace(/,/g, '')) : NaN;
+  const max = resolveChartMax(items, Number.isFinite(parsedMax) && parsedMax > 0 ? parsedMax : undefined);
+
+  const labels = items.map((i) => decodeEntities(i.label));
+  const values = items.map((i) => decodeEntities(i.display));
+  const labelWidth = Math.max(...labels.map((l) => l.length));
+
+  const lines = items.map((item, i) => {
+    const pct = barPercent(item.value, max);
+    const filled = pct > 0 ? Math.max(1, Math.round((pct / 100) * TEXT_BAR_WIDTH)) : 0;
+    const bar = '█'.repeat(filled).padEnd(TEXT_BAR_WIDTH);
+    return `${labels[i].padEnd(labelWidth)}  ${bar}  ${values[i]}`;
+  });
+
+  return `${intro}\n${lines.join('\n')}\n`;
 }
 
 function convertLists(html: string): string {

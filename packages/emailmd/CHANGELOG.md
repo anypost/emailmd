@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **`::: chart` directive** — horizontal bar charts written as a `Label: value` list. Bars are table cells with a background color (no images, no SVG, no JavaScript), so they render in every client, follow the theme into automatic dark mode, and mirror in RTL documents. Percentages scale against 100 rather than the largest item, so `42%` never draws as a full bar; anything else scales to the largest value, and `max=` pins the scale explicitly. Params: `max`, `color`, `track`, `height`, `values=false`, and `border-radius` (defaults to a pill, `0` squares the ends); a single bar takes `{color=…}` on its list item and keeps that color in both light and dark mode. The plain-text part draws the same chart in ASCII instead of flattening to a list of numbers.
+
 ## [0.10.0] — 2026-07-25
 
 ### Added

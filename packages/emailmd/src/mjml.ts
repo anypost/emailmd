@@ -4,6 +4,7 @@ import type { Theme } from './theme.js';
 import type { RenderWarning } from './warnings.js';
 import { escapeHtml, escapeAttrValue, isCssColor, isCssLength, isSafeUrl, normalizeCssLength } from './sanitize.js';
 import { EMPTY_TABLE_HEADER_RE } from './constants.js';
+import { parseChart, resolveChartMax, barPercent } from './chart.js';
 
 /**
  * Overridable output strings, for localization.
@@ -185,6 +186,8 @@ function buildDarkModeStyles(dark: Theme): string {
     ['.emd-s code, .emd-s pre', `background-color: ${dark.cardColor} !important;`],
     ['.emd-s mark', `background-color: ${dark.brandColor}33 !important;`],
     ['.emd-acc td', `background-color: ${dark.contentColor} !important;`],
+    ['.emd-chart-bar-themed', `background-color: ${dark.brandColor} !important;`],
+    ['.emd-chart-track-themed', `background-color: ${dark.cardColor} !important;`],
   ];
   const colorRules: CssRule[] = [
     ['.emd-s div', `color: ${dark.bodyColor} !important;`],
@@ -198,6 +201,8 @@ function buildDarkModeStyles(dark: Theme): string {
     ['.emd-acc table', `border-color: ${dark.dividerColor} !important;`],
     ['.emd-acc .mj-accordion-title td', `color: ${dark.headingColor} !important;`],
     ['.emd-acc .mj-accordion-content td', `color: ${dark.bodyColor} !important;`],
+    ['.emd-chart-label', `color: ${dark.bodyColor} !important;`],
+    ['.emd-chart-value', `color: ${dark.headingColor} !important;`],
     ...codeTokenRules(codePaletteFor(dark.cardColor), true),
   ];
 
@@ -720,6 +725,127 @@ function renderAccordionSegment(segment: Segment, theme: Theme, ctx?: SegmentCon
   return mjml;
 }
 
+/**
+ * Horizontal bar chart, built entirely from table cells with background
+ * colors: no images, no SVG, no CSS that clients strip. Each bar is a pair of
+ * cells — the fill and the remaining groove — inside a fixed-layout table, so
+ * the split lands on the same percentage in every client, Outlook included.
+ * The `emd-chart-*` classes are dark-mode hooks; only bars left at their theme
+ * color carry the `-themed` variant, so an author's explicit color survives
+ * the dark palette the way hero colors do.
+ */
+function renderChartSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  const { intro, items, skipped } = parseChart(segment.content);
+
+  if (items.length === 0) {
+    warn(ctx, 'Chart contains no "Label: value" list items — rendering its content as regular text.');
+    return renderTextSegment(segment.content, theme);
+  }
+  if (skipped > 0) {
+    warn(ctx, `${skipped} chart item${skipped === 1 ? '' : 's'} had no "Label: value" shape and ${skipped === 1 ? 'was' : 'were'} skipped.`);
+  }
+
+  const barColor = resolveColor(segment.attrs?.color, theme.brandColor, ctx, 'chart color');
+  const trackColor = resolveColor(segment.attrs?.track, theme.cardColor, ctx, 'chart track');
+  const rawHeight = segment.attrs?.height;
+  const height = resolveLength(
+    rawHeight && /^\d+$/.test(rawHeight) ? `${rawHeight}px` : rawHeight,
+    '10px',
+    ctx,
+    'chart height',
+  );
+  const showValues = segment.attrs?.values !== 'false';
+
+  let maxOverride: number | undefined;
+  if (segment.attrs?.max !== undefined) {
+    const parsed = parseFloat(segment.attrs.max.replace(/,/g, ''));
+    if (Number.isFinite(parsed) && parsed > 0) {
+      maxOverride = parsed;
+    } else {
+      warn(ctx, `Invalid max "${segment.attrs.max}" for chart — scaling to the largest value.`);
+    }
+  }
+  const max = resolveChartMax(items, maxOverride);
+
+  // The height attribute is a backstop for clients that drop the inline
+  // height; it only takes a bare pixel count, so other units go without.
+  const heightPx = /^(\d+)px$/.exec(height)?.[1];
+  const heightAttr = heightPx ? ` height="${heightPx}"` : '';
+  // Bars default to a pill — half the bar height — but take an explicit
+  // `border-radius` like the other rounded blocks do, so `border-radius=0`
+  // gets square ends. A zero radius emits no declaration at all.
+  const derivedRadius = heightPx ? `${Math.round(parseInt(heightPx, 10) / 2)}px` : '';
+  const rawRadius = segment.attrs?.['border-radius'];
+  let radius = rawRadius !== undefined
+    ? resolveLength(rawRadius, derivedRadius, ctx, 'chart border-radius')
+    : derivedRadius;
+  if (/^0(?:[a-z%]+)?$/.test(radius)) radius = '';
+  const rtl = ctx?.dir === 'rtl';
+  const labelAlign = startAlign(ctx);
+  const valueAlign = rtl ? 'left' : 'right';
+
+  const themedBar = !segment.attrs?.color;
+  const themedTrack = !segment.attrs?.track;
+  const trackClass = `emd-chart-track${themedTrack ? ' emd-chart-track-themed' : ''}`;
+
+  const cell = (cls: string, color: string, width: number, corners: string) =>
+    `<td class="${cls}" bgcolor="${color}" width="${width}%"${heightAttr} style="width:${width}%;height:${height};line-height:${height};font-size:1px;background-color:${color};${corners ? `border-radius:${corners};` : ''}">&nbsp;</td>`;
+
+  const rows = items.map((item, i) => {
+    const pct = barPercent(item.value, max);
+    const fill = item.color
+      ? resolveColor(item.color, barColor, ctx, `chart bar "${item.label}"`)
+      : barColor;
+    const barClass = `emd-chart-bar${themedBar && !item.color ? ' emd-chart-bar-themed' : ''}`;
+
+    // Round only the outer ends of the groove, so a partly-filled bar reads as
+    // one pill rather than two. Clients without border-radius get square bars.
+    const startCorners = radius ? (rtl ? `0 ${radius} ${radius} 0` : `${radius} 0 0 ${radius}`) : '';
+    const endCorners = radius ? (rtl ? `${radius} 0 0 ${radius}` : `0 ${radius} ${radius} 0`) : '';
+
+    let bar: string;
+    if (pct >= 100) {
+      bar = cell(barClass, fill, 100, radius);
+    } else if (pct <= 0) {
+      bar = cell(trackClass, trackColor, 100, radius);
+    } else {
+      const filled = cell(barClass, fill, pct, startCorners);
+      const rest = cell(trackClass, trackColor, 100 - pct, endCorners);
+      // In RTL the bar grows from the right edge, so the groove comes first.
+      bar = rtl ? rest + filled : filled + rest;
+    }
+
+    const labelCell = `<td class="emd-chart-label" align="${labelAlign}"${showValues ? '' : ' colspan="2"'} style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;color:${theme.bodyColor};">${escapeAttrValue(item.label)}</td>`;
+    const valueCell = showValues
+      ? `<td class="emd-chart-value" align="${valueAlign}" style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;font-weight:700;color:${theme.headingColor};white-space:nowrap;">${escapeAttrValue(item.display)}</td>`
+      : '';
+    // MJML pins the column to direction:ltr, so cell *order* is what puts each
+    // one on its edge — aligning the text alone leaves both stranded mid-row.
+    const captionCells = rtl ? valueCell + labelCell : labelCell + valueCell;
+    const gap = i === items.length - 1 ? '0' : '0 0 14px 0';
+
+    return `<tr>${captionCells}</tr>
+          <tr><td colspan="2" style="padding:${gap};">
+            <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="width:100%;table-layout:fixed;border-collapse:separate;">
+              <tr>${bar}</tr>
+            </table>
+          </td></tr>`;
+  });
+
+  const introMjml = intro.trim()
+    ? `<mj-text padding="0 0 8px" font-size="${theme.fontSize}" color="${theme.bodyColor}" line-height="${theme.lineHeight}">${processInlineImages(intro)}</mj-text>
+        `
+    : '';
+
+  return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
+      <mj-column>
+        ${introMjml}<mj-table css-class="emd-chart" role="presentation" cellpadding="0" cellspacing="0" width="100%" padding="4px 0" font-family="${theme.fontFamily}">
+          ${rows.join('\n          ')}
+        </mj-table>
+      </mj-column>
+    </mj-section>`;
+}
+
 function styleTableHtml(html: string, theme: Theme): string {
   let tableHtml = html;
 
@@ -1069,6 +1195,8 @@ function segmentToMjml(segment: Segment, theme: Theme, ctx?: SegmentContext): st
       return renderSocialSegment(segment, theme, ctx);
     case 'accordion':
       return renderAccordionSegment(segment, theme, ctx);
+    case 'chart':
+      return renderChartSegment(segment, theme, ctx);
   }
 }
 

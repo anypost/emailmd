@@ -32,7 +32,7 @@ Typical workflow:
 1. Write emailmd markdown. Standard markdown works; email-specific features are opt-in:
    - YAML frontmatter: preheader, theme (light|dark|auto), fonts, a dark: override map, and theme keys like accent_color or font_family.
    - Buttons: [Get Started](https://example.com){button} (variants: {button.secondary}, {button.success}, ...).
-   - Layout directives: ::: hero, ::: columns with ::: column (outer block uses ::::), ::: callout, ::: header, ::: footer, ::: divider, ::: spacer, ::: social, ::: accordion, ::: centered, and ::: include <partial>.
+   - Layout directives: ::: hero, ::: columns with ::: column (outer block uses ::::), ::: callout, ::: header, ::: footer, ::: divider, ::: spacer, ::: social, ::: accordion, ::: chart, ::: centered, and ::: include <partial>.
 2. Call lint and fix what it finds (deliverability, accessibility, readability).
 3. Call render for the final html, the plain-text MIME part, and previewUrl. Share previewUrl with the user so they can open the email in a live preview.
 

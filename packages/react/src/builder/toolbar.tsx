@@ -441,6 +441,18 @@ export function Toolbar({ getView, value, onChange, onReset, lastSaved, items, e
               >
                 Accordion (FAQ)
               </MenuItem>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) =>
+                  insertBlock(
+                    v,
+                    '::: chart\n- Direct: 4,200\n- Organic search: 3,100\n- Social: 640\n:::',
+                    'Direct'
+                  )
+                )}
+              >
+                Bar chart
+              </MenuItem>
             </>
           )}
         </ToolbarMenu>

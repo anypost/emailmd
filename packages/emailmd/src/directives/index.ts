@@ -10,6 +10,7 @@ import { registerSpacer } from './spacer.js';
 import { registerDivider } from './divider.js';
 import { registerSocial } from './social.js';
 import { registerAccordion } from './accordion.js';
+import { registerChart } from './chart.js';
 
 export function registerDirectives(md: MarkdownIt): void {
   registerCallout(md);
@@ -23,4 +24,5 @@ export function registerDirectives(md: MarkdownIt): void {
   registerDivider(md);
   registerSocial(md);
   registerAccordion(md);
+  registerChart(md);
 }
