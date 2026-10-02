@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.1] — 2026-10-02
+
+### Changed
+- **MJML 5.4.1.** `mjml` and `mjml-browser` now require `^5.4.1`, which pulls patched versions of mjml's own dependencies (cssnano, postcss, juice, cheerio and its undici, the glob/minimatch chain, svgo) and fixes a crash under `validationLevel: 'strict'` when an `mj-include` is denied. Rendered output is unchanged.
+
 ## [0.11.0] — 2026-08-26
 
 Data visualization ahead of 1.0. Every block below is drawn from table cells and text glyphs — no images, no SVG, no JavaScript — so it renders in a client that blocks remote images, follows the theme into automatic dark mode, mirrors in RTL documents, and draws itself again in the plain-text part rather than flattening to a list of numbers.

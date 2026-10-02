@@ -5,3 +5,5 @@ dist/
 .next
 .turbo
 .claude/
+*.pem
+*.key
