@@ -1,5 +1,6 @@
 # emailmd
 
+[![AgentHub 已收录：emailmd](https://myagenthub.cn/badge/dev.emailmd/emailmd)](https://myagenthub.cn/p/dev.emailmd/emailmd)
 ### Write markdown. Ship emails. No HTMHELL.
 
 emailmd converts markdown into responsive, email-safe HTML that works across Gmail, Outlook, Apple Mail, Yahoo, and every other client.
