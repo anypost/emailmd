@@ -76,16 +76,21 @@ md.core.ruler.push('sanitize_attrs', (state) => {
   return true;
 });
 
-// Matches template tags that should pass through markdown-it untouched.
-// Matches template tags that could break markdown-it link/URL parsing.
-// Excludes ERB/EJS (<% %>) since markdown-it HTML-encodes those safely.
+// Matches template tags that should pass through markdown-it untouched: tags
+// that could break link/URL parsing, and Mailchimp's `*|TAG|*`, whose
+// asterisks would otherwise read as emphasis and whose pipes get
+// percent-encoded in URLs. A Mailchimp tag starts with an uppercase letter or
+// underscore (`*|FNAME|*`, `*|IF:FNAME|*`, `*|DATE:d/m/y|*`), so a pipe-table
+// cell like `*a*|*b*` is left alone. Handlebars' triple braces are tried
+// before double, so `{{{x}}}` isn't cut short at its first `}}`. Excludes
+// ERB/EJS (<% %>) since markdown-it HTML-encodes those safely.
 //
 // Note: this shielding protects tags from *markdown-it's* linkify/URL parsing,
 // which runs before MJML ever sees the document. MJML 5's `templateSyntax`
 // option (set in mjml.ts) protects `{{ }}` from MJML's PostCSS pass. The two
 // layers are complementary — both are needed to preserve `[text]({{ url }})`
 // end-to-end through the pipeline.
-const TEMPLATE_TAG_RE = /(\{\{[\s\S]*?\}\}|\{%[\s\S]*?%\}|\$\{[\s\S]*?\}|%%[\s\S]*?%%)/g;
+const TEMPLATE_TAG_RE = /(\{\{\{[\s\S]*?\}\}\}|\{\{[\s\S]*?\}\}|\{%[\s\S]*?%\}|\$\{[\s\S]*?\}|%%[\s\S]*?%%|\*\|[A-Z_][^|\n]*?\|\*)/g;
 
 function shieldTemplateTags(input: string): { text: string; tags: string[]; prefix: string } {
   // Pick a placeholder prefix that does not occur in the source, so a literal

@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **Buttons follow dark mode (visual change).** Buttons used to keep their light-theme colors in dark mode, and the dark link rule repainted their text in the link color. A button whose fill matched the dark content box, as the built-in palette's near-black primary button does, lost its fill and read as a plain link. Themed buttons now carry `emd-btn-primary`, `-secondary`, `-success`, `-danger` or `-warning` and switch to the dark palette's fill, text and outline colors, under `prefers-color-scheme` and Outlook.com's `[data-ogsb]`/`[data-ogsc]`. A button with its own `color=` gets `emd-btn-custom` and keeps its colors in both modes, its white text included. Every button keeps `emd-btn`.
+- **Preheader has no font size.** MJML also sets its hidden preheader to `font-size:1px`, which, like the white color dropped in 0.12.0, adds nothing to `display:none`, zero size and `opacity:0`, and reads to spam filters as hidden text (SpamAssassin's `FONT_INVIS_*` rules). It is dropped.
+
+### Fixed
+- **Mailchimp merge tags.** `*|FNAME|*` lost its asterisks to emphasis (`<em>|FNAME|</em>`), and in a URL its pipes were percent-encoded (`*%7CEMAIL%7C*`). Mailchimp tags (`*|TAG|*`, `*|IF:…|*`, `*|DATE:…|*`) now pass through verbatim in text, links, hrefs and buttons, in both the HTML and the text part, and are accepted as whole directive values like other template tags.
+- **Handlebars triple braces in URLs.** `{{{user_id}}}` in an href came out as `{{{user_id}}%7D`; it now passes through whole.
+- **Double-quoted font names.** A `font_family` such as `"DM Sans", sans-serif` was rejected as invalid and replaced with the default stack. Double-quoted names are now accepted and written with single quotes, which is the same CSS.
+
 ## [0.12.0] — 2026-10-05
 
 ### Added

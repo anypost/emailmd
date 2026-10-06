@@ -112,7 +112,7 @@ function measureVisible(html: string): { text: string; imageWeight: number } {
 }
 
 /** Opening delimiters of pass-through template tokens — URLs containing them are the app's responsibility. */
-const TEMPLATE_DELIMITERS = ['{{', '{%', '${', '%%', '[['];
+const TEMPLATE_DELIMITERS = ['{{', '{%', '${', '%%', '[[', '*|'];
 
 /** Hosts that serve draft placeholder images (see the Placeholder Images docs). */
 const PLACEHOLDER_HOSTS = [

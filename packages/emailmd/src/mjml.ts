@@ -178,12 +178,41 @@ function codeTokenRules(p: CodePalette, important = false): CssRule[] {
   ];
 }
 
+/** Text color of a button given an explicit `color=`. */
+const CUSTOM_BUTTON_TEXT = '#ffffff';
+
+/**
+ * Dark-mode rules for buttons, split by what they paint so Outlook.com's
+ * `[data-ogsb]` / `[data-ogsc]` prefixes can apply each half. Two classes
+ * (0,2,1) outrank the link rule `.emd-s div a` (0,1,2), which would otherwise
+ * repaint button text in the link color. An explicitly colored button keeps
+ * its light colors; only its text is pinned against that link rule.
+ */
+function buttonDarkRules(dark: Theme): { background: CssRule[]; color: CssRule[] } {
+  const filled: Array<[string, string, string]> = [
+    ['primary', dark.buttonColor, dark.buttonTextColor],
+    ['success', dark.successColor, dark.successTextColor],
+    ['danger', dark.dangerColor, dark.dangerTextColor],
+    ['warning', dark.warningColor, dark.warningTextColor],
+  ];
+  const background: CssRule[] = filled.map(([name, fill]) =>
+    [`.emd-btn.emd-btn-${name} td, .emd-btn.emd-btn-${name} a`, `background-color: ${fill} !important;`]);
+  const color: CssRule[] = [
+    ...filled.map(([name, , text]): CssRule => [`.emd-btn.emd-btn-${name} a`, `color: ${text} !important;`]),
+    ['.emd-btn.emd-btn-secondary td', `border-color: ${dark.secondaryColor} !important;`],
+    ['.emd-btn.emd-btn-secondary a', `color: ${dark.secondaryTextColor} !important;`],
+    ['.emd-btn.emd-btn-custom a', `color: ${CUSTOM_BUTTON_TEXT} !important;`],
+  ];
+  return { background, color };
+}
+
 /**
  * Dark-mode overrides. The `.emd-*` classes are stable hooks emitted on every
  * render (body, sections, cards, tables); `!important` is required to beat the
  * inline styles MJML generates.
  */
 function buildDarkModeStyles(dark: Theme): string {
+  const buttons = buttonDarkRules(dark);
   const backgroundRules: CssRule[] = [
     ['body, .emd-root, .emd-root > div', `background-color: ${dark.backgroundColor} !important;`],
     ['.emd-bg, .emd-bg > table', `background: ${dark.contentColor} !important;`],
@@ -201,6 +230,7 @@ function buildDarkModeStyles(dark: Theme): string {
     ['.emd-step-marker-todo', `background-color: ${dark.cardColor} !important;`],
     ['.emd-step-rail-themed', `background-color: ${dark.dividerColor} !important;`],
     ['.emd-step-rail-lit', `background-color: ${dark.brandColor} !important;`],
+    ...buttons.background,
   ];
   const colorRules: CssRule[] = [
     ['.emd-s div', `color: ${dark.bodyColor} !important;`],
@@ -236,6 +266,7 @@ function buildDarkModeStyles(dark: Theme): string {
     ['.emd-rating-label', `color: ${dark.bodyColor} !important;`],
     ['.emd-rating-value', `color: ${dark.headingColor} !important;`],
     ...codeTokenRules(codePaletteFor(dark.cardColor), true),
+    ...buttons.color,
   ];
 
   return `<mj-style>
@@ -365,11 +396,11 @@ function resolvePadding(value: string | undefined): string {
 
 function renderEmbeddedButtons(buttons: Array<Record<string, string>>, theme: Theme, ctx?: SegmentContext): string {
   return buttons.map(attrs => {
-    const { bgColor, textColor, border } = resolveButtonColors(attrs, theme, ctx);
+    const { bgColor, textColor, border, cssClass } = resolveButtonColors(attrs, theme, ctx);
     const isFullWidth = attrs.width === 'full';
     const widthAttr = isFullWidth ? ' width="100%"' : '';
     const borderRadius = resolveLength(attrs['border-radius'], theme.borderRadius, ctx, 'button border-radius');
-    return `<mj-button css-class="emd-btn" background-color="${bgColor}" color="${textColor}" font-size="${theme.fontSize}" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>`;
+    return `<mj-button css-class="${cssClass}" background-color="${bgColor}" color="${textColor}" font-size="${theme.fontSize}" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>`;
   }).join('\n        ');
 }
 
@@ -543,25 +574,31 @@ function renderHrSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): 
     </mj-section>`;
 }
 
-function resolveButtonColors(attrs: Record<string, string>, theme: Theme, ctx?: SegmentContext): { bgColor: string; textColor: string; border: string } {
+/**
+ * Colors for a button, plus its classes: `emd-btn` on every button, and
+ * `emd-btn-<variant>` naming where its colors came from, so dark mode can
+ * repaint a themed button and keep an explicitly colored one as written.
+ */
+function resolveButtonColors(attrs: Record<string, string>, theme: Theme, ctx?: SegmentContext): { bgColor: string; textColor: string; border: string; cssClass: string } {
   const customColor = attrs.color && isCssColor(attrs.color) ? attrs.color : undefined;
   if (attrs.color && !customColor) {
     warn(ctx, `Invalid color "${attrs.color}" for button — using theme default.`);
   }
   const variant = attrs.variant;
+  const classes = (name: string) => `emd-btn emd-btn-${name}`;
 
   if (customColor) {
-    return { bgColor: customColor, textColor: '#ffffff', border: '' };
+    return { bgColor: customColor, textColor: CUSTOM_BUTTON_TEXT, border: '', cssClass: classes('custom') };
   } else if (variant === 'success') {
-    return { bgColor: theme.successColor, textColor: theme.successTextColor, border: '' };
+    return { bgColor: theme.successColor, textColor: theme.successTextColor, border: '', cssClass: classes(variant) };
   } else if (variant === 'danger') {
-    return { bgColor: theme.dangerColor, textColor: theme.dangerTextColor, border: '' };
+    return { bgColor: theme.dangerColor, textColor: theme.dangerTextColor, border: '', cssClass: classes(variant) };
   } else if (variant === 'warning') {
-    return { bgColor: theme.warningColor, textColor: theme.warningTextColor, border: '' };
+    return { bgColor: theme.warningColor, textColor: theme.warningTextColor, border: '', cssClass: classes(variant) };
   } else if (variant === 'secondary') {
-    return { bgColor: 'transparent', textColor: theme.secondaryTextColor, border: `border="2px solid ${theme.secondaryColor}"` };
+    return { bgColor: 'transparent', textColor: theme.secondaryTextColor, border: `border="2px solid ${theme.secondaryColor}"`, cssClass: classes(variant) };
   } else {
-    return { bgColor: theme.buttonColor, textColor: theme.buttonTextColor, border: '' };
+    return { bgColor: theme.buttonColor, textColor: theme.buttonTextColor, border: '', cssClass: classes('primary') };
   }
 }
 
@@ -591,14 +628,14 @@ function renderButtonFallback(buttons: Array<Record<string, string>>, theme: The
 
 function renderButtonSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
   const attrs = segment.attrs!;
-  const { bgColor, textColor, border } = resolveButtonColors(attrs, theme, ctx);
+  const { bgColor, textColor, border, cssClass } = resolveButtonColors(attrs, theme, ctx);
   const isFullWidth = attrs.width === 'full';
   const widthAttr = isFullWidth ? ' width="100%"' : '';
   const borderRadius = resolveLength(attrs['border-radius'], theme.borderRadius, ctx, 'button border-radius');
 
   let mjml = `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
       <mj-column>
-        <mj-button css-class="emd-btn" background-color="${bgColor}" color="${textColor}" font-size="${theme.fontSize}" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>
+        <mj-button css-class="${cssClass}" background-color="${bgColor}" color="${textColor}" font-size="${theme.fontSize}" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>
       </mj-column>
     </mj-section>`;
 
@@ -609,13 +646,13 @@ function renderButtonSegment(segment: Segment, theme: Theme, ctx?: SegmentContex
 
 function renderButtonGroupSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
   const columns = segment.buttons!.map(attrs => {
-    const { bgColor, textColor, border } = resolveButtonColors(attrs, theme, ctx);
+    const { bgColor, textColor, border, cssClass } = resolveButtonColors(attrs, theme, ctx);
     const isFullWidth = attrs.width === 'full';
     const widthAttr = isFullWidth ? ' width="100%"' : '';
     const borderRadius = resolveLength(attrs['border-radius'], theme.borderRadius, ctx, 'button border-radius');
 
     return `<mj-column>
-        <mj-button css-class="emd-btn" background-color="${bgColor}" color="${textColor}" font-size="${theme.fontSize}" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px" padding="10px 0"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>
+        <mj-button css-class="${cssClass}" background-color="${bgColor}" color="${textColor}" font-size="${theme.fontSize}" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px" padding="10px 0"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>
       </mj-column>`;
   }).join('\n      ');
 
@@ -1980,11 +2017,11 @@ function resolveColumnWidth(value: string | undefined, ctx?: SegmentContext): st
 }
 
 function renderCellButton(attrs: Record<string, string>, theme: Theme, ctx?: SegmentContext, cellAlign?: string): string {
-  const { bgColor, textColor, border } = resolveButtonColors(attrs, theme, ctx);
+  const { bgColor, textColor, border, cssClass } = resolveButtonColors(attrs, theme, ctx);
   const widthAttr = attrs.width === 'full' ? ' width="100%"' : '';
   const borderRadius = resolveLength(attrs['border-radius'], theme.borderRadius, ctx, 'button border-radius');
   const alignAttr = cellAlign ? ` align="${cellAlign}"` : '';
-  return `<mj-button css-class="emd-btn" padding="8px 0"${alignAttr} background-color="${bgColor}" color="${textColor}" font-size="${theme.fontSize}" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>`;
+  return `<mj-button css-class="${cssClass}" padding="8px 0"${alignAttr} background-color="${bgColor}" color="${textColor}" font-size="${theme.fontSize}" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>`;
 }
 
 function renderCellSegments(cell: ColumnCell, theme: Theme, ctx?: SegmentContext, card = false): string {
@@ -2298,18 +2335,18 @@ function themeAccordionIcons(html: string, theme: Theme): string {
   });
 }
 
-/** MJML's hidden preheader block, up to and including its white text color. */
-const PREVIEW_COLOR_RE = /(<div style="display:none;font-size:1px;)color:#(?:ffffff|fff);/;
+/** MJML's hidden preheader block, through its 1px font size and white text color. */
+const PREVIEW_TELLS_RE = /(<div style="display:none;)font-size:1px;color:#(?:ffffff|fff);/;
 
 /**
  * MJML hides the preheader with `display:none`, zero size and `opacity:0`, and
- * also colors it white to match a white page. That color is redundant, and
- * spam filters read white-on-white as hidden text (SpamAssassin's
- * HTML_FONT_LOW_CONTRAST), so it costs every email with a preheader a point
- * for nothing. Drop it and let the other properties do the hiding.
+ * also sets a 1px font and colors it white to match a white page. Both are
+ * redundant, and spam filters read them as hidden text: white-on-white sets
+ * off SpamAssassin's HTML_FONT_LOW_CONTRAST, and the tiny font its
+ * FONT_INVIS_* rules. Drop them and let the other properties do the hiding.
  */
-function uncolorPreview(html: string): string {
-  return html.replace(PREVIEW_COLOR_RE, '$1');
+function simplifyPreview(html: string): string {
+  return html.replace(PREVIEW_TELLS_RE, '$1');
 }
 
 export async function renderMjml(
@@ -2329,5 +2366,5 @@ export async function renderMjml(
     ...(mjmlOptions?.beautify !== undefined ? { beautify: mjmlOptions.beautify } : {}),
   });
   const themed = html.includes('mj-accordion-ico') ? themeAccordionIcons(html, theme) : html;
-  return { html: uncolorPreview(themed), errors: errors ?? [] };
+  return { html: simplifyPreview(themed), errors: errors ?? [] };
 }

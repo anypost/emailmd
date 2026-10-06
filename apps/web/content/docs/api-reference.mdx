@@ -134,7 +134,7 @@ All user-supplied values that end up in the HTML are escaped and/or validated be
 - Theme values containing `<`, `>`, or `"` are replaced with the base theme's value.
 - Font entries with unsafe family names or URLs are skipped.
 
-Invalid values never throw; they fall back to safe defaults and surface as [`warnings`](#renderwarning). Template tags (`{{ x }}`, `{% x %}`, `${x}`, `%%x%%`, `[[x]]`) pass through validation untouched so merge fields keep working. Note that raw inline HTML in the markdown body is passed through by design: treat the markdown source as trusted, and resolve template variables with properly encoded values in your sending app.
+Invalid values never throw; they fall back to safe defaults and surface as [`warnings`](#renderwarning). Template tags (`{{ x }}`, `{% x %}`, `${x}`, `%%x%%`, `[[x]]`, `*|X|*`) pass through validation untouched so merge fields keep working. Note that raw inline HTML in the markdown body is passed through by design: treat the markdown source as trusted, and resolve template variables with properly encoded values in your sending app.
 
 ## `RenderStrings`
 

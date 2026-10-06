@@ -71,7 +71,7 @@ Buttons take their font size from the theme's `fontSize`, so they scale with the
 
 ## Styling
 
-Every button carries the class `emd-btn`, so you can reach properties that have no dedicated option (weight, padding, …) through the [`css`](/docs/api-reference#renderoptions) render option:
+Every button carries the class `emd-btn`, plus `emd-btn-<variant>` (`primary`, `secondary`, `success`, `danger`, `warning`, or `custom` for an explicit `color=`), so you can reach properties that have no dedicated option (weight, padding, …) through the [`css`](/docs/api-reference#renderoptions) render option:
 
 ```typescript
 await render(md, {

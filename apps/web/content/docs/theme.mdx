@@ -68,7 +68,7 @@ dark:
 
 The `dark:` map tunes the dark variant (and implies `auto` on its own). Explicitly pinning `theme: light` or `theme: dark` renders static even when the rendering app passes `darkTheme`: the author's pinned appearance wins.
 
-This emits `color-scheme` meta tags, a `prefers-color-scheme: dark` media query, and `[data-ogsc]`/`[data-ogsb]` selectors for Outlook.com. **Client support varies:** Apple Mail and Outlook honor these overrides; Gmail ignores them and applies its own automatic color inversion regardless. Buttons keep their configured colors in both modes, so pick button colors that work on light and dark backgrounds.
+This emits `color-scheme` meta tags, a `prefers-color-scheme: dark` media query, and `[data-ogsc]`/`[data-ogsb]` selectors for Outlook.com. **Client support varies:** Apple Mail and Outlook honor these overrides; Gmail ignores them and applies its own automatic color inversion regardless. Themed buttons switch to the dark palette's button colors (`button_color`/`button_text_color`, and the secondary, success, danger and warning pairs); a button given its own `color=` keeps it in both modes, so pick one that works on light and dark backgrounds.
 
 Dark mode is palette-based: custom per-block colors (`bg=`/`color=` on callouts and columns, divider colors) are normalized to the dark palette so text stays readable. To tune how a specific accent looks in dark mode, adjust the corresponding key in the `dark:` map rather than the block parameter.
 
@@ -89,6 +89,7 @@ Every render emits the same `emd-*` classes, so the [`css`](/docs/api-reference#
 | `emd-hl` | Highlight blocks |
 | `emd-tbl` | Tables |
 | `emd-btn` | Buttons |
+| `emd-btn-primary`, `-secondary`, `-success`, `-danger`, `-warning`, `-custom` | Buttons, by where their colors come from (`-custom` for an explicit `color=`) |
 | `emd-raw` | [Raw HTML](/docs/directives/raw) sections |
 
 ### Rounding the Content Box

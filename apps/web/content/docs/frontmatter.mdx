@@ -86,6 +86,8 @@ font_family: "Inter, sans-serif"
 # Hello
 ```
 
+Family names can be quoted with either single or double quotes (`'"DM Sans", sans-serif'`); double quotes are written out as single quotes, which is the same CSS.
+
 The font still needs to be named in `font_family` (or via `fontFamily` in code) to actually apply to text. MJML only injects a `<link>` for fonts referenced in the compiled CSS, so unused entries are silently dropped.
 
 When both the `fonts:` frontmatter and the `fonts` [render option](/docs/api-reference#renderoptions) are provided, frontmatter wins on matching family names and non-overlapping entries merge together.

@@ -644,8 +644,8 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** Matches common template token delimiters: {{...}}, {%...%}, <%...%>, ${...}, %%...%% */
-const TEMPLATE_TOKEN_RE = /(\{\{[\s\S]*?\}\}|\{%[\s\S]*?%\}|&lt;%[\s\S]*?%&gt;|<%[\s\S]*?%>|\$\{[\s\S]*?\}|%%[\s\S]*?%%)/g;
+/** Matches common template token delimiters: {{...}}, {%...%}, <%...%>, ${...}, %%...%%, *|...|* */
+const TEMPLATE_TOKEN_RE = /(\{\{\{[\s\S]*?\}\}\}|\{\{[\s\S]*?\}\}|\{%[\s\S]*?%\}|&lt;%[\s\S]*?%&gt;|<%[\s\S]*?%>|\$\{[\s\S]*?\}|%%[\s\S]*?%%|\*\|[A-Z_][^|\n]*?\|\*)/g;
 
 function toUpperCasePreserveTokens(str: string): string {
   const parts = str.split(TEMPLATE_TOKEN_RE);

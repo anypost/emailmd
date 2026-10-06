@@ -178,4 +178,48 @@ fonts:
     expect(html).toContain('fonts.googleapis.com');
     expect(warnings).toBeUndefined();
   });
+
+  it('accepts double-quoted font family names as single-quoted CSS', async () => {
+    const md = `---
+font_family: '"DM Sans", "Helvetica Neue", sans-serif'
+---
+
+# Hello`;
+    const { html, warnings } = await render(md);
+    expect(warnings).toBeUndefined();
+    expect(html).toContain("font-family:'DM Sans', 'Helvetica Neue', sans-serif");
+    expect(html).not.toContain('font-family:"');
+    expect(html).not.toContain('&quot;DM Sans');
+  });
+
+  it('accepts double-quoted names from RenderOptions and dark: overrides', async () => {
+    const { html, warnings } = await render('# Hello', {
+      theme: { fontFamily: '"DM Sans", sans-serif' },
+      darkTheme: { fontFamily: '"Inter", sans-serif' },
+    });
+    expect(warnings).toBeUndefined();
+    expect(html).toContain("font-family:'DM Sans', sans-serif");
+  });
+
+  it('escapes an apostrophe inside a double-quoted family name', async () => {
+    const { html, warnings } = await render('# Hello', { theme: { fontFamily: `"Ma'am Sans", serif` } });
+    expect(warnings).toBeUndefined();
+    expect(html).toContain("font-family:'Ma\\'am Sans', serif");
+  });
+
+  it('still rejects an unpaired double quote', async () => {
+    const md = `---
+font_family: 'Inter" onload=x()'
+---
+
+# Hello`;
+    const { html, warnings } = await render(md);
+    expect(html).not.toContain('onload');
+    expect(warnings?.some(w => w.stage === 'theme' && w.message.includes('fontFamily'))).toBe(true);
+  });
+
+  it('keeps paired quotes inside the attribute they are written into', async () => {
+    const { html } = await render('# Hello', { theme: { fontFamily: 'Inter" onload="x()' } });
+    expect(html).not.toMatch(/onload="/);
+  });
 });

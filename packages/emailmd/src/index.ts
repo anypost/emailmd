@@ -121,7 +121,17 @@ export interface RenderResult {
 }
 
 /** Opening delimiters of the template-tag syntaxes preserved by the parser and MJML's templateSyntax pass. */
-const TEMPLATE_DELIMITERS = ['{{', '{%', '${', '%%', '[['];
+const TEMPLATE_DELIMITERS = ['{{', '{%', '${', '%%', '[[', '*|'];
+
+/**
+ * Rewrite double-quoted family names as single-quoted ones (`"DM Sans"` →
+ * `'DM Sans'`): the same CSS, but safe inside the double-quoted attributes the
+ * font stack is written into. An apostrophe in a name is escaped for CSS. A
+ * stray, unpaired `"` is left in place, so the value still fails validation.
+ */
+function singleQuoteFamilies(fontFamily: string): string {
+  return fontFamily.replace(/"([^"]*)"/g, (_, name: string) => `'${name.replace(/'/g, "\\'")}'`);
+}
 
 /** Theme keys that hold CSS lengths, where a bare number means pixels. */
 const PX_THEME_KEYS = new Set<keyof Theme>(['borderRadius', 'fontSize', 'contentWidth']);
@@ -139,6 +149,7 @@ function sanitizeTheme(theme: Theme, base: Theme, warnings: RenderWarning[]): Th
     const value = safe[key];
     let str = typeof value === 'string' ? value : String(value);
     if (PX_THEME_KEYS.has(key) && /^\d+(?:\.\d+)?$/.test(str)) str = `${str}px`;
+    if (key === 'fontFamily') str = singleQuoteFamilies(str);
     if (!isSafeThemeValue(str)) {
       warnings.push({
         stage: 'theme',

@@ -15,13 +15,15 @@ describe('default wrapper', async () => {
     expect(html).toContain('Preview text here');
   });
 
-  it('hides the preheader without white-on-white text', async () => {
+  it('hides the preheader without white-on-white or tiny text', async () => {
     for (const minify of [false, true]) {
       const { html } = await render('---\npreheader: Preview text here\n---\n\n# Hello', { minify });
       const preview = /<div style="display:none;[^"]*"\s*>Preview text here/.exec(html)?.[0];
       expect(preview).toBeDefined();
       expect(preview).toContain('opacity:0');
+      expect(preview).toContain('max-height:0px');
       expect(preview).not.toMatch(/color:/);
+      expect(preview).not.toMatch(/font-size:/);
     }
   });
 

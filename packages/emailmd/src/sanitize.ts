@@ -9,8 +9,8 @@
  *   and/or validated before interpolation.
  */
 
-/** Full-value template tokens ({{ x }}, {% x %}, ${x}, %%x%%, [[x]]) pass validation untouched — the sending app resolves them after render. */
-const TEMPLATE_TOKEN_RE = /^(\{\{[\s\S]+\}\}|\{%[\s\S]+%\}|\$\{[\s\S]+\}|%%[\s\S]+%%|\[\[[\s\S]+\]\])$/;
+/** Full-value template tokens ({{ x }}, {% x %}, ${x}, %%x%%, [[x]], *|X|*) pass validation untouched — the sending app resolves them after render. */
+const TEMPLATE_TOKEN_RE = /^(\{\{[\s\S]+\}\}|\{%[\s\S]+%\}|\$\{[\s\S]+\}|%%[\s\S]+%%|\[\[[\s\S]+\]\]|\*\|[A-Z_][^|\n]*\|\*)$/;
 
 export function isTemplateToken(value: string): boolean {
   return TEMPLATE_TOKEN_RE.test(value.trim());
