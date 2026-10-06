@@ -36,10 +36,10 @@ Inside `::: raw`, none of that applies. The lines are never parsed as markdown, 
 
 ## Padding
 
-The block has no padding by default. Set `padding` to inset it, using one to four CSS lengths like the `padding` property. `padding="0 57px"` lines it up with the text above and below, which sits 57px in (the section's 32px plus the text block's own 25px):
+The block has no padding by default. Set `padding` to inset it, using one to four CSS lengths like the `padding` property. `padding="0 32px"` lines it up with every other block, which all sit 32px in from the edge of the content area:
 
 ```markdown
-::: raw padding="0 57px"
+::: raw padding="0 32px"
 <div style="border: 1px solid #e5e7eb; padding: 16px;">Order #1042 has shipped.</div>
 :::
 ```

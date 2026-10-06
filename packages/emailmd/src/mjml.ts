@@ -380,10 +380,18 @@ function processInlineImages(html: string): string {
   });
 }
 
+/**
+ * Padding for blocks in the content flow (text, images, buttons, dividers,
+ * tables). MJML defaults these to 10px 25px, which on top of the section's
+ * 32px would sit them 25px further in than the data blocks. Keeping only the
+ * vertical 10px puts everything on the section's 32px inset.
+ */
+const FLOW_PADDING = '10px 0';
+
 function renderTextSegment(content: string, theme: Theme): string {
   return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="0 32px">
       <mj-column>
-        <mj-text>${processInlineImages(content)}</mj-text>
+        <mj-text padding="${FLOW_PADDING}">${processInlineImages(content)}</mj-text>
       </mj-column>
     </mj-section>`;
 }
@@ -400,7 +408,7 @@ function renderEmbeddedButtons(buttons: Array<Record<string, string>>, theme: Th
     const isFullWidth = attrs.width === 'full';
     const widthAttr = isFullWidth ? ' width="100%"' : '';
     const borderRadius = resolveLength(attrs['border-radius'], theme.borderRadius, ctx, 'button border-radius');
-    return `<mj-button css-class="${cssClass}" background-color="${bgColor}" color="${textColor}" font-size="${theme.fontSize}" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>`;
+    return `<mj-button css-class="${cssClass}" padding="${FLOW_PADDING}" background-color="${bgColor}" color="${textColor}" font-size="${theme.fontSize}" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>`;
   }).join('\n        ');
 }
 
@@ -465,7 +473,7 @@ function renderCalloutSegment(segment: Segment, theme: Theme, ctx?: SegmentConte
 function renderCenteredSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
   const textColor = resolveColor(segment.attrs?.color, theme.bodyColor, ctx, 'centered color');
   const textMjml = segment.content
-    ? `<mj-text align="center" font-size="${theme.fontSize}" color="${textColor}">${processInlineImages(segment.content)}</mj-text>`
+    ? `<mj-text align="center" padding="${FLOW_PADDING}" font-size="${theme.fontSize}" color="${textColor}">${processInlineImages(segment.content)}</mj-text>`
     : '';
   const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
   let mjml = `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
@@ -502,7 +510,7 @@ function renderHeaderSegment(segment: Segment, theme: Theme, ctx?: SegmentContex
   const align = resolveAlign(segment.attrs?.align, 'center', ctx, 'header align');
   const textColor = resolveColor(segment.attrs?.color, theme.bodyColor, ctx, 'header color');
   const textMjml = segment.content
-    ? `<mj-text align="${align}" font-size="13px" color="${textColor}" line-height="1.5">${processInlineImages(segment.content)}</mj-text>`
+    ? `<mj-text align="${align}" padding="${FLOW_PADDING}" font-size="13px" color="${textColor}" line-height="1.5">${processInlineImages(segment.content)}</mj-text>`
     : '';
   const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
   let mjml = `<mj-section css-class="emd-s" padding="32px 32px 24px 32px">
@@ -518,7 +526,7 @@ function renderFooterSegment(segment: Segment, theme: Theme, ctx?: SegmentContex
   const align = resolveAlign(segment.attrs?.align, 'center', ctx, 'footer align');
   const textColor = resolveColor(segment.attrs?.color, theme.bodyColor, ctx, 'footer color');
   const textMjml = segment.content
-    ? `<mj-text align="${align}" font-size="13px" color="${textColor}" line-height="1.5">${processInlineImages(segment.content)}</mj-text>`
+    ? `<mj-text align="${align}" padding="${FLOW_PADDING}" font-size="13px" color="${textColor}" line-height="1.5">${processInlineImages(segment.content)}</mj-text>`
     : '';
   const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
   let mjml = `<mj-section css-class="emd-s" padding="24px 32px 32px 32px">
@@ -569,7 +577,7 @@ function dividerMjAttrs(attrs: Record<string, string> | undefined, theme: Theme,
 function renderHrSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
   return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
       <mj-column>
-        <mj-divider ${dividerMjAttrs(segment.attrs, theme, ctx)} />
+        <mj-divider padding="${FLOW_PADDING}" ${dividerMjAttrs(segment.attrs, theme, ctx)} />
       </mj-column>
     </mj-section>`;
 }
@@ -635,7 +643,7 @@ function renderButtonSegment(segment: Segment, theme: Theme, ctx?: SegmentContex
 
   let mjml = `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
       <mj-column>
-        <mj-button css-class="${cssClass}" background-color="${bgColor}" color="${textColor}" font-size="${theme.fontSize}" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>
+        <mj-button css-class="${cssClass}" padding="${FLOW_PADDING}" background-color="${bgColor}" color="${textColor}" font-size="${theme.fontSize}" font-weight="600" border-radius="${borderRadius}" inner-padding="14px 32px"${widthAttr} ${border} href="${escapeAttrValue(attrs.href)}">${attrs.text}</mj-button>
       </mj-column>
     </mj-section>`;
 
@@ -705,7 +713,7 @@ function renderImageSegment(segment: Segment, theme: Theme, ctx?: SegmentContext
 
   return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
       <mj-column>
-        <mj-image ${mjAttrs.join(' ')} />${caption ? `\n        ${caption}` : ''}
+        <mj-image padding="${FLOW_PADDING}" ${mjAttrs.join(' ')} />${caption ? `\n        ${caption}` : ''}
       </mj-column>
     </mj-section>`;
 }
@@ -724,7 +732,7 @@ function renderHeroSegment(segment: Segment, theme: Theme, ctx?: SegmentContext)
     // The head's h1-h3 color rules beat the color inherited from mj-text, so
     // the hero text color must be inlined on headings.
     content = content.replace(/<(h[1-3])([\s>])/g, `<$1 style="color: ${heroColor}"$2`);
-    textMjml = `<mj-text align="center" color="${heroColor}">${zeroTrailingBlockMargin(content)}</mj-text>`;
+    textMjml = `<mj-text align="center" padding="${FLOW_PADDING}" color="${heroColor}">${zeroTrailingBlockMargin(content)}</mj-text>`;
   }
   const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
   // Hero colors are a self-contained pair, so dark mode leaves them alone;
@@ -805,7 +813,7 @@ function renderAccordionSegment(segment: Segment, theme: Theme, ctx?: SegmentCon
   const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
   let mjml = `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
       <mj-column>
-        ${introMjml}<mj-accordion css-class="emd-acc" border="1px solid ${theme.dividerColor}" font-family="${theme.fontFamily}"${iconAttrs.length > 0 ? ' ' + iconAttrs.join(' ') : ''}>
+        ${introMjml}<mj-accordion css-class="emd-acc" padding="${FLOW_PADDING}" border="1px solid ${theme.dividerColor}" font-family="${theme.fontFamily}"${iconAttrs.length > 0 ? ' ' + iconAttrs.join(' ') : ''}>
           ${elements}
         </mj-accordion>${buttonMjml}
       </mj-column>
@@ -1886,7 +1894,7 @@ function renderTableSegment(segment: Segment, theme: Theme): string {
 
   return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
       <mj-column>
-        <mj-table ${tableMjAttrs(theme)}>${tableHtml}</mj-table>
+        <mj-table padding="${FLOW_PADDING}" ${tableMjAttrs(theme)}>${tableHtml}</mj-table>
       </mj-column>
     </mj-section>`;
 }
@@ -2061,7 +2069,7 @@ function renderCellSegments(cell: ColumnCell, theme: Theme, ctx?: SegmentContext
         parts.push(`<mj-spacer height="${resolveSpacerHeight(seg.attrs?.height, ctx)}" />`);
         break;
       case 'table':
-        parts.push(`<mj-table ${tableMjAttrs(theme)}>${styleTableHtml(seg.content, theme)}</mj-table>`);
+        parts.push(`<mj-table padding="4px 0" ${tableMjAttrs(theme)}>${styleTableHtml(seg.content, theme)}</mj-table>`);
         break;
       default:
         break;
