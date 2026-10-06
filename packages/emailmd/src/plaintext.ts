@@ -45,6 +45,14 @@ export function toPlainText(html: string): string {
   // Social blocks flatten to their links
   text = text.replace(/<!--EMAILMD:SOCIAL_(?:OPEN|CLOSE)(?:\s+[\w-]+="[^"]*")*-->/g, '');
 
+  // Raw HTML blocks are converted like any other HTML once their markers go.
+  // Their source indentation is markup layout, not text, so it is dropped
+  // rather than left to indent the lines it ends up on.
+  text = text.replace(
+    /<!--EMAILMD:RAW_OPEN(?:\s+[\w-]+="[^"]*")*-->([\s\S]*?)<!--EMAILMD:RAW_CLOSE-->/g,
+    (_, inner: string) => inner.replace(/^[ \t]+/gm, ''),
+  );
+
   // Accordions flatten to sequential headings + content
   text = text.replace(/<!--EMAILMD:ACCORDION_(?:OPEN|CLOSE)(?:\s+[\w-]+="[^"]*")*-->/g, '');
 
@@ -201,7 +209,9 @@ export function toPlainText(html: string): string {
   // Decode common HTML entities
   text = decodeEntities(text);
 
-  // Clean up whitespace: collapse multiple blank lines, trim
+  // Clean up whitespace: empty out whitespace-only lines, collapse multiple
+  // blank lines, trim
+  text = text.replace(/^[ \t]+$/gm, '');
   text = text.replace(/\n{3,}/g, '\n\n');
   text = text.trim();
 

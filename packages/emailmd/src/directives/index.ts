@@ -16,6 +16,7 @@ import { registerSparkline } from './sparkline.js';
 import { registerStats } from './stats.js';
 import { registerSteps } from './steps.js';
 import { registerRating } from './rating.js';
+import { registerRaw } from './raw.js';
 
 export function registerDirectives(md: MarkdownIt): void {
   registerCallout(md);
@@ -35,4 +36,5 @@ export function registerDirectives(md: MarkdownIt): void {
   registerStats(md);
   registerSteps(md);
   registerRating(md);
+  registerRaw(md);
 }

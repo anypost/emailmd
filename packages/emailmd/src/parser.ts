@@ -32,7 +32,7 @@ registerDirectives(md);
 md.core.ruler.push('neutralize_internal_markers', (state) => {
   const neutralize = (s: string) => s.replace(/<!--EMAILMD:[\s\S]*?(?:-->|$)/g, '');
   for (const token of state.tokens) {
-    if (token.type === 'html_block') {
+    if (token.type === 'html_block' || token.type === 'raw_block') {
       token.content = neutralize(token.content);
     } else if (token.type === 'inline' && token.children) {
       for (const child of token.children) {

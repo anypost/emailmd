@@ -207,6 +207,7 @@ function buildDarkModeStyles(dark: Theme): string {
     ['.emd-s h1, .emd-s h2, .emd-s h3', `color: ${dark.headingColor} !important;`],
     ['.emd-s div a', `color: ${dark.brandColor} !important;`],
     ['.emd-hl div', `color: ${dark.buttonTextColor} !important;`],
+    ['.emd-raw-t > div', `color: ${dark.bodyColor} !important;`],
     ['.emd-s blockquote', `border-color: ${dark.brandColor} !important;`],
     ['.emd-s p[style*="border-top"]', `border-color: ${dark.dividerColor} !important;`],
     ['.emd-tbl', `color: ${dark.bodyColor} !important;`],
@@ -2132,6 +2133,28 @@ function renderColumnsSegment(segment: Segment, theme: Theme, ctx?: SegmentConte
   return mjml;
 }
 
+/**
+ * A `::: raw` block: its HTML verbatim, in a section with no side padding so
+ * an embedded layout gets the email's full width.
+ *
+ * The section keeps the content box's background (`emd-bg`), and with it its
+ * dark-mode swap and the `emd-top`/`emd-bot` edge marking, but not `emd-s`:
+ * the dark-mode text rules hang off that class and would recolor every `div`
+ * and link inside HTML that brings its own colors. Only the wrapper MJML puts
+ * around the content is recolored (`emd-raw-t`), so text that sets no color of
+ * its own still follows dark mode while anything colored inline keeps it.
+ * `emd-raw` is the hook for styling these sections.
+ */
+function renderRawSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  if (!segment.content.trim()) return '';
+  const padding = resolveLength(segment.attrs?.padding, '0', ctx, 'raw padding');
+  return `<mj-section css-class="emd-bg emd-raw" background-color="${theme.contentColor}" padding="${padding}">
+      <mj-column>
+        <mj-text css-class="emd-raw-t" padding="0">${segment.content}</mj-text>
+      </mj-column>
+    </mj-section>`;
+}
+
 function segmentToMjml(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
   switch (segment.type) {
     case 'text':
@@ -2178,6 +2201,8 @@ function segmentToMjml(segment: Segment, theme: Theme, ctx?: SegmentContext): st
       return renderStepsSegment(segment, theme, ctx);
     case 'rating':
       return renderRatingSegment(segment, theme, ctx);
+    case 'raw':
+      return renderRawSegment(segment, theme, ctx);
   }
 }
 

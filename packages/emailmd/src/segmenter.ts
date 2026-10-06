@@ -15,11 +15,12 @@ import {
   MARKER_STATS_CLOSE,
   MARKER_STEPS_CLOSE,
   MARKER_RATING_CLOSE,
+  MARKER_RAW_CLOSE,
 } from './constants.js';
 import type { RenderWarning } from './warnings.js';
 
 export type SegmentType = 'text' | 'callout' | 'centered' | 'highlight' | 'header' | 'footer' | 'button' | 'button-group' | 'image' | 'hr' | 'table' | 'hero' | 'columns' | 'spacer' | 'social' | 'accordion' | 'chart'
-  | 'progress' | 'sparkline' | 'stats' | 'steps' | 'rating';
+  | 'progress' | 'sparkline' | 'stats' | 'steps' | 'rating' | 'raw';
 
 /** One cell of a `columns` segment. Cell content is itself segmented. */
 export interface ColumnCell {
@@ -59,6 +60,7 @@ const PARAMETERIZED_DIRECTIVES: Array<{
   { re: /<!--EMAILMD:STATS_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'stats', close: MARKER_STATS_CLOSE },
   { re: /<!--EMAILMD:STEPS_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'steps', close: MARKER_STEPS_CLOSE },
   { re: /<!--EMAILMD:RATING_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'rating', close: MARKER_RATING_CLOSE },
+  { re: /<!--EMAILMD:RAW_OPEN((?:\s+[\w-]+="[^"]*")*)-->/, type: 'raw', close: MARKER_RAW_CLOSE },
 ];
 
 function parseMarkerAttrs(attrString: string): Record<string, string> {
@@ -118,7 +120,18 @@ function parseButtonAttrs(attrString: string): { isButton: boolean; href: string
 
 function extractButtons(html: string): { html: string; buttons: Segment[] } {
   const buttons: Segment[] = [];
-  const result = html.replace(BUTTON_PARA_RE, (match, innerLinks) => {
+  // `::: raw` blocks are passed through untouched, so a button-shaped link
+  // inside one stays a link: only the text between them is searched.
+  const parts = html.split(RAW_BLOCK_RE);
+  const result = parts.map((part, i) => (i % 2 === 1 ? part : extractButtonsFrom(part, buttons))).join('');
+  return { html: result, buttons };
+}
+
+/** A whole `::: raw` block, markers included, as one capture for `split`. */
+const RAW_BLOCK_RE = /(<!--EMAILMD:RAW_OPEN[\s\S]*?<!--EMAILMD:RAW_CLOSE-->)/;
+
+function extractButtonsFrom(html: string, buttons: Segment[]): string {
+  return html.replace(BUTTON_PARA_RE, (match, innerLinks) => {
     // Parse all <a> tags in this paragraph
     const links: Array<{ attrString: string; text: string; parsed: ReturnType<typeof parseButtonAttrs> }> = [];
     const re = new RegExp(INNER_LINK_RE.source, 'g');
@@ -156,7 +169,6 @@ function extractButtons(html: string): { html: string; buttons: Segment[] } {
 
     return placeholder;
   });
-  return { html: result, buttons };
 }
 
 // Matches block-level images: <p><img ...></p> or <p><a ...><img ...></a></p>

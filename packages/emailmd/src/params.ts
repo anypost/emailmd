@@ -37,7 +37,8 @@ export function parseDirectiveParams(info: string, name: string): DirectiveParam
   const rest = info.trim().slice(name.length).trim();
   if (!rest) return params;
 
-  for (const token of rest.split(/\s+/)) {
+  // A quoted value may hold spaces (`padding="0 32px"`), so it stays one token.
+  for (const token of rest.match(/[\w-]+=(?:"[^"]*"|'[^']*')|\S+/g) ?? []) {
     const eq = token.indexOf('=');
     if (eq !== -1) {
       params[token.slice(0, eq)] = unquote(token.slice(eq + 1));

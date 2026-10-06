@@ -7,12 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- **`::: raw` directive** — a block of HTML passed through untouched, in a section of its own with no side padding, so an embedded layout (a design-tool export, a pre-rendered component, an ad slot) gets the email's full width. The lines inside are never parsed as markdown, so blank lines, indentation and `_underscores_` in the HTML can't end the block, turn into a code block or become emphasis; template tags still pass through. The section keeps the content area's background, its dark-mode color and the `emd-top`/`emd-bot` edge marking, but the built-in dark-mode text rules don't reach into it: only the wrapper is recolored, so uncolored text follows dark mode while HTML with its own colors keeps them. `padding=` insets it, and `emd-raw` is its CSS hook. Like a code fence, the closing `:::` must be at least as long as the opening one. With `allowHtml: false` the block is escaped to text like any other raw HTML.
 - **`buildDocument(body, theme, meta)`** wraps MJML body content in the full document the default wrapper produces: the `<mjml>` root with `lang` and `dir`, the head with the preheader, dark mode and custom `css`, and the themed `<mj-body>`. A custom wrapper that only changes the body can build it with `segmentsToMjml(segments, theme, meta)` and hand it here, and keeps every feature, including ones added later. `defaultWrapper` is now exactly this.
 
 ### Changed
 - **Preheader is no longer white-on-white.** MJML colors its hidden preheader `#ffffff` on top of `display:none`, zero size and `opacity:0`. The color added nothing to the hiding and set off spam filters' hidden-text checks (SpamAssassin's `HTML_FONT_LOW_CONTRAST`) on every email with a preheader, so it is dropped.
 
 ### Fixed
+- **Quoted directive params with spaces.** A quoted value such as `padding="0 32px"` on a directive line is now read as one value instead of being split at the space.
 - **Wrapper docs.** The Wrappers guide and API reference showed `buildHead(theme, preheader)`, so a wrapper copied from them silently lost dark mode, `css`, `lang` and `dir`. They now document the full `buildHead` signature, every `WrapperMeta` field, and `buildDocument`.
 - **Raw HTML tables in the text part.** Rows of a raw HTML layout table now each get their own line, and cells in a row are separated by a space, instead of running together (`[Image: Banner]Live text row`).
 - **Plain-text entities.** The text part now decodes every HTML entity (named, decimal and hex) in one pass, so raw HTML such as `alt="a &#183; b"` reads `a · b` and `&amp;lt;` is no longer decoded twice into `<`. Headings no longer come out as `Q&AMP;A`, and table columns are padded by the characters a reader sees instead of the encoded ones.

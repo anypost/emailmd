@@ -314,7 +314,7 @@ import { escapeHtml, escapeAttrValue, isCssColor, isCssLength, isSafeUrl } from 
 
 ## Raw HTML
 
-By default (`allowHtml: true`) raw HTML in the Markdown source passes through verbatim: `<span style="…">`, `<div>`, and inline tags like `<u>` all render as written. This is convenient for templates you control.
+By default (`allowHtml: true`) raw HTML in the Markdown source passes through verbatim: `<span style="…">`, `<div>`, and inline tags like `<u>` all render as written. This is convenient for templates you control. To embed a larger block of HTML at the email's full width, without markdown processing, use a [`::: raw`](/docs/directives/raw) block.
 
 Set `allowHtml: false` to escape raw tags to text instead:
 

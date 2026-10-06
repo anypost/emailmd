@@ -1,0 +1,75 @@
+---
+title: Raw
+description: Embed a block of HTML untouched, at the email's full width.
+---
+
+A raw block passes HTML through exactly as written, in a section of its own with no side padding, so an embedded layout gets the email's full width:
+
+```markdown
+Here's this week's featured product.
+
+::: raw
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+  <tr>
+    <td><img src="https://example.com/banner.png" alt="Spring sale" width="600" style="display: block; width: 100%;"></td>
+  </tr>
+
+  <tr>
+    <td style="padding: 16px 32px; color: #1f2937;">Everything in the garden range is 20% off until Sunday.</td>
+  </tr>
+</table>
+:::
+
+Back to regular markdown.
+```
+
+Use it for HTML you didn't write by hand: a component exported from a design tool, a pre-rendered product card, an ad slot, or a block from another email builder.
+
+## Why Not Inline HTML?
+
+Raw HTML also works outside a `::: raw` block, but it is treated as part of the markdown around it:
+
+- **It sits in the text column.** Inline HTML gets the same side padding as paragraphs, so a 600px email leaves it well under 600px wide.
+- **Markdown can break it.** An HTML block ends at the first blank line, after which an indented line becomes a code block and `_underscores_` become emphasis. Exported HTML is often indented and spaced out, so it comes apart.
+
+Inside `::: raw`, none of that applies. The lines are never parsed as markdown, so blank lines, indentation and markdown characters stay as they are. Template tags like `{{ first_name }}` still pass through for your sending app to fill in.
+
+## Padding
+
+The block has no padding by default. Set `padding` to inset it, using one to four CSS lengths like the `padding` property. `padding="0 57px"` lines it up with the text above and below, which sits 57px in (the section's 32px plus the text block's own 25px):
+
+```markdown
+::: raw padding="0 57px"
+<div style="border: 1px solid #e5e7eb; padding: 16px;">Order #1042 has shipped.</div>
+:::
+```
+
+## Styling and Dark Mode
+
+The block keeps the content area's background color, including its dark-mode color. It also counts as the first or last section of the content area when it is one, so [`emd-top` and `emd-bot`](/docs/theme#css-hooks) mark it correctly.
+
+emailmd's [automatic dark mode](/docs/theme#automatic-dark-mode) does not recolor the text or links inside a raw block, so HTML that sets its own colors or handles dark mode itself is left alone. Set colors for dark mode in the block's own `<style>`, or style the section through its `emd-raw` class with the [`css`](/docs/api-reference#renderoptions) option.
+
+The global element styles in the email's head (paragraph margins, link color, image alignment) still reach bare elements inside the block. Inline styles in your HTML override them.
+
+## Fences and Nesting
+
+Like a code fence, the closing `:::` must have at least as many colons as the opening one, and a block with no closing line runs to the end of the email. If your HTML contains a line of just `:::`, open the block with more colons:
+
+```markdown
+:::: raw
+<p>Separate sections with</p>
+:::
+<p>on a line of its own.</p>
+::::
+```
+
+A raw block is a top-level section. Inside [columns](/docs/directives/columns) or another directive, its HTML is still passed through untouched but stays in the surrounding block's layout, without the full width. As with any nested directive, the outer block's fences need more colons than the raw block's, or the raw block's closing `:::` ends the outer block too.
+
+## Untrusted Input
+
+With [`allowHtml: false`](/docs/api-reference#raw-html), raw blocks are turned off: the `::: raw` line and the HTML inside it render as escaped text, like any other raw HTML.
+
+## Plain Text
+
+The plain-text version converts a raw block like any other HTML: images become `[Image: alt]`, links are spelled out, and table rows each get their own line. Elements hidden with an inline `display: none`, such as an alternate phone layout, are left out, so their content isn't listed twice.

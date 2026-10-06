@@ -18,6 +18,7 @@
     "stats",
     "steps",
     "rating",
+    "raw",
     "footer"
   ]
 }
