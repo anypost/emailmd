@@ -21,6 +21,41 @@ export interface Theme {
   lineHeight: string;
   contentWidth: string;
   borderRadius: string;
+  /**
+   * Secondary text: data labels, captions, the header and footer, and a
+   * change with no good or bad reading. Falls back to `bodyColor`.
+   */
+  mutedColor?: string;
+  /**
+   * Data colors, in series order. Chart, progress and sparkline bars default
+   * to the first, and `color=chart-2` names the second. Falls back to
+   * `brandColor` for the default bar.
+   */
+  chartColors?: string[];
+  /** Text color of a change that is good news (▲ +12%). Falls back to `successColor`. */
+  positiveColor?: string;
+  /** Text color of a change that is bad news (▼ −3%). Falls back to `dangerColor`. */
+  negativeColor?: string;
+}
+
+/** The color for secondary text: `mutedColor`, else `bodyColor`. */
+export function mutedColorOf(theme: Theme): string {
+  return theme.mutedColor ?? theme.bodyColor;
+}
+
+/** The default data color: the first of `chartColors`, else `brandColor`. */
+export function dataColorOf(theme: Theme): string {
+  return theme.chartColors?.[0] ?? theme.brandColor;
+}
+
+/** The text color of a good change: `positiveColor`, else `successColor`. */
+export function positiveColorOf(theme: Theme): string {
+  return theme.positiveColor ?? theme.successColor;
+}
+
+/** The text color of a bad change: `negativeColor`, else `dangerColor`. */
+export function negativeColorOf(theme: Theme): string {
+  return theme.negativeColor ?? theme.dangerColor;
 }
 
 const sharedTypography = {

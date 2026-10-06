@@ -75,7 +75,7 @@ Revenue: 12,000 13,500 12,900 15,200
 :::
 ```
 
-Columns left at the theme color follow the dark palette automatically; a color you set explicitly keeps it in both light and dark mode. The trend indicator takes the theme's success and danger colors, which are the same in both palettes.
+Columns left at the theme color, or given a palette entry such as `color=chart-2`, follow the dark palette automatically; a hex color keeps it in both light and dark mode. The trend indicator takes the theme's [`positive_color` and `negative_color`](/docs/theme#data-colors) (by default the success and danger colors), or `muted_color` when the move is neutral, and follows dark mode too.
 
 ## Parameters
 
@@ -83,7 +83,7 @@ Columns left at the theme color follow the dark palette automatically; a color y
 | --- | --- |
 | `min` | Value the baseline represents. Defaults to `0`, or lower if the data goes there. |
 | `max` | Value a full-height column represents. Defaults to the largest point. |
-| `color` | Column color. Defaults to the theme's `brand_color`. |
+| `color` | Column color, or `chart-N` for a palette entry. Defaults to the first of `chart_colors`, else `brand_color`. |
 | `track` | Groove above each column. Off by default. |
 | `height` | Plot height in pixels, from `8` to `200`. Defaults to `36`. |
 | `width` | Plot width, in pixels or as a percentage. Defaults to the width the series needs. |

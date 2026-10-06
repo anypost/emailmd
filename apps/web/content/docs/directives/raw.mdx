@@ -50,6 +50,14 @@ The block keeps the content area's background color, including its dark-mode col
 
 emailmd's [automatic dark mode](/docs/theme#automatic-dark-mode) does not recolor the text or links inside a raw block, so HTML that sets its own colors or handles dark mode itself is left alone. Set colors for dark mode in the block's own `<style>`, or style the section through its `emd-raw` class with the [`css`](/docs/api-reference#renderoptions) option.
 
+To follow the theme instead, give an element one of the [color-role classes](/docs/theme#css-hooks) along with its light color inline: `emd-muted`, `emd-good`, `emd-bad`, `emd-c2` (text in the second chart color) or `emd-c2-bg` (a fill in it). Dark mode switches it to the dark palette's color:
+
+```markdown
+::: raw
+<span class="emd-c1" style="color:#e76e50;">●</span> <span class="emd-muted" style="color:#737373;">Signups</span>
+:::
+```
+
 The global element styles in the email's head (paragraph margins, link color, image alignment) still reach bare elements inside the block. Inline styles in your HTML override them.
 
 ## Fences and Nesting

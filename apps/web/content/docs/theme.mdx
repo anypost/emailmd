@@ -91,6 +91,11 @@ Every render emits the same `emd-*` classes, so the [`css`](/docs/api-reference#
 | `emd-btn` | Buttons |
 | `emd-btn-primary`, `-secondary`, `-success`, `-danger`, `-warning`, `-custom` | Buttons, by where their colors come from (`-custom` for an explicit `color=`) |
 | `emd-raw` | [Raw HTML](/docs/directives/raw) sections |
+| `emd-muted` | Text in `muted_color`: captions, header, footer |
+| `emd-good` / `emd-bad` | A change's text, in `positive_color` / `negative_color` |
+| `emd-c1`, `emd-c2`, … / `emd-c1-bg`, `emd-c2-bg`, … | Text / fill in a `chart_colors` entry |
+
+The color-role classes (`emd-muted`, `emd-good`, `emd-bad`, `emd-c<N>`, `emd-c<N>-bg`) carry dark-mode rules, so HTML in a [`::: raw`](/docs/directives/raw) block can use them to follow the dark palette too.
 
 ### Rounding the Content Box
 
@@ -128,6 +133,41 @@ The font family still has to be named in `fontFamily` to actually apply; `fonts`
 
 The same thing works from markdown with a nested `fonts:` map in frontmatter. See [Frontmatter → Custom Fonts](/docs/frontmatter#custom-fonts).
 
+## Data Colors
+
+Four optional keys give data emails the color roles they need. Each falls back to an existing key, so an email that leaves them unset looks as it did before, and each has a `dark:` override that dark mode follows.
+
+| Key | Falls back to | Used for |
+|-----|---------------|----------|
+| `muted_color` | `body_color` | Secondary text: stat, chart, progress, sparkline and rating labels, image captions, the header and footer, a change with no good or bad reading, and upcoming steps |
+| `chart_colors` | `brand_color` | Data colors in series order. Chart, progress and sparkline bars default to the first |
+| `positive_color` | `success_color` | Text of a change that is good news (▲ +12%) |
+| `negative_color` | `danger_color` | Text of a change that is bad news (▼ −3%) |
+
+`positive_color` and `negative_color` color text on the content background, apart from the success and danger button fills, since a fill and readable text aren't always the same color.
+
+`chart_colors` is a list, normally five colors:
+
+```markdown
+---
+theme: auto
+chart_colors: ["#e76e50", "#2a9d90", "#274754", "#e8c468", "#f4a462"]
+dark:
+  chart_colors: ["#2662d9", "#2eb88a", "#e88c30", "#af57db", "#e23670"]
+---
+
+::: chart color=chart-2
+- Direct: 4,200
+- Search: 3,100 {color=chart-4}
+:::
+```
+
+`color=chart-2` names the palette's second color wherever a data directive takes a color (chart, progress, sparkline and stats, on the block or a single item), and dark mode switches it to the dark palette's second color. A hex color written directly can't follow dark mode. A palette set only for light mode carries over to dark, since its colors name series.
+
+### Color Formats
+
+Theme colors take hex, named colors, `rgb()`, `hsl()` and `oklch()`. Email clients don't support `oklch()`, and support for `hsl()` is uneven, so both are converted to hex, which means shadcn and Tailwind theme values can be used as they are. A color outside the sRGB range is brought in by lowering its chroma, as browsers do. A translucent color (`oklch(1 0 0 / 10%)`) becomes `rgba()`.
+
 ## All Theme Options
 
 | Key | Light Default | Dark Default | Description |
@@ -149,6 +189,10 @@ The same thing works from markdown with a nested `fonts:` map in frontmatter. Se
 | `warningColor` | `#d97706` | *(same)* | Warning button background |
 | `warningTextColor` | `#ffffff` | *(same)* | Warning button text |
 | `dividerColor` | `#f4f4f5` | `#27272a` | Horizontal rule (`---`) color |
+| `mutedColor` | *(`bodyColor`)* | *(`bodyColor`)* | Secondary text: labels, captions, header and footer. See [Data Colors](#data-colors) |
+| `chartColors` | *(none)* | *(light palette)* | Data colors in series order; bars default to the first, otherwise `brandColor` |
+| `positiveColor` | *(`successColor`)* | *(`successColor`)* | Text of a good change |
+| `negativeColor` | *(`dangerColor`)* | *(`dangerColor`)* | Text of a bad change |
 | `fontFamily` | `Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif` | *(same)* | Font stack |
 | `fontSize` | `16px` | *(same)* | Base font size |
 | `lineHeight` | `1.6` | *(same)* | Base line height |

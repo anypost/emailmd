@@ -33,7 +33,7 @@ Percentages are the exception: when every value ends in `%`, bars scale against 
 
 ## Colors
 
-`color` sets the bar color and `track` the groove behind it; both default to theme colors (`brand_color` and `card_color`). A single bar can be recolored with `{color=…}` on its list item:
+`color` sets the bar color and `track` the groove behind it; both default to theme colors (the first of [`chart_colors`](/docs/theme#data-colors), else `brand_color`, and `card_color`). A single bar can be recolored with `{color=…}` on its list item:
 
 ```markdown
 ::: chart track=#e4e4e7
@@ -43,14 +43,14 @@ Percentages are the exception: when every value ends in `%`, bars scale against 
 :::
 ```
 
-Bars left at the theme color follow the dark palette automatically. A bar you color explicitly keeps that color in both light and dark mode, the same way [hero](/docs/directives/hero) colors do.
+Bars left at the theme color follow the dark palette automatically, and so does a bar given a palette entry such as `color=chart-2`. A bar you color with a hex value keeps that color in both light and dark mode, the same way [hero](/docs/directives/hero) colors do.
 
 ## Parameters
 
 | Parameter | Description |
 | --- | --- |
 | `max` | Value a full-width bar represents. Defaults to the largest item, or 100 for percentages. |
-| `color` | Bar color. Defaults to the theme's `brand_color`. |
+| `color` | Bar color, or `chart-N` for a palette entry. Defaults to the first of `chart_colors`, else `brand_color`. |
 | `track` | Groove color. Defaults to the theme's `card_color`. |
 | `height` | Bar thickness. Defaults to `10px`; a bare number means pixels. |
 | `values` | Set `values=false` to hide the numbers and show labels only. |

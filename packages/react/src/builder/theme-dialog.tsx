@@ -19,7 +19,10 @@ interface ThemeDialogProps {
   onChange: (markdown: string) => void;
 }
 
-const COLOR_FIELDS: { key: string; label: string; camelKey: keyof Theme }[] = [
+/** Theme keys every theme has (the optional color roles and `chartColors` aren't edited here). */
+type CoreThemeKey = { [K in keyof Theme]-?: undefined extends Theme[K] ? never : K }[keyof Theme];
+
+const COLOR_FIELDS: { key: string; label: string; camelKey: CoreThemeKey }[] = [
   { key: 'brand_color', label: 'Brand', camelKey: 'brandColor' },
   { key: 'heading_color', label: 'Headings', camelKey: 'headingColor' },
   { key: 'body_color', label: 'Body Text', camelKey: 'bodyColor' },
@@ -33,8 +36,8 @@ const COLOR_FIELDS: { key: string; label: string; camelKey: keyof Theme }[] = [
 
 // Paired so bg/text sit side-by-side in a 2-col grid
 const VARIANT_COLOR_PAIRS: {
-  bg: { key: string; label: string; camelKey: keyof Theme };
-  text: { key: string; label: string; camelKey: keyof Theme };
+  bg: { key: string; label: string; camelKey: CoreThemeKey };
+  text: { key: string; label: string; camelKey: CoreThemeKey };
 }[] = [
   {
     bg: { key: 'secondary_color', label: 'Secondary', camelKey: 'secondaryColor' },
@@ -54,7 +57,7 @@ const VARIANT_COLOR_PAIRS: {
   },
 ];
 
-const TEXT_FIELDS: { key: string; label: string; camelKey: keyof Theme }[] = [
+const TEXT_FIELDS: { key: string; label: string; camelKey: CoreThemeKey }[] = [
   { key: 'font_size', label: 'Font Size', camelKey: 'fontSize' },
   { key: 'line_height', label: 'Line Height', camelKey: 'lineHeight' },
   { key: 'content_width', label: 'Content Width', camelKey: 'contentWidth' },

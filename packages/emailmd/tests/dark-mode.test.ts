@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { render } from '../src/index.js';
+import { rulesFor } from './helpers/css.js';
 
 const DOC = '# Hello\n\nSome body text.\n\n::: callout\nNote\n:::';
 
@@ -91,20 +92,6 @@ describe('dark mode buttons', () => {
   /** shadcn neutral: the button flips from near-black to near-white. */
   const LIGHT = { buttonColor: '#171717', buttonTextColor: '#fafafa' };
   const DARK = { buttonColor: '#e5e5e5', buttonTextColor: '#171717', contentColor: '#171717', brandColor: '#e5e5e5' };
-
-  /**
-   * Every CSS rule whose selector list names `selector`, bare or behind an
-   * Outlook.com prefix, as `<matched selector> {<declarations>}`.
-   */
-  function rulesFor(html: string, selector: string): string[] {
-    const out: string[] = [];
-    for (const [, selectors, body] of html.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-      for (const sel of selectors.split(',').map((s) => s.trim())) {
-        if (sel === selector || sel.replace(/^\[data-og[sbc]+\] /, '') === selector) out.push(`${sel} {${body}}`);
-      }
-    }
-    return out;
-  }
 
   it('repaints a themed button so it stays visible in both schemes', async () => {
     const { html } = await render('[Go](https://x.com){button}', { theme: LIGHT, darkTheme: DARK });

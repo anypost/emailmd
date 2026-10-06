@@ -87,7 +87,7 @@ Tiles are cards by default — that is what makes them read as tiles rather than
 :::
 ```
 
-Cards and numbers left at their theme colors follow the dark palette automatically; a color you set explicitly keeps it in both light and dark mode. The arrows take the theme's success and danger colors, which are the same in both palettes.
+Cards and numbers left at their theme colors follow the dark palette automatically, and so does a number given a palette entry such as `color=chart-2`; a hex color keeps it in both light and dark mode. Labels take the theme's [`muted_color`](/docs/theme#data-colors), and the arrows its `positive_color` and `negative_color` (by default the success and danger colors), all following dark mode.
 
 Text placed before the list renders above the tiles.
 
@@ -97,7 +97,7 @@ Text placed before the list renders above the tiles.
 | --- | --- |
 | `columns` | Tiles per row, `1` to `4`. Defaults to a layout picked from the tile count. |
 | `bg` | Tile background. Defaults to the theme's `card_color`; `bg=none` drops the card. |
-| `color` | Value color. Defaults to the theme's `heading_color`. |
+| `color` | Value color, or `chart-N` for a palette entry. Defaults to the theme's `heading_color`. |
 | `size` | Value type size in pixels. Defaults to 1.75× the theme's body size. |
 | `align` | `left` (default), `center`, or `right`. |
 | `gap` | Space between tiles and between rows, in pixels. Defaults to `16`. |

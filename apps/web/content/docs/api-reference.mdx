@@ -180,11 +180,16 @@ interface Theme {
   dangerTextColor: string;  // Danger button text
   warningColor: string;     // Warning button background
   warningTextColor: string; // Warning button text
+  dividerColor: string;     // Horizontal rule color
   fontFamily: string;       // Font stack
   fontSize: string;         // Base font size (e.g. "16px")
   lineHeight: string;       // Base line height (e.g. "1.6")
   contentWidth: string;     // Email width (e.g. "600px")
   borderRadius: string;     // Border radius for buttons, callouts (e.g. "8px")
+  mutedColor?: string;      // Secondary text; falls back to bodyColor
+  chartColors?: string[];   // Data colors in series order; bars default to the first
+  positiveColor?: string;   // Text of a good change; falls back to successColor
+  negativeColor?: string;   // Text of a bad change; falls back to dangerColor
 }
 ```
 

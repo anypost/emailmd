@@ -21,7 +21,8 @@ import { toPlainText } from './plaintext.js';
 import { expandPartials } from './partials.js';
 import { repairColumnsFences } from './repair.js';
 import type { RenderWarning } from './warnings.js';
-import { isSafeThemeValue, isSafeUrl } from './sanitize.js';
+import { isCssColor, isSafeThemeValue, isSafeUrl } from './sanitize.js';
+import { toHexColor } from './color.js';
 
 /** Options for the {@link render} function. */
 export interface RenderOptions {
@@ -136,28 +137,73 @@ function singleQuoteFamilies(fontFamily: string): string {
 /** Theme keys that hold CSS lengths, where a bare number means pixels. */
 const PX_THEME_KEYS = new Set<keyof Theme>(['borderRadius', 'fontSize', 'contentWidth']);
 
+/** Theme keys that hold a single string (every key but `chartColors`). */
+type StringThemeKey = Exclude<keyof Theme, 'chartColors'>;
+
+/** Optional color keys, which fall back to another key's color when unset. */
+const OPTIONAL_COLOR_KEYS: StringThemeKey[] = ['mutedColor', 'positiveColor', 'negativeColor'];
+
+/**
+ * Split a `chartColors` value into its colors: an array as given, or a
+ * comma-separated string (`"#2563eb, #16a34a"`), splitting only on commas
+ * outside parentheses so `rgb(…)` stays whole.
+ */
+function chartColorList(value: unknown): unknown[] | undefined {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') return value.split(/,(?![^(]*\))/).map((c) => c.trim()).filter(Boolean);
+  return undefined;
+}
+
 /**
  * Replace theme values that could break out of a CSS or attribute context
  * with the base theme's value for that key, collecting a warning per repair.
  * Non-string values (e.g. `line_height: 1.6` from YAML) are coerced to strings,
  * and unitless numbers on length keys (e.g. `border_radius: 12`) get `px` —
- * otherwise they'd emit invalid CSS that clients silently drop.
+ * otherwise they'd emit invalid CSS that clients silently drop. An invalid
+ * optional color is dropped, so it falls back like an unset one, and an
+ * invalid chart color is replaced by the default bar color, so the palette's
+ * later entries keep their positions. Colors written as `oklch()` or `hsl()`
+ * (as shadcn and Tailwind themes are) are converted to hex first.
  */
 function sanitizeTheme(theme: Theme, base: Theme, warnings: RenderWarning[]): Theme {
   const safe = { ...theme };
-  for (const key of Object.keys(base) as Array<keyof Theme>) {
+  const invalid = (key: string) => warnings.push({ stage: 'theme', message: `Invalid theme value for ${key} — using default.` });
+  for (const key of Object.keys(base) as StringThemeKey[]) {
     const value = safe[key];
     let str = typeof value === 'string' ? value : String(value);
     if (PX_THEME_KEYS.has(key) && /^\d+(?:\.\d+)?$/.test(str)) str = `${str}px`;
     if (key === 'fontFamily') str = singleQuoteFamilies(str);
+    if (key.endsWith('Color')) str = toHexColor(str) ?? str;
     if (!isSafeThemeValue(str)) {
-      warnings.push({
-        stage: 'theme',
-        message: `Invalid theme value for ${key} — using default.`,
-      });
-      safe[key] = base[key];
+      invalid(key);
+      safe[key] = base[key] as string;
     } else {
       safe[key] = str;
+    }
+  }
+  for (const key of OPTIONAL_COLOR_KEYS) {
+    const value = safe[key];
+    if (value === undefined) continue;
+    const str = toHexColor(String(value)) ?? String(value);
+    if (isSafeThemeValue(str) && isCssColor(str)) {
+      safe[key] = str;
+    } else {
+      invalid(key);
+      delete safe[key];
+    }
+  }
+  if (safe.chartColors !== undefined) {
+    const list = chartColorList(safe.chartColors);
+    if (!list || list.length === 0) {
+      invalid('chartColors');
+      delete safe.chartColors;
+    } else {
+      safe.chartColors = list.map((entry, i) => {
+        const str = toHexColor(String(entry)) ?? String(entry);
+        if (isSafeThemeValue(str) && isCssColor(str)) return str;
+        warnings.push({ stage: 'theme', message: `Invalid chart color ${i + 1} "${str}" — using ${safe.brandColor}.` });
+        return safe.brandColor;
+      });
     }
   }
   return safe;
@@ -260,6 +306,9 @@ export async function render(markdown: string, options?: RenderOptions): Promise
         : undefined;
       const mergedDark = mergeTheme({ ...optOverrides, ...fmOverrides }, darkBaseTheme);
       darkThemeResolved = sanitizeTheme(mergedDark, darkBaseTheme, warnings);
+      // Data colors name series, so a palette set only for light mode carries
+      // over to dark rather than every bar turning the dark brand color.
+      if (!darkThemeResolved.chartColors && theme.chartColors) darkThemeResolved.chartColors = theme.chartColors;
     }
   }
 

@@ -33,6 +33,10 @@ const themeKeys: Set<string> = new Set([
   'line_height',
   'content_width',
   'border_radius',
+  'muted_color',
+  'chart_colors',
+  'positive_color',
+  'negative_color',
 ]);
 
 function snakeToCamel(s: string): string {

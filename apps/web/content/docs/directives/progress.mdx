@@ -56,7 +56,7 @@ Steps run from 2 to 12; past that the segments are too thin to read, and an out-
 
 ## Colors
 
-`color` sets the fill and `track` the groove, both defaulting to theme colors (`brand_color` and `card_color`):
+`color` sets the fill and `track` the groove, both defaulting to theme colors (the first of [`chart_colors`](/docs/theme#data-colors), else `brand_color`, and `card_color`). `color=chart-2` picks a palette entry:
 
 ```markdown
 ::: progress color=#dc2626 track=#fee2e2
@@ -72,7 +72,7 @@ A bar left at the theme color follows the dark palette automatically. A bar you 
 | --- | --- |
 | `max` | Value a full bar represents. Defaults to `100`. |
 | `steps` | Draw this many discrete segments instead of one bar. 2–12. |
-| `color` | Fill color. Defaults to the theme's `brand_color`. |
+| `color` | Fill color, or `chart-N` for a palette entry. Defaults to the first of `chart_colors`, else `brand_color`. |
 | `track` | Groove color. Defaults to the theme's `card_color`. |
 | `height` | Bar thickness. Defaults to `10px`; a bare number means pixels. |
 | `values` | Set `values=false` to hide the readout and show the label only. |

@@ -1,6 +1,6 @@
 import mjml2html from 'mjml';
 import type { ColumnCell, Segment } from './segmenter.js';
-import type { Theme } from './theme.js';
+import { dataColorOf, mutedColorOf, negativeColorOf, positiveColorOf, type Theme } from './theme.js';
 import type { RenderWarning } from './warnings.js';
 import { escapeHtml, escapeAttrValue, isCssColor, isCssLength, isSafeUrl, normalizeCssLength } from './sanitize.js';
 import { EMPTY_TABLE_HEADER_RE } from './constants.js';
@@ -75,6 +75,55 @@ function resolveColor(value: string | undefined, fallback: string, ctx: SegmentC
   if (isCssColor(value)) return value;
   warn(ctx, `Invalid color "${value}" for ${label} — using default.`);
   return fallback;
+}
+
+/** A palette reference: `chart-2` names the theme's second chart color. */
+const PALETTE_REF_RE = /^chart-([1-9]\d*)$/;
+
+/** A resolved data color, and the classes it gives the element that carries it. */
+interface DataColor {
+  color: string;
+  /** The 1-based palette entry it came from, for the `emd-c<N>` / `emd-c<N>-bg` dark-mode class. */
+  entry?: number;
+  /** True when it is the theme's default, so the element carries its directive's `-themed` class. */
+  themed: boolean;
+}
+
+/**
+ * Resolve a data color: unset is the fallback, `chart-N` is an entry of the
+ * theme's `chartColors` (which dark mode follows through its class), and
+ * anything else is an explicit color kept as written in both modes. A palette
+ * entry the theme doesn't have warns and falls back.
+ */
+function resolveDataColor(value: string | undefined, fallback: DataColor, theme: Theme, ctx: SegmentContext | undefined, label: string): DataColor {
+  if (!value) return fallback;
+  const ref = PALETTE_REF_RE.exec(value.trim());
+  if (ref) {
+    const entry = Number(ref[1]);
+    const color = theme.chartColors?.[entry - 1];
+    if (color) return { color, entry, themed: false };
+    const count = theme.chartColors?.length ?? 0;
+    warn(ctx, `No chart color ${entry} for ${label} — the theme has ${count === 0 ? 'no chart_colors' : `${count}`}; using default.`);
+    return fallback;
+  }
+  return { color: resolveColor(value, fallback.color, ctx, label), themed: false };
+}
+
+/** The theme's default data color, as a {@link DataColor}. */
+function defaultDataColor(theme: Theme): DataColor {
+  return { color: dataColorOf(theme), themed: true };
+}
+
+/** Classes for an element filled with a data color: its directive class, plus the themed or palette hook. */
+function dataFillClass(base: string, data: DataColor): string {
+  return `${base}${data.themed ? ` ${base}-themed` : ''}${data.entry ? ` emd-c${data.entry}-bg` : ''}`;
+}
+
+/** The text color and class of a change: good and bad take the theme's positive and negative colors, neutral is muted. */
+function toneStyle(tone: 'good' | 'bad' | 'neutral', theme: Theme, neutralClass: string): { color: string; cls: string } {
+  if (tone === 'good') return { color: positiveColorOf(theme), cls: 'emd-good' };
+  if (tone === 'bad') return { color: negativeColorOf(theme), cls: 'emd-bad' };
+  return { color: mutedColorOf(theme), cls: neutralClass };
 }
 
 const ALIGN_VALUES = new Set(['left', 'center', 'right']);
@@ -178,6 +227,35 @@ function codeTokenRules(p: CodePalette, important = false): CssRule[] {
   ];
 }
 
+/**
+ * Selectors for a text-color class that must win wherever it's used: on any
+ * element (a `<span>` in a raw block), on a div inside a content section, and
+ * on a block MJML wraps in its own div (an `mj-text` cell). The last two
+ * outrank the section-wide `.emd-s div` rule.
+ */
+function textClassSelector(cls: string): string {
+  return `.${cls}, .emd-s div.${cls}, .emd-s .${cls} div`;
+}
+
+/**
+ * Dark-mode rules for the theme's color roles, as classes elements carry and
+ * raw HTML can use too: `emd-muted` (secondary text), `emd-good` / `emd-bad`
+ * (a change's tone), and per palette entry `emd-c<N>` (text) and
+ * `emd-c<N>-bg` (fill).
+ */
+function roleDarkRules(dark: Theme): { background: CssRule[]; color: CssRule[] } {
+  const palette = dark.chartColors ?? [];
+  return {
+    background: palette.map((c, i): CssRule => [`.emd-c${i + 1}-bg`, `background-color: ${c} !important;`]),
+    color: [
+      [textClassSelector('emd-muted'), `color: ${mutedColorOf(dark)} !important;`],
+      [textClassSelector('emd-good'), `color: ${positiveColorOf(dark)} !important;`],
+      [textClassSelector('emd-bad'), `color: ${negativeColorOf(dark)} !important;`],
+      ...palette.map((c, i): CssRule => [textClassSelector(`emd-c${i + 1}`), `color: ${c} !important;`]),
+    ],
+  };
+}
+
 /** Text color of a button given an explicit `color=`. */
 const CUSTOM_BUTTON_TEXT = '#ffffff';
 
@@ -213,6 +291,9 @@ function buttonDarkRules(dark: Theme): { background: CssRule[]; color: CssRule[]
  */
 function buildDarkModeStyles(dark: Theme): string {
   const buttons = buttonDarkRules(dark);
+  const roles = roleDarkRules(dark);
+  const muted = mutedColorOf(dark);
+  const data = dataColorOf(dark);
   const backgroundRules: CssRule[] = [
     ['body, .emd-root, .emd-root > div', `background-color: ${dark.backgroundColor} !important;`],
     ['.emd-bg, .emd-bg > table', `background: ${dark.contentColor} !important;`],
@@ -221,16 +302,17 @@ function buildDarkModeStyles(dark: Theme): string {
     ['.emd-s code, .emd-s pre', `background-color: ${dark.cardColor} !important;`],
     ['.emd-s mark', `background-color: ${dark.brandColor}33 !important;`],
     ['.emd-acc td', `background-color: ${dark.contentColor} !important;`],
-    ['.emd-chart-bar-themed', `background-color: ${dark.brandColor} !important;`],
+    ['.emd-chart-bar-themed', `background-color: ${data} !important;`],
     ['.emd-chart-track-themed', `background-color: ${dark.cardColor} !important;`],
-    ['.emd-progress-bar-themed', `background-color: ${dark.brandColor} !important;`],
+    ['.emd-progress-bar-themed', `background-color: ${data} !important;`],
     ['.emd-progress-track-themed', `background-color: ${dark.cardColor} !important;`],
-    ['.emd-sparkline-bar-themed', `background-color: ${dark.brandColor} !important;`],
+    ['.emd-sparkline-bar-themed', `background-color: ${data} !important;`],
     ['.emd-step-marker-themed', `background-color: ${dark.brandColor} !important;`],
     ['.emd-step-marker-todo', `background-color: ${dark.cardColor} !important;`],
     ['.emd-step-rail-themed', `background-color: ${dark.dividerColor} !important;`],
     ['.emd-step-rail-lit', `background-color: ${dark.brandColor} !important;`],
     ...buttons.background,
+    ...roles.background,
   ];
   const colorRules: CssRule[] = [
     ['.emd-s div', `color: ${dark.bodyColor} !important;`],
@@ -245,28 +327,30 @@ function buildDarkModeStyles(dark: Theme): string {
     ['.emd-acc table', `border-color: ${dark.dividerColor} !important;`],
     ['.emd-acc .mj-accordion-title td', `color: ${dark.headingColor} !important;`],
     ['.emd-acc .mj-accordion-content td', `color: ${dark.bodyColor} !important;`],
-    ['.emd-chart-label', `color: ${dark.bodyColor} !important;`],
+    ['.emd-chart-label', `color: ${muted} !important;`],
     ['.emd-chart-value', `color: ${dark.headingColor} !important;`],
-    ['.emd-progress-label', `color: ${dark.bodyColor} !important;`],
+    ['.emd-progress-label', `color: ${muted} !important;`],
     ['.emd-progress-value', `color: ${dark.headingColor} !important;`],
-    ['.emd-sparkline-label', `color: ${dark.bodyColor} !important;`],
+    ['.emd-sparkline-label', `color: ${muted} !important;`],
     ['.emd-sparkline-value', `color: ${dark.headingColor} !important;`],
-    ['.emd-sparkline-delta-themed', `color: ${dark.bodyColor} !important;`],
-    ['.emd-stat-label', `color: ${dark.bodyColor} !important;`],
+    ['.emd-sparkline-delta-themed', `color: ${muted} !important;`],
+    ['.emd-stat-label', `color: ${muted} !important;`],
     ['.emd-stat-value-themed', `color: ${dark.headingColor} !important;`],
-    ['.emd-stat-delta-themed', `color: ${dark.bodyColor} !important;`],
+    ['.emd-stat-delta-themed', `color: ${muted} !important;`],
     ['.emd-step-marker-themed', `color: ${dark.buttonTextColor} !important;`],
-    ['.emd-step-marker-todo', `color: ${dark.bodyColor} !important;`],
+    ['.emd-step-marker-todo', `color: ${muted} !important;`],
     ['.emd-step-title-themed', `color: ${dark.headingColor} !important;`],
-    ['.emd-step-muted, .emd-step-desc', `color: ${dark.bodyColor} !important;`],
+    ['.emd-step-muted', `color: ${muted} !important;`],
+    ['.emd-step-desc', `color: ${dark.bodyColor} !important;`],
     ['.emd-steps a', `color: ${dark.brandColor} !important;`],
     ['.emd-rating-on-themed', `color: ${dark.warningColor} !important;`],
     ['.emd-rating-off-themed', `color: ${dark.bodyColor} !important;`],
     ['.emd-rating-half-themed', `color: ${halfLitColor(dark.warningColor, dark.contentColor)} !important;`],
-    ['.emd-rating-label', `color: ${dark.bodyColor} !important;`],
+    ['.emd-rating-label', `color: ${muted} !important;`],
     ['.emd-rating-value', `color: ${dark.headingColor} !important;`],
     ...codeTokenRules(codePaletteFor(dark.cardColor), true),
     ...buttons.color,
+    ...roles.color,
   ];
 
   return `<mj-style>
@@ -508,9 +592,10 @@ function renderHighlightSegment(segment: Segment, theme: Theme, ctx?: SegmentCon
 
 function renderHeaderSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
   const align = resolveAlign(segment.attrs?.align, 'center', ctx, 'header align');
-  const textColor = resolveColor(segment.attrs?.color, theme.bodyColor, ctx, 'header color');
+  const textColor = resolveColor(segment.attrs?.color, mutedColorOf(theme), ctx, 'header color');
+  const mutedClass = segment.attrs?.color ? '' : ' css-class="emd-muted"';
   const textMjml = segment.content
-    ? `<mj-text align="${align}" padding="${FLOW_PADDING}" font-size="13px" color="${textColor}" line-height="1.5">${processInlineImages(segment.content)}</mj-text>`
+    ? `<mj-text${mutedClass} align="${align}" padding="${FLOW_PADDING}" font-size="13px" color="${textColor}" line-height="1.5">${processInlineImages(segment.content)}</mj-text>`
     : '';
   const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
   let mjml = `<mj-section css-class="emd-s" padding="32px 32px 24px 32px">
@@ -524,9 +609,10 @@ function renderHeaderSegment(segment: Segment, theme: Theme, ctx?: SegmentContex
 
 function renderFooterSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
   const align = resolveAlign(segment.attrs?.align, 'center', ctx, 'footer align');
-  const textColor = resolveColor(segment.attrs?.color, theme.bodyColor, ctx, 'footer color');
+  const textColor = resolveColor(segment.attrs?.color, mutedColorOf(theme), ctx, 'footer color');
+  const mutedClass = segment.attrs?.color ? '' : ' css-class="emd-muted"';
   const textMjml = segment.content
-    ? `<mj-text align="${align}" padding="${FLOW_PADDING}" font-size="13px" color="${textColor}" line-height="1.5">${processInlineImages(segment.content)}</mj-text>`
+    ? `<mj-text${mutedClass} align="${align}" padding="${FLOW_PADDING}" font-size="13px" color="${textColor}" line-height="1.5">${processInlineImages(segment.content)}</mj-text>`
     : '';
   const buttonMjml = segment.buttons ? renderEmbeddedButtons(segment.buttons, theme, ctx) : '';
   let mjml = `<mj-section css-class="emd-s" padding="24px 32px 32px 32px">
@@ -618,7 +704,7 @@ function renderButtonFallback(buttons: Array<Record<string, string>>, theme: The
 
   const lines = fallbackButtons.map(b => {
     const href = escapeAttrValue(b.href);
-    const linkHtml = `<a href="${href}" style="color: ${theme.bodyColor}; word-break: break-all;">${href}</a>`;
+    const linkHtml = `<a href="${href}" style="color: ${mutedColorOf(theme)}; word-break: break-all;">${href}</a>`;
     // Single-pass substitution: handles repeated placeholders, and neither
     // scans substituted values for placeholders nor expands `$`-patterns.
     const message = b.fallback !== 'true'
@@ -629,7 +715,7 @@ function renderButtonFallback(buttons: Array<Record<string, string>>, theme: The
 
   return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="0 32px">
       <mj-column>
-        <mj-text font-size="12px" color="${theme.bodyColor}" line-height="1.4" align="center" padding="4px 0 8px 0">${lines.join('<br><br>')}</mj-text>
+        <mj-text css-class="emd-muted" font-size="12px" color="${mutedColorOf(theme)}" line-height="1.4" align="center" padding="4px 0 8px 0">${lines.join('<br><br>')}</mj-text>
       </mj-column>
     </mj-section>`;
 }
@@ -704,7 +790,7 @@ function imageCaptionMjml(attrs: Record<string, string>, theme: Theme, fallbackA
   const align = attrs.align && ALIGN_VALUES.has(attrs.align) ? attrs.align : fallbackAlign;
   // Caption values arrive entity-escaped from markdown-it; escapeAttrValue
   // blocks tag injection without double-escaping `&`.
-  return `<mj-text align="${align}" padding="4px 0 0" font-size="13px" color="${theme.bodyColor}" line-height="1.5">${escapeAttrValue(attrs.caption)}</mj-text>`;
+  return `<mj-text css-class="emd-muted" align="${align}" padding="4px 0 0" font-size="13px" color="${mutedColorOf(theme)}" line-height="1.5">${escapeAttrValue(attrs.caption)}</mj-text>`;
 }
 
 function renderImageSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
@@ -923,7 +1009,7 @@ function renderChartSegment(segment: Segment, theme: Theme, ctx?: SegmentContext
     warn(ctx, `${skipped} chart item${skipped === 1 ? '' : 's'} had no "Label: value" shape and ${skipped === 1 ? 'was' : 'were'} skipped.`);
   }
 
-  const barColor = resolveColor(segment.attrs?.color, theme.brandColor, ctx, 'chart color');
+  const barColor = resolveDataColor(segment.attrs?.color, defaultDataColor(theme), theme, ctx, 'chart color');
   const trackColor = resolveColor(segment.attrs?.track, theme.cardColor, ctx, 'chart track');
   const shape = resolveBarShape(segment.attrs, '10px', 'chart', ctx);
   const showValues = segment.attrs?.values !== 'false';
@@ -943,17 +1029,13 @@ function renderChartSegment(segment: Segment, theme: Theme, ctx?: SegmentContext
   const labelAlign = startAlign(ctx);
   const valueAlign = rtl ? 'left' : 'right';
 
-  const themedBar = !segment.attrs?.color;
   const trackClass = `emd-chart-track${segment.attrs?.track ? '' : ' emd-chart-track-themed'}`;
 
   const rows = items.map((item, i) => {
-    const fill = item.color
-      ? resolveColor(item.color, barColor, ctx, `chart bar "${item.label}"`)
-      : barColor;
-    const barClass = `emd-chart-bar${themedBar && !item.color ? ' emd-chart-bar-themed' : ''}`;
-    const bar = renderBar(barPercent(item.value, max), fill, barClass, trackColor, trackClass, shape, rtl);
+    const fill = resolveDataColor(item.color, barColor, theme, ctx, `chart bar "${item.label}"`);
+    const bar = renderBar(barPercent(item.value, max), fill.color, dataFillClass('emd-chart-bar', fill), trackColor, trackClass, shape, rtl);
 
-    const labelCell = `<td class="emd-chart-label" align="${labelAlign}"${showValues ? '' : ' colspan="2"'} style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;color:${theme.bodyColor};">${escapeAttrValue(item.label)}</td>`;
+    const labelCell = `<td class="emd-chart-label" align="${labelAlign}"${showValues ? '' : ' colspan="2"'} style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;color:${mutedColorOf(theme)};">${escapeAttrValue(item.label)}</td>`;
     const valueCell = showValues
       ? `<td class="emd-chart-value" align="${valueAlign}" style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;font-weight:700;color:${theme.headingColor};white-space:nowrap;">${escapeAttrValue(item.display)}</td>`
       : '';
@@ -1027,18 +1109,19 @@ function renderProgressSegment(segment: Segment, theme: Theme, ctx?: SegmentCont
   }
   for (const message of data.warnings) warn(ctx, message);
 
-  const fill = resolveColor(segment.attrs?.color, theme.brandColor, ctx, 'progress color');
+  const fillColor = resolveDataColor(segment.attrs?.color, defaultDataColor(theme), theme, ctx, 'progress color');
+  const fill = fillColor.color;
   const trackColor = resolveColor(segment.attrs?.track, theme.cardColor, ctx, 'progress track');
   const shape = resolveBarShape(segment.attrs, '10px', 'progress', ctx);
   const rtl = ctx?.dir === 'rtl';
-  const fillClass = `emd-progress-bar${segment.attrs?.color ? '' : ' emd-progress-bar-themed'}`;
+  const fillClass = dataFillClass('emd-progress-bar', fillColor);
   const trackClass = `emd-progress-track${segment.attrs?.track ? '' : ' emd-progress-track-themed'}`;
 
   const bar = data.steps > 0
     ? renderSteppedBar(data, fill, fillClass, trackColor, trackClass, shape, rtl)
     : renderBar(data.pct, fill, fillClass, trackColor, trackClass, shape, rtl);
 
-  const labelCell = `<td class="emd-progress-label" align="${startAlign(ctx)}"${data.readout ? '' : ' colspan="2"'} style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;color:${theme.bodyColor};">${escapeAttrValue(data.label)}</td>`;
+  const labelCell = `<td class="emd-progress-label" align="${startAlign(ctx)}"${data.readout ? '' : ' colspan="2"'} style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;color:${mutedColorOf(theme)};">${escapeAttrValue(data.label)}</td>`;
   const valueCell = data.readout
     ? `<td class="emd-progress-value" align="${rtl ? 'left' : 'right'}" style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;font-weight:700;color:${theme.headingColor};white-space:nowrap;">${escapeAttrValue(data.readout)}</td>`
     : '';
@@ -1184,9 +1267,8 @@ function renderSparklineColumns(
  * A sparkline, and the `trend` readout that is the same block without its
  * columns: the shape of a metric over time plus how far it moved.
  *
- * The delta takes its color from the theme's success and danger colors, which
- * are the same in both palettes — so only a neutral reading needs a dark-mode
- * hook, the same way an explicitly colored bar needs none.
+ * The delta takes the theme's positive or negative color, or the muted color
+ * for a neutral reading, each with a class dark mode repaints.
  */
 function renderSparklineSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
   const bare = segment.attrs?.variant === 'trend';
@@ -1200,27 +1282,23 @@ function renderSparklineSegment(segment: Segment, theme: Theme, ctx?: SegmentCon
   for (const message of data.warnings) warn(ctx, message);
 
   const rtl = ctx?.dir === 'rtl';
-  const fill = resolveColor(segment.attrs?.color, theme.brandColor, ctx, 'sparkline color');
+  const fillColor = resolveDataColor(segment.attrs?.color, defaultDataColor(theme), theme, ctx, 'sparkline color');
+  const fill = fillColor.color;
   // The groove is off by default: a sparkline is read as a shape, and filling
   // the space above every column turns it back into a bar chart.
   const trackColor = segment.attrs?.track
     ? resolveColor(segment.attrs.track, theme.cardColor, ctx, 'sparkline track')
     : '';
-  const fillClass = `emd-sparkline-bar${segment.attrs?.color ? '' : ' emd-sparkline-bar-themed'}`;
+  const fillClass = dataFillClass('emd-sparkline-bar', fillColor);
 
   // Columns are thin, so they default to a slight softening rather than the
   // pill the wide bars take; `border-radius=0` squares them.
   let radius = resolveLength(segment.attrs?.['border-radius'], '2px', ctx, 'sparkline border-radius');
   if (/^0(?:[a-z%]+)?$/.test(radius)) radius = '';
 
-  const toneColor = data.tone === 'good'
-    ? theme.successColor
-    : data.tone === 'bad'
-      ? theme.dangerColor
-      : theme.bodyColor;
-  const deltaClass = `emd-sparkline-delta${data.tone === 'neutral' ? ' emd-sparkline-delta-themed' : ''}`;
+  const tone = toneStyle(data.tone, theme, 'emd-sparkline-delta-themed');
   const readout = data.showValues
-    ? `${escapeAttrValue(data.latest)} <span class="${deltaClass}" style="color:${toneColor};font-weight:700;">${TREND_ARROWS[data.direction]}&#160;${escapeAttrValue(data.delta)}</span>`
+    ? `${escapeAttrValue(data.latest)} <span class="emd-sparkline-delta ${tone.cls}" style="color:${tone.color};font-weight:700;">${TREND_ARROWS[data.direction]}&#160;${escapeAttrValue(data.delta)}</span>`
     : '';
 
   // Section padding is 32px a side, so that is what the plot has to fit in.
@@ -1238,7 +1316,7 @@ function renderSparklineSegment(segment: Segment, theme: Theme, ctx?: SegmentCon
   // a label wider than the plot cannot stretch the plot's column and reopen
   // the gap the readout was moved to close.
   const labelSpan = beside || !readout ? ' colspan="2"' : '';
-  const labelCell = `<td class="emd-sparkline-label" align="${startAlign(ctx)}"${labelSpan} style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;color:${theme.bodyColor};">${escapeAttrValue(data.label)}</td>`;
+  const labelCell = `<td class="emd-sparkline-label" align="${startAlign(ctx)}"${labelSpan} style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;color:${mutedColorOf(theme)};">${escapeAttrValue(data.label)}</td>`;
   const valueCell = readout
     ? `<td class="emd-sparkline-value" align="${rtl ? 'left' : 'right'}" style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;font-weight:700;color:${theme.headingColor};white-space:nowrap;">${readout}</td>`
     : '';
@@ -1327,27 +1405,21 @@ function renderStatTile(
   item: StatItem,
   theme: Theme,
   align: string,
-  valueColor: string,
-  themedValue: boolean,
+  valueColor: DataColor,
   scale: { small: string; value: string },
   valueSize: string,
   ctx?: SegmentContext,
 ): string {
-  const color = item.color
-    ? resolveColor(item.color, valueColor, ctx, `stat "${item.label}" color`)
-    : valueColor;
-  const valueClass = `emd-stat-value${themedValue && !item.color ? ' emd-stat-value-themed' : ''}`;
+  const value = resolveDataColor(item.color, valueColor, theme, ctx, `stat "${item.label}" color`);
+  const color = value.color;
+  const valueClass = `emd-stat-value${value.themed ? ' emd-stat-value-themed' : ''}${value.entry ? ` emd-c${value.entry}` : ''}`;
 
-  let rows = `<tr><td class="emd-stat-label" align="${align}" style="padding:0 0 4px 0;font-size:${scale.small};line-height:1.4;color:${theme.bodyColor};">${escapeAttrValue(item.label)}</td></tr>`
+  let rows = `<tr><td class="emd-stat-label" align="${align}" style="padding:0 0 4px 0;font-size:${scale.small};line-height:1.4;color:${mutedColorOf(theme)};">${escapeAttrValue(item.label)}</td></tr>`
     + `<tr><td class="${valueClass}" align="${align}" style="padding:0;font-size:${valueSize};line-height:1.25;font-weight:700;color:${color};">${escapeAttrValue(item.value)}</td></tr>`;
 
   if (item.delta) {
-    const toneColor = item.tone === 'good' ? theme.successColor
-      : item.tone === 'bad' ? theme.dangerColor : theme.bodyColor;
-    // Only the neutral tone needs a dark-mode hook: success and danger are the
-    // same color in both palettes.
-    const deltaClass = `emd-stat-delta${item.tone === 'neutral' ? ' emd-stat-delta-themed' : ''}`;
-    rows += `<tr><td class="${deltaClass}" align="${align}" style="padding:6px 0 0 0;font-size:${scale.small};line-height:1.4;font-weight:600;color:${toneColor};white-space:nowrap;">${TREND_ARROWS[item.direction]}&#160;${escapeAttrValue(item.delta)}</td></tr>`;
+    const tone = toneStyle(item.tone, theme, 'emd-stat-delta-themed');
+    rows += `<tr><td class="emd-stat-delta ${tone.cls}" align="${align}" style="padding:6px 0 0 0;font-size:${scale.small};line-height:1.4;font-weight:600;color:${tone.color};white-space:nowrap;">${TREND_ARROWS[item.direction]}&#160;${escapeAttrValue(item.delta)}</td></tr>`;
   }
 
   return `<mj-table css-class="emd-stat" role="presentation" cellpadding="0" cellspacing="0" width="100%" padding="0" font-family="${theme.fontFamily}">${rows}</mj-table>`;
@@ -1399,7 +1471,7 @@ function renderStatsSegment(segment: Segment, theme: Theme, ctx?: SegmentContext
   const themedCard = card && !attrs.bg;
 
   const align = resolveAlign(attrs.align, startAlign(ctx), ctx, 'stats align');
-  const valueColor = resolveColor(attrs.color, theme.headingColor, ctx, 'stats color');
+  const valueColor = resolveDataColor(attrs.color, { color: theme.headingColor, themed: true }, theme, ctx, 'stats color');
   const scale = statTypeScale(theme);
   const valueSize = resolveLength(
     attrs.size && /^\d+$/.test(attrs.size.trim()) ? `${attrs.size.trim()}px` : attrs.size,
@@ -1457,7 +1529,7 @@ function renderStatsSegment(segment: Segment, theme: Theme, ctx?: SegmentContext
         ? `${themedCard ? ' css-class="emd-card"' : ''} background-color="${bg}" border-radius="${radius}" padding="${padding}"`
         : ' padding="0"';
       parts.push(`<mj-column width="${tilePct}%"${tileAttrs}>
-        ${renderStatTile(item, theme, align, valueColor, !attrs.color, scale, valueSize, ctx)}
+        ${renderStatTile(item, theme, align, valueColor, scale, valueSize, ctx)}
       </mj-column>`);
       if (i < ordered.length - 1) parts.push(spacer);
     });
@@ -1509,7 +1581,7 @@ function renderStepMarker(
   const muted = item.state === 'todo';
   const failed = item.state === 'failed';
   const fill = failed ? theme.dangerColor : muted ? theme.cardColor : accent;
-  const color = failed ? theme.dangerTextColor : muted ? theme.bodyColor : theme.buttonTextColor;
+  const color = failed ? theme.dangerTextColor : muted ? mutedColorOf(theme) : theme.buttonTextColor;
 
   // The tone classes carry the dark palette; a marker the author coloured
   // themselves is left alone, and danger is one color in both palettes.
@@ -1622,7 +1694,7 @@ function renderStepsSegment(segment: Segment, theme: Theme, ctx?: SegmentContext
     const muted = item.state === 'todo';
     const titleColor = item.state === 'failed'
       ? theme.dangerColor
-      : muted ? theme.bodyColor : theme.headingColor;
+      : muted ? mutedColorOf(theme) : theme.headingColor;
     const titleClass = item.state === 'failed'
       ? 'emd-step-title'
       : muted ? 'emd-step-title emd-step-muted' : 'emd-step-title emd-step-title-themed';
@@ -1803,7 +1875,7 @@ function renderRatingSegment(segment: Segment, theme: Theme, ctx?: SegmentContex
     const cells: string[] = [];
 
     if (labelled) {
-      cells.push(`<td class="emd-rating-label" align="${startAlign(ctx)}" valign="middle" style="padding:${labelPad};font-size:${theme.fontSize};line-height:1.4;color:${theme.bodyColor};white-space:nowrap;">${escapeAttrValue(item.label)}</td>`);
+      cells.push(`<td class="emd-rating-label" align="${startAlign(ctx)}" valign="middle" style="padding:${labelPad};font-size:${theme.fontSize};line-height:1.4;color:${mutedColorOf(theme)};white-space:nowrap;">${escapeAttrValue(item.label)}</td>`);
     }
     cells.push(`<td valign="middle" style="padding:0 0 ${bottom}px 0;">${renderRatingGlyphs(item, data.max, style, rtl)}</td>`);
     if (data.showValues) {
