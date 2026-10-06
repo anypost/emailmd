@@ -1,6 +1,6 @@
 {
   "name": "@emailmd/react",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "React hooks and components for emailmd — live email preview and a full markdown email builder.",
   "keywords": [
     "email",

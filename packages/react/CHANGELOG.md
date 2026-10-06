@@ -4,7 +4,7 @@ All notable changes to `@emailmd/react` are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.4.0] — 2026-10-06
 
 ### Added
 - **Breakdown in the Charts & Data menu**, for emailmd's `::: breakdown` directive: inserts a three-row ranked list with signed changes, the first label selected.

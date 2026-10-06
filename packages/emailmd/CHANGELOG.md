@@ -4,14 +4,14 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.13.0] — 2026-10-06
 
 ### Added
 - **Data color roles in the theme.** Four optional keys, each with a `dark:` override that dark mode follows, and each falling back to an existing key, so an email that leaves them unset renders as before:
   - `muted_color` (`mutedColor`) colors secondary text: stat, chart, progress, sparkline and rating labels, image captions, the header and footer, the button fallback line, a change with no good or bad reading, and upcoming steps. Falls back to `body_color`.
   - `chart_colors` (`chartColors`) is a list of data colors. Chart, progress and sparkline bars default to its first color, otherwise `brand_color`. A palette set only for light mode carries over to dark.
-  - `positive_color` and `negative_color` color a change's text in stats and sparklines, apart from the success and danger button fills. They fall back to `success_color` and `danger_color`.
-- **`color=chart-N`.** Chart, progress, sparkline and stats colors (on the block or a single item) can name a palette entry, which dark mode switches to the dark palette's entry. A hex color still stays as written in both modes. An entry the palette lacks warns and falls back to the default.
+  - `positive_color` and `negative_color` color a change's text in stats, sparklines and breakdowns, apart from the success and danger button fills. They fall back to `success_color` and `danger_color`.
+- **`color=chart-N`.** Chart, progress, sparkline, stats and breakdown colors (on the block or a single item) can name a palette entry, which dark mode switches to the dark palette's entry. A hex color still stays as written in both modes. An entry the palette lacks warns and falls back to the default.
 - **Color-role classes.** `emd-muted`, `emd-good`, `emd-bad`, `emd-c<N>` (text) and `emd-c<N>-bg` (fill) carry dark-mode rules, and HTML in a `::: raw` block can use them to follow the theme.
 - **`::: breakdown` directive.** A ranked list, or a total split into its parts, one row per list item: a label, its value lined up down the right edge, and an optional signed change (`(+12%)`) with an arrow colored by `good=up|down|neutral`, settable per row. An ordered list ranks the rows from its start number, and lines under an item become a muted sub-label. `swatches=true` adds a dot per row colored from `chart_colors` in order, and `bars=true` a bar under each row in the same color, scaled like a chart. Hairline dividers in `divider_color` separate the rows unless `dividers=false`. Labels wrap between words, never mid-word. Every color follows dark mode, and the text part gets aligned columns with ASCII bars.
 - **`stack=false` on stats.** Keeps the tiles in their rows on a phone instead of stacking them one per row. The tiles are drawn as cells of one table, which makes every tile in a row as tall as the tallest, and on a phone they get a tighter inset and type scaled from the body size and tiles per row (1.5× at two across, 1.125× at three, 0.94× at four). The phone styles are added to the head only when the email has a block that uses them.
