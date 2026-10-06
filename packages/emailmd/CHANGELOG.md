@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **Plain-text entities.** The text part now decodes every HTML entity (named, decimal and hex) in one pass, so raw HTML such as `alt="a &#183; b"` reads `a · b` and `&amp;lt;` is no longer decoded twice into `<`. Headings no longer come out as `Q&AMP;A`, and table columns are padded by the characters a reader sees instead of the encoded ones.
+- **Hidden elements in the text part.** Elements hidden with an inline `display: none`, such as an alternate phone layout a media query swaps in, are left out of the text part, so their content isn't listed twice.
+- **Linked image captions.** A `caption` set on the link around an image now appears in the text part, as it already did in the HTML.
+
 ## [0.11.1] — 2026-10-02
 
 ### Changed

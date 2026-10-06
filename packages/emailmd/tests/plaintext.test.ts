@@ -37,6 +37,49 @@ describe('plain text output', async () => {
     expect(text).toContain('{{user_name}}');
   });
 
+  it('decodes entities in uppercased headings', async () => {
+    const { text } = await render('# Q&A: "Tips" for 5 < 6');
+    expect(text).toContain('Q&A: "TIPS" FOR 5 < 6');
+  });
+
+  it('pads table columns by decoded width', async () => {
+    const { text } = await render('| A & B | C |\n|---|---|\n| x | 1 |');
+    expect(text).toContain('A & B   C\n-----   -\nx       1');
+  });
+
+  it('decodes numeric and named entities from raw HTML', async () => {
+    const { text } = await render('<img src="https://x.com/a.png" alt="Grid &#183; one &middot; two">');
+    expect(text).toContain('[Image: Grid · one · two]');
+  });
+
+  it('decodes entities only once', async () => {
+    const { text } = await render('Write &amp;lt; for a less-than sign');
+    expect(text).toContain('Write &lt; for');
+  });
+
+  it('leaves bare ampersands in URLs alone', async () => {
+    const { text } = await render('See https://x.com/?a=1&copy=2');
+    expect(text).toContain('https://x.com/?a=1&copy=2');
+  });
+
+  it('skips elements hidden with display:none', async () => {
+    const md = [
+      '<img src="https://x.com/a.png" alt="Grid">',
+      '<div style="display:none;mso-hide:all"><img src="https://x.com/a.png" alt="Grid"><div>phone</div></div>',
+      '',
+      'After',
+    ].join('\n');
+    const { text } = await render(md);
+    expect(text.match(/\[Image: Grid\]/g)).toHaveLength(1);
+    expect(text).not.toContain('phone');
+    expect(text).toContain('After');
+  });
+
+  it('keeps a caption set on an image link', async () => {
+    const { text } = await render('[![Shop](https://x.com/s.png)](https://x.com/shop){caption="Shop now"}');
+    expect(text).toContain('[Image: Shop] (https://x.com/shop)\nShop now');
+  });
+
   it('preserves paragraph content', async () => {
     const { text } = await render('This is a paragraph.');
     expect(text).toContain('This is a paragraph.');

@@ -1,3 +1,4 @@
+import { decodeHTMLStrict } from 'entities';
 import {
   MARKER_CALLOUT_CLOSE,
   MARKER_CENTERED_CLOSE,
@@ -20,7 +21,7 @@ import { parseRating, ratingIcons, RATING_ICONS } from './rating.js';
  * Used for the text/plain MIME part.
  */
 export function toPlainText(html: string): string {
-  let text = html;
+  let text = stripHidden(html);
 
   // Strip directive markers (parameterized directives use regex to handle optional attrs)
   text = text.replace(/<!--EMAILMD:CALLOUT_OPEN(?:\s+[\w-]+="[^"]*")*-->/g, '');
@@ -106,16 +107,30 @@ export function toPlainText(html: string): string {
     return results.join('\n') + '\n';
   });
 
-  // Convert headings to UPPERCASE (preserving template token case)
+  // Convert headings to UPPERCASE (preserving template token case). Entities
+  // are decoded first so their names are not uppercased out of recognition,
+  // then the markup characters are escaped again for the final strip and decode.
   text = text.replace(/<h[1-6][^>]*>(.*?)<\/h[1-6]>/gi, (_, content) => {
-    return `\n${toUpperCasePreserveTokens(stripTags(content))}\n`;
+    const upper = toUpperCasePreserveTokens(decodeEntities(stripTags(content)));
+    return `\n${escapeMarkup(upper)}\n`;
   });
 
-  // Convert images to [Image: alt], with the caption (if any) on the next line
+  // Convert images to [Image: alt], with the caption (if any) on the next line.
+  // A linked image can carry its caption on the link instead; it goes after
+  // the link's URL, the same place it sits under the image in the HTML.
+  text = text.replace(
+    /<a\s+([^>]*)>\s*<img\s+([^>]*)>\s*<\/a>/gi,
+    (match, linkAttrs: string, imgAttrs: string) => {
+      const caption = /caption="([^"]*)"/i.exec(linkAttrs)?.[1];
+      const href = /href="([^"]*)"/i.exec(linkAttrs)?.[1];
+      if (!caption || /caption="/i.test(imgAttrs) || href === undefined) return match;
+      const label = imageLabel(imgAttrs);
+      return label ? `${linkToText(href, label)}\n${caption}` : `${caption} (${href})`;
+    },
+  );
   text = text.replace(/<img\s+([^>]*)>/gi, (_, attrString: string) => {
-    const alt = /alt="([^"]*)"/i.exec(attrString)?.[1] ?? '';
+    const label = imageLabel(attrString);
     const caption = /caption="([^"]*)"/i.exec(attrString)?.[1];
-    const label = alt ? `[Image: ${alt}]` : '';
     if (!caption) return label;
     return label ? `${label}\n${caption}` : caption;
   });
@@ -196,14 +211,53 @@ function linkToText(url: string, label: string): string {
   return `${label} (${url})`;
 }
 
+/** `[Image: alt]` for an image's attributes, or nothing if it has no alt. */
+function imageLabel(attrString: string): string {
+  const alt = /alt="([^"]*)"/i.exec(attrString)?.[1] ?? '';
+  return alt ? `[Image: ${alt}]` : '';
+}
+
+/**
+ * Decode every HTML entity — named, decimal and hex — in one pass, so raw HTML
+ * passed through from the markdown reads correctly and `&amp;lt;` stays `&lt;`.
+ * Strict mode leaves a bare `&name` without its semicolon alone, as in a URL's
+ * `?a=1&copy=2`.
+ */
 function decodeEntities(text: string): string {
-  return text
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ');
+  return decodeHTMLStrict(text).replace(/\u00a0/g, ' ');
+}
+
+/** Escape the characters the tag strip would misread, for the final decode to restore. */
+function escapeMarkup(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** Tags that have no closing tag, so a hidden one is removed on its own. */
+const VOID_TAGS = new Set(['area', 'br', 'hr', 'img', 'input', 'source', 'wbr']);
+
+/**
+ * Drop elements hidden with an inline `display: none` — alternate layouts a
+ * media query swaps in, or Outlook-only copies — so the text part carries each
+ * piece of content once, as a reader of the default view would see it.
+ */
+function stripHidden(html: string): string {
+  const hiddenRe = /<([a-z][a-z0-9]*)\b[^>]*\bstyle="[^"]*\bdisplay\s*:\s*none\b[^"]*"[^>]*>/i;
+  let result = '';
+  let remaining = html;
+  let match: RegExpExecArray | null;
+  while ((match = hiddenRe.exec(remaining)) !== null) {
+    result += remaining.slice(0, match.index);
+    const tagName = match[1].toLowerCase();
+    const afterOpen = remaining.slice(match.index + match[0].length);
+    if (VOID_TAGS.has(tagName) || match[0].endsWith('/>')) {
+      remaining = afterOpen;
+      continue;
+    }
+    const closeIndex = findMatchingClose(afterOpen, tagName);
+    // Unbalanced markup: drop the opening tag alone rather than guess at an end.
+    remaining = closeIndex === -1 ? afterOpen : afterOpen.slice(closeIndex + `</${tagName}>`.length);
+  }
+  return result + remaining;
 }
 
 /** Attributes off a directive marker, e.g. ` max="10,000" steps="4"`. */
@@ -444,7 +498,7 @@ function processListsInText(text: string, depth: number): string {
 }
 
 function findMatchingClose(html: string, tagName: string): number {
-  const openRe = new RegExp(`<${tagName}[^>]*>`, 'gi');
+  const openRe = new RegExp(`<${tagName}\\b[^>]*>`, 'gi');
   const closeRe = new RegExp(`</${tagName}>`, 'gi');
   let nesting = 1;
   let searchFrom = 0;
@@ -536,16 +590,18 @@ function convertTables(html: string): string {
 
     if (rows.length === 0) return '';
 
-    // Calculate column widths
+    // Calculate column widths. Cells are still entity-encoded (decoding here
+    // would let a literal `<` be taken for a tag by the final strip), so they
+    // are measured by the characters a reader will see.
     const colCount = Math.max(...rows.map((r) => r.length));
     const colWidths: number[] = [];
     for (let c = 0; c < colCount; c++) {
-      colWidths[c] = Math.max(...rows.map((r) => (r[c] || '').length));
+      colWidths[c] = Math.max(...rows.map((r) => visibleLength(r[c] || '')));
     }
 
     // Format rows with padding
     const lines = rows.map((row) => {
-      const cells = row.map((cell, c) => cell.padEnd(colWidths[c]));
+      const cells = row.map((cell, c) => cell + ' '.repeat(colWidths[c] - visibleLength(cell)));
       return cells.join('   ');
     });
 
@@ -557,6 +613,11 @@ function convertTables(html: string): string {
 
     return '\n' + lines.join('\n') + '\n';
   });
+}
+
+/** Length of a still-encoded string once its entities are decoded. */
+function visibleLength(text: string): number {
+  return decodeEntities(text).length;
 }
 
 function stripTags(html: string): string {
