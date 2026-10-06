@@ -205,6 +205,13 @@ Weekly signups: 12, 19, 15, 27, 24, 31, 38
     expect(full).toContain('align="right"');
   });
 
+  it('gives a label sharing its row with the readout the width it leaves', async () => {
+    const { html } = await render(`::: sparkline width=100%
+Weekly signups: 12, 19, 15, 27, 24, 31, 38
+:::`);
+    expect(html).toMatch(/class="emd-sparkline-label"[^>]*width="100%"/);
+  });
+
   it('keeps a long label from stretching the plot column', async () => {
     const { html } = await render(`::: sparkline
 Signups from the paid acquisition channel: 12, 19, 15, 27, 24, 31, 38

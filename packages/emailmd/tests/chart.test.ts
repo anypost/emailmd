@@ -59,6 +59,15 @@ describe('chart directive', () => {
     expect(html).toContain('emd-chart-track');
   });
 
+  it('gives the label the width the value leaves', async () => {
+    // Shared, the bar row below hands most of the slack to the value column
+    // and the label is squeezed until MJML breaks a word that fits.
+    const { html } = await render(`::: chart
+- Calls: 1,106,826
+:::`);
+    expect(html).toMatch(/class="emd-chart-label"[^>]*width="100%"/);
+  });
+
   it('hides the value column with values=false', async () => {
     const { html } = await render(`::: chart values=false
 - TypeScript: 95

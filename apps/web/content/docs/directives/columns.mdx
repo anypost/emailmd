@@ -19,7 +19,22 @@ Fresh features you'll love.
 
 Columns are equal-width by default, render correctly in Outlook, and **stack vertically on mobile** automatically.
 
-Inside a column you can use text, images, buttons, tables, dividers, and spacers; everything keeps its position within that column.
+Inside a column you can use text, images, buttons, tables, dividers, and spacers, along with the [chart](/docs/directives/chart), [progress](/docs/directives/progress), and [breakdown](/docs/directives/breakdown) directives; everything keeps its position within that column. A chart image beside the rows it explains:
+
+```markdown
+:::: columns
+::: column width=40 valign=middle
+![Revenue by channel](https://example.com/ring.png)
+:::
+::: column
+::: breakdown swatches=true
+1. Checkout: $4,210 (+12%)
+2. Search: $3,980 (-3%)
+3. Product page: $2,104 (+4%)
+:::
+:::
+::::
+```
 
 ## Column Parameters
 
@@ -109,5 +124,5 @@ With `stack=false`, use percentage widths only.
 
 ## Notes
 
-- Directives (callout, highlight, …) can't be nested inside columns; their content renders as regular text.
+- Other directives (callout, stats, sparkline, …) can't be nested inside columns; their content renders as regular text, with a warning.
 - In the plain-text version of the email, columns flatten to sequential content, left to right.

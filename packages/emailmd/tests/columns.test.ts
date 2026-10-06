@@ -203,12 +203,56 @@ describe('columns directive', () => {
     expect(warnings.some((w) => w.message.includes('Invalid width'))).toBe(true);
   });
 
-  it('strips nested directive markers inside a cell but keeps content', async () => {
-    const { html } = await render(
+  it('strips nested directive markers inside a cell but keeps content, with a warning', async () => {
+    const { html, warnings } = await render(
       ':::: columns\n::: column\n::: callout\nNested note\n:::\n:::\n::: column\nOther\n:::\n::::',
     );
     expect(html).toContain('Nested note');
     expect(html).not.toContain('EMAILMD');
+    expect(warnings.some((w) => w.message.includes('"::: callout" inside a column'))).toBe(true);
+  });
+
+  it('draws a breakdown, chart and progress bar inside a column', async () => {
+    const { html, warnings } = await render([
+      '::::: columns',
+      ':::: column',
+      '![Ring](https://example.com/ring.png)',
+      '::::',
+      ':::: column',
+      '::: breakdown',
+      '1. Checkout: $4,210 (+12%)',
+      '2. Search: $3,980 (-3%)',
+      ':::',
+      '',
+      '::: chart',
+      '- Calls: 120',
+      '- Searches: 80',
+      ':::',
+      '',
+      '::: progress max=2,000,000',
+      'Monthly calls: 1,106,826',
+      ':::',
+      '::::',
+      ':::::',
+    ].join('\n'));
+    expect(warnings ?? []).toEqual([]);
+    // One row of two columns, with each block drawn as itself in the second
+    expect(html.match(/class="mj-column-per-50 /g)).toHaveLength(2);
+    const second = html.slice(html.lastIndexOf('mj-column-per-50'));
+    expect(second).toContain('emd-breakdown-label');
+    expect(second).toContain('emd-chart-bar');
+    expect(second).toContain('emd-progress-bar');
+    expect(html).not.toContain('<ol');
+    expect(html).not.toContain('EMAILMD');
+  });
+
+  it('renders a data block with nothing to draw inside a column as text', async () => {
+    const { html, warnings } = await render(
+      ':::: columns\n::: column\n::: chart\nNo items here\n:::\n:::\n::: column\nOther\n:::\n::::',
+    );
+    expect(html).toContain('No items here');
+    expect(html).not.toContain('EMAILMD');
+    expect(warnings.some((w) => w.message.includes('Chart contains no'))).toBe(true);
   });
 
   it('flattens columns sequentially in plain text', async () => {

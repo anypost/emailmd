@@ -999,6 +999,19 @@ function renderBar(
 }
 
 /**
+ * A data block's contents in a section of their own, or the block's source as
+ * regular text when it had nothing to draw.
+ */
+function dataSection(block: string | undefined, segment: Segment, theme: Theme): string {
+  if (block === undefined) return renderTextSegment(segment.content, theme);
+  return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
+      <mj-column>
+        ${block}
+      </mj-column>
+    </mj-section>`;
+}
+
+/**
  * Horizontal bar chart, built entirely from table cells with background
  * colors: no images, no SVG, no CSS that clients strip.
  * The `emd-chart-*` classes are dark-mode hooks; only bars left at their theme
@@ -1006,11 +1019,16 @@ function renderBar(
  * the dark palette the way hero colors do.
  */
 function renderChartSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  return dataSection(chartBlock(segment, theme, ctx), segment, theme);
+}
+
+/** A chart's contents, or `undefined` when it has no items to draw. */
+function chartBlock(segment: Segment, theme: Theme, ctx?: SegmentContext): string | undefined {
   const { intro, items, skipped } = parseChart(segment.content);
 
   if (items.length === 0) {
     warn(ctx, 'Chart contains no "Label: value" list items — rendering its content as regular text.');
-    return renderTextSegment(segment.content, theme);
+    return undefined;
   }
   if (skipped > 0) {
     warn(ctx, `${skipped} chart item${skipped === 1 ? '' : 's'} had no "Label: value" shape and ${skipped === 1 ? 'was' : 'were'} skipped.`);
@@ -1042,7 +1060,11 @@ function renderChartSegment(segment: Segment, theme: Theme, ctx?: SegmentContext
     const fill = resolveDataColor(item.color, barColor, theme, ctx, `chart bar "${item.label}"`);
     const bar = renderBar(barPercent(item.value, max), fill.color, dataFillClass('emd-chart-bar', fill), trackColor, trackClass, shape, rtl);
 
-    const labelCell = `<td class="emd-chart-label" align="${labelAlign}"${showValues ? '' : ' colspan="2"'} style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;color:${mutedColorOf(theme)};">${escapeAttrValue(item.label)}</td>`;
+    // The label takes whatever width the value leaves. Left to share it, the
+    // table hands most of the slack to the value (the bar row below spans both
+    // columns and widens them in proportion to their content), and the label
+    // is squeezed until MJML's word-break:break-word splits a word that fits.
+    const labelCell = `<td class="emd-chart-label" align="${labelAlign}"${showValues ? ' width="100%"' : ' colspan="2"'} style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;color:${mutedColorOf(theme)};">${escapeAttrValue(item.label)}</td>`;
     const valueCell = showValues
       ? `<td class="emd-chart-value" align="${valueAlign}" style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;font-weight:700;color:${theme.headingColor};white-space:nowrap;">${escapeAttrValue(item.display)}</td>`
       : '';
@@ -1062,13 +1084,9 @@ function renderChartSegment(segment: Segment, theme: Theme, ctx?: SegmentContext
         `
     : '';
 
-  return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
-      <mj-column>
-        ${introMjml}<mj-table css-class="emd-chart" role="presentation" cellpadding="0" cellspacing="0" width="100%" padding="4px 0" font-family="${theme.fontFamily}">
+  return `${introMjml}<mj-table css-class="emd-chart" role="presentation" cellpadding="0" cellspacing="0" width="100%" padding="4px 0" font-family="${theme.fontFamily}">
           ${rows.join('\n          ')}
-        </mj-table>
-      </mj-column>
-    </mj-section>`;
+        </mj-table>`;
 }
 
 /** Gap between the segments of a stepped meter. */
@@ -1109,10 +1127,15 @@ function renderSteppedBar(
  * has no sibling to be read against, so the gap to the goal is the point.
  */
 function renderProgressSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  return dataSection(progressBlock(segment, theme, ctx), segment, theme);
+}
+
+/** A progress bar's contents, or `undefined` when it has no value to draw. */
+function progressBlock(segment: Segment, theme: Theme, ctx?: SegmentContext): string | undefined {
   const data = parseProgress(segment.content, segment.attrs ?? {});
   if (!data) {
     warn(ctx, 'Progress block has no numeric value — rendering its content as regular text.');
-    return renderTextSegment(segment.content, theme);
+    return undefined;
   }
   for (const message of data.warnings) warn(ctx, message);
 
@@ -1128,7 +1151,7 @@ function renderProgressSegment(segment: Segment, theme: Theme, ctx?: SegmentCont
     ? renderSteppedBar(data, fill, fillClass, trackColor, trackClass, shape, rtl)
     : renderBar(data.pct, fill, fillClass, trackColor, trackClass, shape, rtl);
 
-  const labelCell = `<td class="emd-progress-label" align="${startAlign(ctx)}"${data.readout ? '' : ' colspan="2"'} style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;color:${mutedColorOf(theme)};">${escapeAttrValue(data.label)}</td>`;
+  const labelCell = `<td class="emd-progress-label" align="${startAlign(ctx)}"${data.readout ? ' width="100%"' : ' colspan="2"'} style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;color:${mutedColorOf(theme)};">${escapeAttrValue(data.label)}</td>`;
   const valueCell = data.readout
     ? `<td class="emd-progress-value" align="${rtl ? 'left' : 'right'}" style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;font-weight:700;color:${theme.headingColor};white-space:nowrap;">${escapeAttrValue(data.readout)}</td>`
     : '';
@@ -1142,15 +1165,11 @@ function renderProgressSegment(segment: Segment, theme: Theme, ctx?: SegmentCont
         <mj-text padding="8px 0 0" font-size="${theme.fontSize}" color="${theme.bodyColor}" line-height="${theme.lineHeight}">${processInlineImages(data.rest)}</mj-text>`
     : '';
 
-  return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
-      <mj-column>
-        <mj-table css-class="emd-progress" role="presentation" cellpadding="0" cellspacing="0" width="100%" padding="4px 0" font-family="${theme.fontFamily}">
+  return `<mj-table css-class="emd-progress" role="presentation" cellpadding="0" cellspacing="0" width="100%" padding="4px 0" font-family="${theme.fontFamily}">
           ${captionRow}<tr><td colspan="2">
             ${bar}
           </td></tr>
-        </mj-table>${restMjml}
-      </mj-column>
-    </mj-section>`;
+        </mj-table>${restMjml}`;
 }
 
 /** Plot height of a sparkline, in pixels. */
@@ -1321,9 +1340,10 @@ function renderSparklineSegment(segment: Segment, theme: Theme, ctx?: SegmentCon
 
   // The label spans the row whenever it is not sharing it with the readout, so
   // a label wider than the plot cannot stretch the plot's column and reopen
-  // the gap the readout was moved to close.
-  const labelSpan = beside || !readout ? ' colspan="2"' : '';
-  const labelCell = `<td class="emd-sparkline-label" align="${startAlign(ctx)}"${labelSpan} style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;color:${mutedColorOf(theme)};">${escapeAttrValue(data.label)}</td>`;
+  // the gap the readout was moved to close. Sharing it, the label takes the
+  // slack, as a chart's does.
+  const labelFit = beside || !readout ? ' colspan="2"' : ' width="100%"';
+  const labelCell = `<td class="emd-sparkline-label" align="${startAlign(ctx)}"${labelFit} style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;color:${mutedColorOf(theme)};">${escapeAttrValue(data.label)}</td>`;
   const valueCell = readout
     ? `<td class="emd-sparkline-value" align="${rtl ? 'left' : 'right'}" style="padding:0 0 5px 0;font-size:${theme.fontSize};line-height:1.4;font-weight:700;color:${theme.headingColor};white-space:nowrap;">${readout}</td>`
     : '';
@@ -1657,12 +1677,17 @@ function resolveFlag(value: string | undefined, fallback: boolean, ctx: SegmentC
  * the default data color. Rank, sub-label and a neutral change are muted.
  */
 function renderBreakdownSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  return dataSection(breakdownBlock(segment, theme, ctx), segment, theme);
+}
+
+/** A breakdown's contents, or `undefined` when it has no rows to draw. */
+function breakdownBlock(segment: Segment, theme: Theme, ctx?: SegmentContext): string | undefined {
   const attrs = segment.attrs ?? {};
   const data = parseBreakdown(segment.content, attrs);
 
   if (data.items.length === 0) {
     warn(ctx, 'Breakdown block contains no "Label: value" list items — rendering its content as regular text.');
-    return renderTextSegment(segment.content, theme);
+    return undefined;
   }
   for (const message of data.warnings) warn(ctx, message);
   if (data.skipped > 0) {
@@ -1765,13 +1790,9 @@ function renderBreakdownSegment(segment: Segment, theme: Theme, ctx?: SegmentCon
         `
     : '';
 
-  return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
-      <mj-column>
-        ${introMjml}<mj-table css-class="emd-breakdown" role="presentation" cellpadding="0" cellspacing="0" width="100%" padding="4px 0" font-family="${theme.fontFamily}">
+  return `${introMjml}<mj-table css-class="emd-breakdown" role="presentation" cellpadding="0" cellspacing="0" width="100%" padding="4px 0" font-family="${theme.fontFamily}">
           ${trs.join('\n          ')}
-        </mj-table>
-      </mj-column>
-    </mj-section>`;
+        </mj-table>`;
 }
 
 /** Width of the connector, which is a line rather than a stripe at any marker size. */
@@ -2374,6 +2395,17 @@ function renderCellSegments(cell: ColumnCell, theme: Theme, ctx?: SegmentContext
       case 'table':
         parts.push(`<mj-table padding="4px 0" ${tableMjAttrs(theme)}>${styleTableHtml(seg.content, theme)}</mj-table>`);
         break;
+      case 'chart':
+      case 'progress':
+      case 'breakdown': {
+        // Each draws one table at a percentage of its column, so it fits a
+        // column as readily as the full width.
+        const block = seg.type === 'chart' ? chartBlock(seg, theme, ctx)
+          : seg.type === 'progress' ? progressBlock(seg, theme, ctx)
+          : breakdownBlock(seg, theme, ctx);
+        parts.push(block ?? `<mj-text padding="4px 0">${processInlineImages(seg.content)}</mj-text>`);
+        break;
+      }
       default:
         break;
     }

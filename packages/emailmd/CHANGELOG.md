@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Charts, progress bars and breakdowns inside columns.** A `::: column` now draws a nested `::: chart`, `::: progress` or `::: breakdown` as itself, so a chart image can sit beside the rows that explain it. Each is one table sized to its column, and stacks with it on a phone.
+
+### Fixed
+- **Chart, progress and sparkline labels no longer break inside a word that fits.** The bar row under a label spans both caption columns, and the table shared its width out in proportion to their content, giving most of it to the value. The label was left narrower than its own text, so a 375px phone split "Calls" into "Call" and "s" beside "1,106,826 / 2,000,000". A label now takes all the width the value leaves, as a breakdown's does, and wraps between words only when the two don't fit side by side.
+- **A directive dropped inside a column now warns.** Any directive other than the three above still renders inside a column as its plain content, but now says so instead of silently becoming a list or paragraph.
+
 ## [0.13.1] — 2026-10-06
 
 ### Fixed

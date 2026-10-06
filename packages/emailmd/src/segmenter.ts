@@ -508,14 +508,25 @@ function stripOrphanMarkers(segments: Segment[], warnings?: RenderWarning[]): Se
 
 const COLUMN_OPEN_RE = /<!--EMAILMD:COLUMN_OPEN((?:\s+[\w-]+="[^"]*")*)-->/g;
 
+/** Directives a column cell draws as themselves. */
+const CELL_DIRECTIVES = new Set<SegmentType>(['chart', 'progress', 'breakdown']);
+
 /**
  * Run the standard sub-segmentation passes over one column cell's content, so
- * buttons, images, tables, and rules inside a cell keep their positions.
- * Markers of directives nested inside the cell are orphans (nested directives
- * are unsupported) and get stripped, leaving their inner content as text.
+ * buttons, images, tables, rules, and the data blocks in `CELL_DIRECTIVES`
+ * inside a cell keep their positions. Any other directive in a cell is
+ * unsupported: its markers are stripped, leaving its inner content as text,
+ * and a warning names it.
  */
 function segmentCellContent(content: string, buttons: Segment[], warnings?: RenderWarning[]): Segment[] {
-  const base: Segment[] = [{ type: 'text', content }];
+  const base = splitOnDirectives(content).map((seg): Segment => {
+    if (seg.type === 'text' || CELL_DIRECTIVES.has(seg.type)) return seg;
+    warnings?.push({
+      stage: 'content',
+      message: `A "::: ${seg.type}" inside a column was rendered as regular content — a column takes text, images, buttons, dividers, spacers, tables, charts, progress bars and breakdowns.`,
+    });
+    return { type: 'text', content: seg.content };
+  });
   const withButtons = splitOnButtonPlaceholders(base, buttons);
   const withImages = splitOnImages(withButtons);
   const withTables = splitOnTables(withImages);

@@ -25,6 +25,15 @@ describe('progress directive', () => {
     expect(html).toContain('8,400 / 10,000');
   });
 
+  it('gives the label the width the readout leaves', async () => {
+    // Shared, the bar row below hands most of the slack to the readout and
+    // "Calls" breaks into "Call" and "s" on a phone.
+    const { html } = await render(`::: progress max=2,000,000
+Monthly calls: 1,106,826
+:::`);
+    expect(html).toMatch(/class="emd-progress-label"[^>]*width="100%"/);
+  });
+
   it('scales a bare number against 100', async () => {
     const { html } = await render(`::: progress
 Profile complete: 72
