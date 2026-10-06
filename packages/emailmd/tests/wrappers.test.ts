@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, segmentsToMjml, buildHead, defaultTheme } from '../src/index.js';
+import { render, segmentsToMjml, buildDocument, buildHead, defaultTheme, defaultWrapper } from '../src/index.js';
 import type { WrapperFn, WrapperMeta, Segment } from '../src/index.js';
 
 describe('default wrapper', async () => {
@@ -13,6 +13,16 @@ describe('default wrapper', async () => {
     const md = '---\npreheader: Preview text here\n---\n\n# Hello';
     const { html } = await render(md);
     expect(html).toContain('Preview text here');
+  });
+
+  it('hides the preheader without white-on-white text', async () => {
+    for (const minify of [false, true]) {
+      const { html } = await render('---\npreheader: Preview text here\n---\n\n# Hello', { minify });
+      const preview = /<div style="display:none;[^"]*"\s*>Preview text here/.exec(html)?.[0];
+      expect(preview).toBeDefined();
+      expect(preview).toContain('opacity:0');
+      expect(preview).not.toMatch(/color:/);
+    }
   });
 
   it('omits preheader when not provided', async () => {
@@ -117,5 +127,34 @@ describe('segmentsToMjml', async () => {
     expect(mjml).toContain('Text');
     expect(mjml).toContain('Callout');
     expect(mjml).toContain('Highlight');
+  });
+});
+
+describe('buildDocument', async () => {
+  it('lets a body-only wrapper keep everything the default wrapper has', async () => {
+    const wrapper: WrapperFn = (segments, theme, meta) =>
+      buildDocument(`<mj-section><mj-column><mj-text>BANNER</mj-text></mj-column></mj-section>${segmentsToMjml(segments, theme, meta)}`, theme, meta);
+    const md = '---\npreheader: Peek\nlang: fr\ndir: rtl\n---\n\n# Bonjour';
+    const options = { darkTheme: true as const, css: '.emd-btn { letter-spacing: 1px; }' };
+
+    const custom = await render(md, { ...options, wrapper });
+    const standard = await render(md, options);
+
+    expect(custom.html).toContain('BANNER');
+    for (const html of [custom.html, standard.html]) {
+      expect(html).toContain('Peek');
+      expect(html).toContain('lang="fr"');
+      expect(html).toContain('dir="rtl"');
+      expect(html).toContain('prefers-color-scheme: dark');
+      expect(html).toContain('letter-spacing: 1px');
+    }
+  });
+
+  it('is what the default wrapper produces', () => {
+    const segments: Segment[] = [{ type: 'text', content: '<p>Hi</p>' }];
+    const meta: WrapperMeta = { preheader: 'Peek', lang: 'en' };
+    expect(buildDocument(segmentsToMjml(segments, defaultTheme, meta), defaultTheme, meta)).toBe(
+      defaultWrapper(segments, defaultTheme, meta),
+    );
   });
 });

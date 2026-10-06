@@ -181,6 +181,12 @@ export function toPlainText(html: string): string {
   // Convert tables to aligned text
   text = convertTables(text);
 
+  // Raw HTML layout tables and blocks: cells in a row read across with a
+  // space, and each row or block ends its line, so stripping the tags does
+  // not run one cell's text into the next.
+  text = text.replace(/<\/t[dh]>\s*(?=<t[dh][\s>])/gi, ' ');
+  text = text.replace(/<\/(?:tr|table|div)>/gi, '\n');
+
   // Convert paragraphs to double newlines
   text = text.replace(/<\/p>/gi, '\n\n');
   text = text.replace(/<p[^>]*>/gi, '');

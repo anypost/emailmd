@@ -204,13 +204,27 @@ await render(md, { theme: darkTheme });
 await render(md, { theme: { ...darkTheme, brandColor: "#e11d48" } });
 ```
 
-## `buildHead(theme, preheader?)`
+## `buildDocument(body, theme, meta?)`
 
 ```typescript
-function buildHead(theme: Theme, preheader?: string): string;
+function buildDocument(body: string, theme: Theme, meta?: WrapperMeta): string;
 ```
 
-Generates the MJML `<mj-head>` element containing global styles, font imports, and the hidden preheader text. Used when building [custom wrappers](/docs/wrappers).
+Wraps MJML body content in a complete document: the `<mjml>` root with the document's `lang` and `dir`, the head from [`buildHead`](#buildheadtheme-preheader-darktheme-dir-css) with every option on `meta` (preheader, dark mode, direction, custom CSS), and the themed `<mj-body>`. The default wrapper is this function applied to `segmentsToMjml`'s output. Used when building [custom wrappers](/docs/wrappers) that only change the body.
+
+## `buildHead(theme, preheader?, darkTheme?, dir?, css?)`
+
+```typescript
+function buildHead(
+  theme: Theme,
+  preheader?: string,
+  darkTheme?: Theme,
+  dir?: 'ltr' | 'rtl' | 'auto',
+  css?: string,
+): string;
+```
+
+Generates the MJML `<mj-head>` element containing global styles, font imports, the dark-mode overrides, custom CSS, and the hidden preheader text. Pass `meta.preheader`, `meta.darkTheme`, `meta.dir` and `meta.css` through from the wrapper's `meta`; any you leave out is dropped from the output. Prefer [`buildDocument`](#builddocumentbody-theme-meta), which passes them all, unless you need a custom `<mjml>` root or `<mj-body>`.
 
 ## `segmentsToMjml(segments, theme, ctx?)`
 
@@ -218,20 +232,22 @@ Generates the MJML `<mj-head>` element containing global styles, font imports, a
 function segmentsToMjml(
   segments: Segment[],
   theme: Theme,
-  ctx?: { strings?: RenderStrings; warnings?: RenderWarning[] },
+  ctx?: { strings?: RenderStrings; warnings?: RenderWarning[]; dir?: 'ltr' | 'rtl' | 'auto' },
 ): string;
 ```
 
 Converts parsed content segments into MJML body elements (sections, columns, text, buttons, images, tables, etc.). Used when building [custom wrappers](/docs/wrappers).
 
-The optional `ctx` argument forwards localized [`strings`](#renderstrings) and a `warnings` array to collect [content validation issues](#input-validation) during segment rendering. Custom wrappers should pass through the values they receive on `meta` (the default wrapper does) so those warnings surface on the render result.
+The optional `ctx` argument forwards localized [`strings`](#renderstrings), a `warnings` array to collect [content validation issues](#input-validation) during segment rendering, and the text direction. A wrapper's `meta` has all three, so pass it straight through: `segmentsToMjml(segments, theme, meta)`.
 
 ## `Segment`
 
 ```typescript
 interface Segment {
   type: 'text' | 'callout' | 'centered' | 'highlight' | 'header' | 'footer'
-      | 'button' | 'button-group' | 'image' | 'hr' | 'table' | 'hero';
+      | 'button' | 'button-group' | 'image' | 'hr' | 'table' | 'hero'
+      | 'columns' | 'spacer' | 'social' | 'accordion' | 'chart'
+      | 'progress' | 'sparkline' | 'stats' | 'steps' | 'rating';
   content: string;
   attrs?: Record<string, string>;
   buttons?: Array<Record<string, string>>;
@@ -262,15 +278,25 @@ The context object passed to wrapper functions:
   frontmatter?: Record<string, unknown>;
   strings?: RenderStrings;
   warnings?: RenderWarning[];
+  darkTheme?: Theme;
+  lang?: string;
+  dir?: 'ltr' | 'rtl' | 'auto';
+  css?: string;
 }
 ```
 
 | Property      | Type                       | Description                                                                    |
 | ------------- | -------------------------- | ------------------------------------------------------------------------------ |
-| `preheader`   | `string?`                  | Preheader text from frontmatter                                                 |
+| `preheader`   | `string?`                  | Preheader text from frontmatter; forward to `buildHead`                         |
 | `frontmatter` | `Record<string, unknown>?` | The full frontmatter map, including custom keys                                 |
 | `strings`     | `RenderStrings?`           | Localized strings from render options; forward to `segmentsToMjml`              |
 | `warnings`    | `RenderWarning[]?`         | The render's warnings collector; forward to `segmentsToMjml`                    |
+| `darkTheme`   | `Theme?`                   | Resolved dark palette when dark mode is on; forward to `buildHead`              |
+| `lang`        | `string?`                  | Validated frontmatter `lang`, for the `<mjml>` root's `lang` attribute          |
+| `dir`         | `'ltr' \| 'rtl' \| 'auto'?`  | Validated frontmatter `dir`; forward to `buildHead`, `segmentsToMjml` and the `<mjml>` root |
+| `css`         | `string?`                  | The `css` render option; forward to `buildHead`                                 |
+
+[`buildDocument`](#builddocumentbody-theme-meta) forwards all of these for you.
 
 ## Sanitize helpers
 

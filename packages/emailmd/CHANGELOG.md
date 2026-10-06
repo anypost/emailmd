@@ -6,7 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- **`buildDocument(body, theme, meta)`** wraps MJML body content in the full document the default wrapper produces: the `<mjml>` root with `lang` and `dir`, the head with the preheader, dark mode and custom `css`, and the themed `<mj-body>`. A custom wrapper that only changes the body can build it with `segmentsToMjml(segments, theme, meta)` and hand it here, and keeps every feature, including ones added later. `defaultWrapper` is now exactly this.
+
+### Changed
+- **Preheader is no longer white-on-white.** MJML colors its hidden preheader `#ffffff` on top of `display:none`, zero size and `opacity:0`. The color added nothing to the hiding and set off spam filters' hidden-text checks (SpamAssassin's `HTML_FONT_LOW_CONTRAST`) on every email with a preheader, so it is dropped.
+
 ### Fixed
+- **Wrapper docs.** The Wrappers guide and API reference showed `buildHead(theme, preheader)`, so a wrapper copied from them silently lost dark mode, `css`, `lang` and `dir`. They now document the full `buildHead` signature, every `WrapperMeta` field, and `buildDocument`.
+- **Raw HTML tables in the text part.** Rows of a raw HTML layout table now each get their own line, and cells in a row are separated by a space, instead of running together (`[Image: Banner]Live text row`).
 - **Plain-text entities.** The text part now decodes every HTML entity (named, decimal and hex) in one pass, so raw HTML such as `alt="a &#183; b"` reads `a · b` and `&amp;lt;` is no longer decoded twice into `<`. Headings no longer come out as `Q&AMP;A`, and table columns are padded by the characters a reader sees instead of the encoded ones.
 - **Hidden elements in the text part.** Elements hidden with an inline `display: none`, such as an alternate phone layout a media query swaps in, are left out of the text part, so their content isn't listed twice.
 - **Linked image captions.** A `caption` set on the link around an image now appears in the text part, as it already did in the HTML.

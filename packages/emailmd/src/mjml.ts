@@ -289,6 +289,26 @@ export function buildHead(theme: Theme, preheader?: string, darkTheme?: Theme, d
   </mj-head>`;
 }
 
+/**
+ * Wrap MJML body content in a complete document: the `<mjml>` root with the
+ * document's `lang`/`dir`, the head from {@link buildHead} with every option
+ * the render carries (preheader, dark mode, direction, custom CSS), and the
+ * themed `<mj-body>`. A custom wrapper that builds only its body and hands it
+ * here keeps everything the default wrapper has, including options added later.
+ */
+export function buildDocument(body: string, theme: Theme, meta?: WrapperMeta): string {
+  const head = buildHead(theme, meta?.preheader, meta?.darkTheme, meta?.dir, meta?.css);
+  const langAttr = meta?.lang ? ` lang="${meta.lang}"` : '';
+  const dirAttr = meta?.dir ? ` dir="${meta.dir}"` : '';
+
+  return `<mjml${langAttr}${dirAttr}>
+  ${head}
+  <mj-body css-class="emd-root" background-color="${theme.backgroundColor}" width="${theme.contentWidth}">
+    ${body}
+  </mj-body>
+</mjml>`;
+}
+
 function processInlineImages(html: string): string {
   return html.replace(/<img\s[^>]*?\b(?:valign|float|border-radius)="[^"]*"[^>]*?\/?>/g, (tag) => {
     const styles: string[] = [];
@@ -2243,6 +2263,20 @@ function themeAccordionIcons(html: string, theme: Theme): string {
   });
 }
 
+/** MJML's hidden preheader block, up to and including its white text color. */
+const PREVIEW_COLOR_RE = /(<div style="display:none;font-size:1px;)color:#(?:ffffff|fff);/;
+
+/**
+ * MJML hides the preheader with `display:none`, zero size and `opacity:0`, and
+ * also colors it white to match a white page. That color is redundant, and
+ * spam filters read white-on-white as hidden text (SpamAssassin's
+ * HTML_FONT_LOW_CONTRAST), so it costs every email with a preheader a point
+ * for nothing. Drop it and let the other properties do the hiding.
+ */
+function uncolorPreview(html: string): string {
+  return html.replace(PREVIEW_COLOR_RE, '$1');
+}
+
 export async function renderMjml(
   segments: Segment[],
   theme: Theme,
@@ -2259,5 +2293,6 @@ export async function renderMjml(
     ...(mjmlOptions?.sanitizeStyles !== undefined ? { sanitizeStyles: mjmlOptions.sanitizeStyles } : {}),
     ...(mjmlOptions?.beautify !== undefined ? { beautify: mjmlOptions.beautify } : {}),
   });
-  return { html: html.includes('mj-accordion-ico') ? themeAccordionIcons(html, theme) : html, errors: errors ?? [] };
+  const themed = html.includes('mj-accordion-ico') ? themeAccordionIcons(html, theme) : html;
+  return { html: uncolorPreview(themed), errors: errors ?? [] };
 }

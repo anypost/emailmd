@@ -75,6 +75,14 @@ describe('plain text output', async () => {
     expect(text).toContain('After');
   });
 
+  it('puts each row of a raw HTML table on its own line', async () => {
+    const md = '<table role="presentation"><tr><td><img src="https://x.com/a.png" alt="Banner"></td></tr>'
+      + '<tr><td>Left</td><td>Right</td></tr></table>\nNext paragraph.';
+    const { text } = await render(md);
+    expect(text).toContain('[Image: Banner]\nLeft Right\n');
+    expect(text).toContain('Next paragraph.');
+  });
+
   it('keeps a caption set on an image link', async () => {
     const { text } = await render('[![Shop](https://x.com/s.png)](https://x.com/shop){caption="Shop now"}');
     expect(text).toContain('[Image: Shop] (https://x.com/shop)\nShop now');
