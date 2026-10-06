@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **`buildDocument(body, theme, meta)`** wraps MJML body content in the full document the default wrapper produces: the `<mjml>` root with `lang` and `dir`, the head with the preheader, dark mode and custom `css`, and the themed `<mj-body>`. A custom wrapper that only changes the body can build it with `segmentsToMjml(segments, theme, meta)` and hand it here, and keeps every feature, including ones added later. `defaultWrapper` is now exactly this.
 
 ### Changed
+- **Social icons are served from emailmd.dev.** `::: social` icons used to be MJML's defaults, hotlinked from a third-party host that also sees each open from clients that fetch images directly. They are now emailmd's own set, white marks from Simple Icons (CC0) on the same brand colors, at `https://www.emailmd.dev/icons/social/<network>.png`. Each network keeps its look, with current marks (the circular Facebook mark, the GitHub Octocat, the Medium wordmark). `icon-base` and per-link `icon` overrides work as before.
 - **Preheader is no longer white-on-white.** MJML colors its hidden preheader `#ffffff` on top of `display:none`, zero size and `opacity:0`. The color added nothing to the hiding and set off spam filters' hidden-text checks (SpamAssassin's `HTML_FONT_LOW_CONTRAST`) on every email with a preheader, so it is dropped.
 
 ### Fixed

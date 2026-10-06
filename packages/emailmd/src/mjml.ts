@@ -1886,6 +1886,15 @@ function socialNetworkForUrl(href: string): string {
 
 const SOCIAL_LINK_RE = /<a\s+([^>]*)>([\s\S]*?)<\/a>/g;
 
+/**
+ * Where the default social icons are served from: one `<network>.png` per
+ * name in {@link SOCIAL_NETWORKS}, plus `web`. MJML's own defaults hotlink a
+ * third-party host this project doesn't control, which also sees every open
+ * from clients that fetch images directly; these are drawn from Simple
+ * Icons (CC0) by apps/web/scripts/social-icons.mjs and deployed with the docs.
+ */
+const DEFAULT_SOCIAL_ICON_BASE = 'https://www.emailmd.dev/icons/social/';
+
 function renderSocialSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
   const links: Array<{ href: string; label: string; icon?: string }> = [];
   const re = new RegExp(SOCIAL_LINK_RE.source, 'g');
@@ -1921,7 +1930,8 @@ function renderSocialSegment(segment: Segment, theme: Theme, ctx?: SegmentContex
     warn(ctx, `Unsafe icon-base URL "${iconBase}" for social — using default icons.`);
     iconBase = undefined;
   }
-  if (iconBase && !iconBase.endsWith('/')) iconBase += '/';
+  iconBase ??= DEFAULT_SOCIAL_ICON_BASE;
+  if (!iconBase.endsWith('/')) iconBase += '/';
 
   const elements = links.map((link) => {
     const name = socialNetworkForUrl(link.href);
@@ -1933,7 +1943,7 @@ function renderSocialSegment(segment: Segment, theme: Theme, ctx?: SegmentContex
         warn(ctx, `Unsafe icon URL "${link.icon}" for social link — using default icon.`);
       }
     }
-    if (!srcAttr && iconBase) {
+    if (!srcAttr) {
       srcAttr = ` src="${escapeAttrValue(`${iconBase}${name}.png`)}"`;
     }
     const label = showLabels ? link.label : '';

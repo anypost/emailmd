@@ -27,6 +27,17 @@ const config = {
       },
     ],
   },
+  async headers() {
+    return [
+      {
+        // Default `::: social` icons, loaded by every email that has a social
+        // block. Let clients and image proxies cache them for a week and serve
+        // a stale copy while they check for a newer one.
+        source: '/icons/social/:file',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=604800, stale-while-revalidate=2592000' }],
+      },
+    ];
+  },
   async rewrites() {
     return [
       {

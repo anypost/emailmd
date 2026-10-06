@@ -39,7 +39,11 @@ Icons only by default; add the `labels` flag to show each link's text next to it
 
 ### Self-hosted icons
 
-The default icons are the MJML set, served from Mailjet's CDN. For production email we recommend hosting your own: point `icon-base` at a directory containing `<network>.png` files (e.g. `github.png`, `x.png`, `web.png`):
+The default icons are white marks from [Simple Icons](https://simpleicons.org) (CC0, free to reuse) on each network's brand color, served from `https://www.emailmd.dev/icons/social/`. To serve icons from your own domain, point `icon-base` at a directory with one `<network>.png` per network you link to:
+
+`facebook.png`, `x.png`, `instagram.png`, `linkedin.png`, `github.png`, `youtube.png`, `pinterest.png`, `medium.png`, `vimeo.png`, `dribbble.png`, `soundcloud.png`, `tumblr.png`, `snapchat.png`, `xing.png`, and `web.png` for any other host.
+
+To keep the default look, copy the defaults: each is a 96×96 PNG at `https://www.emailmd.dev/icons/social/<name>.png`.
 
 ```markdown
 ::: social icon-base=https://cdn.example.com/icons/

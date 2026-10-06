@@ -7,7 +7,7 @@ describe('social directive', () => {
   it('maps link hostnames to network icons', async () => {
     const { html } = await render(BLOCK);
     expect(html).toContain('github.png');
-    expect(html).toContain('twitter-x.png');
+    expect(html).toContain('/x.png');
     expect(html).toContain('href="https://github.com/anypost/emailmd"');
     expect(html).toContain('href="https://x.com/emailmd"');
     expect(html).not.toContain('EMAILMD');
@@ -17,8 +17,23 @@ describe('social directive', () => {
     const { html } = await render(
       '::: social\n- [Twitter](https://twitter.com/emailmd)\n- [Blog](https://blog.example.com)\n:::',
     );
-    expect(html).toContain('twitter-x.png');
+    expect(html).toContain('/x.png');
     expect(html).toContain('web.png');
+  });
+
+  it('serves the default icons from emailmd.dev', async () => {
+    const { html } = await render(BLOCK);
+    const srcs = [...html.matchAll(/<img[^>]*\bsrc="([^"]*)"/g)].map((m) => m[1]);
+    expect(srcs).toEqual([
+      'https://www.emailmd.dev/icons/social/github.png',
+      'https://www.emailmd.dev/icons/social/x.png',
+    ]);
+  });
+
+  it('falls back to the default icons when icon-base is unsafe', async () => {
+    const { html, warnings } = await render(BLOCK.replace('::: social', '::: social icon-base=javascript:alert(1)/'));
+    expect(html).toContain('https://www.emailmd.dev/icons/social/github.png');
+    expect(warnings?.some((w) => w.message.includes('Unsafe icon-base'))).toBe(true);
   });
 
   it('hides labels by default and shows them with the labels flag', async () => {
