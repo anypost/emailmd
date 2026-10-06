@@ -1647,9 +1647,10 @@ function resolveFlag(value: string | undefined, fallback: boolean, ctx: SegmentC
 /**
  * A ranked list or breakdown: one table with a row per item, so the rank,
  * swatch, label, value and change columns line up down the block. The label
- * column takes the slack and the others hug their content, and labels wrap
- * between words only — MJML's `word-break:break-word` would otherwise split a
- * word to make room for the value beside it.
+ * column takes the slack and the others hug their content and never wrap, so
+ * a label wraps between words, and breaks inside a word (MJML's
+ * `word-break:break-word`) only when the word is wider than the room the other
+ * columns leave. Refusing that break pushes the row past a phone's edge.
  *
  * A row's color, for its swatch and bar, is its own `{color}`, else the
  * block's `color`, else with swatches the palette entry for its position, else
@@ -1737,7 +1738,7 @@ function renderBreakdownSegment(segment: Segment, theme: Theme, ctx?: SegmentCon
     const sub = item.sub
       ? `<br><span class="emd-breakdown-sub emd-muted" style="font-size:${small};color:${muted};">${escapeAttrValue(item.sub)}</span>`
       : '';
-    cells.push(`<td class="emd-breakdown-label${ruleClass}" align="${start}" width="100%" style="${padding(top, bottom)}${text}color:${theme.headingColor};word-break:normal;">${escapeAttrValue(item.label)}${sub}</td>`);
+    cells.push(`<td class="emd-breakdown-label${ruleClass}" align="${start}" width="100%" style="${padding(top, bottom)}${text}color:${theme.headingColor};">${escapeAttrValue(item.label)}${sub}</td>`);
     cells.push(`<td class="emd-breakdown-value${ruleClass}" align="${end}" style="${padding(top, bottom, ROW_GAP.value)}${text}font-weight:700;color:${theme.headingColor};white-space:nowrap;">${escapeAttrValue(item.value)}</td>`);
     if (hasDelta) {
       const tone = toneStyle(item.tone, theme, 'emd-muted');

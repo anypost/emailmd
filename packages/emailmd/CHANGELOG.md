@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.1] — 2026-10-06
+
+### Fixed
+- **Breakdown rows no longer run off narrow phones.** A breakdown refused to break a label inside a word, so a long word beside a large value and change pushed the row past the screen's edge (50px past a 320px screen in testing), cutting off the change column. A label now wraps between words as before, and breaks inside a word only when the word is wider than the room the value and change leave, as other emailmd text does. At 375px and wider, typical labels are unaffected.
+
 ## [0.13.0] — 2026-10-06
 
 ### Added

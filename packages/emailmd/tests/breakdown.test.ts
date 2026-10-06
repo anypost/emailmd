@@ -81,9 +81,12 @@ describe('breakdown directive', () => {
     expect(html).not.toContain('emd-breakdown-delta');
   });
 
-  it('wraps labels between words, and keeps values and changes on one line', async () => {
+  it('lets labels take the slack, and keeps values and changes on one line', async () => {
     const { html } = await render(RANKED);
-    expect(html).toMatch(/<td class="emd-breakdown-label[^"]*" align="left" width="100%" style="[^"]*word-break:normal;/);
+    expect(html).toMatch(/<td class="emd-breakdown-label[^"]*" align="left" width="100%" style="/);
+    // MJML's break-word stays in force, so an overlong word breaks rather
+    // than pushing the row past a phone's edge.
+    expect(html).not.toMatch(/<td class="emd-breakdown-label[^"]*"[^>]*word-break:normal/);
     expect(html).toMatch(/<td class="emd-breakdown-value[^"]*"[^>]*white-space:nowrap;/);
     expect(html).toMatch(/<td class="emd-breakdown-delta[^"]*"[^>]*white-space:nowrap;/);
   });

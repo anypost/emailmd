@@ -110,7 +110,7 @@ The text part keeps the columns, with the values lined up on their right edge, a
 - A row needs both halves of `Label: value` on its first line. Items without a colon are dropped with a render warning, and a block with no usable items degrades to a regular text section.
 - The value is free text: `Status: Healthy` is a valid row, though it can't have a bar.
 - The label splits on the **last** colon of the first line.
-- Labels wrap between words, never mid-word, and values and changes stay on one line. The label column takes whatever room the others leave.
+- Values and changes stay on one line, and the label column takes whatever room they leave. Labels wrap between words, and break inside a word only when the word is wider than that room, as a long label beside a large value and change can be on a narrow phone. Breaking the word keeps the row on the screen.
 - Text placed before the list renders above the rows.
 - In right-to-left documents the columns mirror, and bars grow from the right.
 - For a single number per tile, reach for [stats](/docs/directives/stats); for bars with no ranks or changes, [chart](/docs/directives/chart).
