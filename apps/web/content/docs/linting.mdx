@@ -35,8 +35,20 @@ Each finding carries a machine-readable `rule` id, a `severity`, a human-readabl
 | `unsubscribe`       | suggestion | No unsubscribe link anywhere in the rendered output                     |
 | `spam-words`        | suggestion | Common spam-filter trigger phrases ("act now", "100% free", …)          |
 | `placeholder-image` | suggestion | Images or hero backgrounds on placeholder hosts (picsum.photos, placehold.co, wsrv.nl, …) |
+| `image-heavy`       | warning / suggestion | Email that is mostly images: under 100 characters of visible text (warning), or under 400 per full-width image (suggestion). See [Image-Heavy Email](#image-heavy-email) |
 
 Template tokens are respected throughout: a `{{tracking_url}}` link is never flagged insecure, and `[Unsubscribe]({{unsubscribe_url}})` satisfies the unsubscribe check.
+
+## Image-Heavy Email
+
+An email that is mostly images is a classic spam shape, and it says nothing when the reader's client blocks images. Spam filters check for it, but their image-only rules measure the raw HTML's length, which email's table-heavy markup always fills, so they rarely catch it. What they do catch is the side effect: the plain-text part, made up mostly of alt text, reads nothing like the HTML (SpamAssassin's `MPART_ALT_DIFF_COUNT`).
+
+`image-heavy` measures what a reader actually sees in the rendered email:
+
+- **Text** is the visible text, not counting alt text, the hidden preheader, or anything hidden with `display: none`, such as an alternate phone layout.
+- **Images** are counted by width. An image 480px or wider counts as one full-width image, and narrower ones count in proportion, so three images side by side in [columns](/docs/directives/columns) count about the same as one across the email. Icons, social buttons and tracking pixels (48px or smaller) aren't counted, and images that add up to less than half a full-width image, such as a logo, are never flagged.
+
+The rule asks for about 400 characters of text per full-width image: a short paragraph or two for a banner. Under 100 characters, the email is essentially images alone, and the finding is a warning.
 
 ## In the CLI
 

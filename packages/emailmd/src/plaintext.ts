@@ -256,7 +256,7 @@ const VOID_TAGS = new Set(['area', 'br', 'hr', 'img', 'input', 'source', 'wbr'])
  * media query swaps in, or Outlook-only copies — so the text part carries each
  * piece of content once, as a reader of the default view would see it.
  */
-function stripHidden(html: string): string {
+export function stripHidden(html: string): string {
   const hiddenRe = /<([a-z][a-z0-9]*)\b[^>]*\bstyle="[^"]*\bdisplay\s*:\s*none\b[^"]*"[^>]*>/i;
   let result = '';
   let remaining = html;

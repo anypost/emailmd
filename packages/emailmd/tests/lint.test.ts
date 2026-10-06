@@ -159,4 +159,60 @@ describe('lint', async () => {
     const lines = findings.filter((f) => f.line !== undefined).map((f) => f.line!);
     expect(lines).toEqual([...lines].sort((a, b) => a - b));
   });
+
+  describe('image-heavy', () => {
+    const imageHeavy = async (body: string) =>
+      (await lint(`${CLEAN}\n\n${body}`)).find((f) => f.rule === 'image-heavy');
+    const COPY = 'Everything in the garden range is 20% off until Sunday, including planters, tools and seeds. ';
+
+    it('warns when an email is essentially one image', async () => {
+      const f = await imageHeavy('![Spring sale](https://example.com/banner.png)');
+      expect(f?.severity).toBe('warning');
+      expect(f?.line).toBeUndefined();
+      expect(f?.message).toContain('one full-width image');
+      expect(f?.message).toContain('400 characters');
+    });
+
+    it('suggests more text when there is some, but not enough', async () => {
+      const f = await imageHeavy(`${COPY}\n\n![Spring sale](https://example.com/banner.png)`);
+      expect(f?.severity).toBe('suggestion');
+    });
+
+    it('passes an image with enough text around it', async () => {
+      expect(await imageHeavy(`${COPY.repeat(4)}\n\n![Spring sale](https://example.com/banner.png)`)).toBeUndefined();
+    });
+
+    it('scales the text it expects with the images', async () => {
+      const banners = ['a', 'b', 'c'].map((n) => `![Banner ${n}](https://example.com/${n}.png)`).join('\n\n');
+      const f = await imageHeavy(`${COPY.repeat(4)}\n\n${banners}`);
+      expect(f?.message).toContain('3 full-width images');
+      expect(f?.message).toContain('1200 characters');
+    });
+
+    it('counts images in columns by their share of the width', async () => {
+      const cols = ['a', 'b', 'c'].map((n) => `::: column\n![${n}](https://example.com/${n}.png)\n:::`).join('\n');
+      const f = await imageHeavy(`:::: columns\n${cols}\n::::`);
+      expect(f?.message).toContain('one full-width image');
+    });
+
+    it('ignores logos, icons and tracking pixels', async () => {
+      const body = [
+        '![Acme](https://example.com/logo.png){width="160"}',
+        '::: social\n- [GitHub](https://github.com/acme)\n:::',
+        '<img src="https://example.com/p.gif" width="1" height="1" alt="">',
+      ].join('\n\n');
+      expect(await imageHeavy(body)).toBeUndefined();
+    });
+
+    it('does not count hidden copies of an image', async () => {
+      const raw = [
+        '::: raw',
+        '<img src="https://example.com/a.png" width="600" alt="Promo">',
+        '<div style="display:none"><img src="https://example.com/a.png" width="600" alt="Promo"></div>',
+        ':::',
+      ].join('\n');
+      const f = await imageHeavy(raw);
+      expect(f?.message).toContain('one full-width image');
+    });
+  });
 });

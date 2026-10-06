@@ -1,6 +1,8 @@
 import MarkdownIt from 'markdown-it';
+import { decodeHTMLStrict } from 'entities';
 import { extractFrontmatter } from './frontmatter.js';
 import { render } from './index.js';
+import { stripHidden } from './plaintext.js';
 
 /**
  * Static quality checks for an email document. Unlike render warnings (which
@@ -49,6 +51,65 @@ const SPAM_PHRASES = [
   'double your',
   'get paid',
 ];
+
+/**
+ * Characters of visible text expected per full-width image. Spam filters treat
+ * a message that is mostly images as a classic spam shape, and the HTML-length
+ * checks they use for it never fire on table-heavy email markup, so the lint
+ * measures the text a reader would actually see.
+ */
+const TEXT_PER_FULL_IMAGE = 400;
+
+/** Below this many full-width images' worth (a logo, a couple of thumbnails), images can't dominate. */
+const MIN_IMAGE_WEIGHT = 0.5;
+
+/** Below this much visible text, an email with images is essentially image-only. */
+const IMAGE_ONLY_MAX_TEXT = 100;
+
+/** An image this wide or wider counts as one full image; narrower ones count in proportion. */
+const FULL_IMAGE_PX = 480;
+
+/** At or under this many pixels on either side, an image is an icon or a pixel, not content. */
+const ICON_MAX_PX = 48;
+
+/**
+ * The text a reader sees in rendered HTML, and its images weighted by width.
+ *
+ * Head, comments (including Outlook-only conditional blocks) and elements
+ * hidden with `display: none` (the preheader, alternate phone layouts) are
+ * left out, so each piece of content counts once. Alt text is not visible
+ * text, and icons and tracking pixels are not content images.
+ */
+function measureVisible(html: string): { text: string; imageWeight: number } {
+  const body = stripHidden(
+    html
+      .replace(/<head[\s\S]*?<\/head>/i, '')
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/<(style|script)[^>]*>[\s\S]*?<\/\1>/gi, ''),
+  );
+
+  // An image can be no wider than its column, which MJML names by its share
+  // of the width (`mj-column-per-33-…`), so an image with no width of its own
+  // in a three-column row counts as a third.
+  const columns = [...body.matchAll(/\bmj-column-per-(\d+(?:[.-]\d+)?)/g)].map((m) => ({
+    at: m.index!,
+    share: Math.min(1, parseFloat(m[1].replace('-', '.')) / 100),
+  }));
+
+  let imageWeight = 0;
+  for (const match of body.matchAll(/<img\b([^>]*)>/gi)) {
+    const attrs = match[1];
+    const width = Number(/\bwidth="(\d+)"/i.exec(attrs)?.[1] ?? NaN);
+    const height = Number(/\bheight="(\d+)"/i.exec(attrs)?.[1] ?? NaN);
+    if (width <= ICON_MAX_PX || height <= ICON_MAX_PX) continue;
+    const column = columns.filter((c) => c.at < match.index!).pop();
+    const byWidth = Number.isNaN(width) ? 1 : width / FULL_IMAGE_PX;
+    imageWeight += Math.min(1, byWidth, column?.share ?? 1);
+  }
+
+  const text = decodeHTMLStrict(body.replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
+  return { text, imageWeight };
+}
 
 /** Opening delimiters of pass-through template tokens — URLs containing them are the app's responsibility. */
 const TEMPLATE_DELIMITERS = ['{{', '{%', '${', '%%', '[['];
@@ -262,6 +323,22 @@ export async function lint(markdown: string, options?: LintOptions): Promise<Lin
       message: `Minified HTML is ${Math.round(bytes / 1024)}KB — Gmail clips messages over 102KB.`,
     });
   }
+  const { text: visibleText, imageWeight } = measureVisible(result.html);
+  if (imageWeight >= MIN_IMAGE_WEIGHT) {
+    const needed = Math.round(TEXT_PER_FULL_IMAGE * imageWeight);
+    if (visibleText.length < needed) {
+      const images = imageWeight < 1.5 ? 'one full-width image' : `the equivalent of ${Math.round(imageWeight)} full-width images`;
+      findings.push({
+        rule: 'image-heavy',
+        severity: visibleText.length < IMAGE_ONLY_MAX_TEXT ? 'warning' : 'suggestion',
+        message:
+          `Email is mostly images: ${visibleText.length} characters of visible text against ${images}. ` +
+          'Spam filters score image-heavy mail, the plain-text part (mostly alt text) reads nothing like the HTML, ' +
+          `and the message is lost when images are blocked — aim for at least ${needed} characters of real text.`,
+      });
+    }
+  }
+
   if (!/unsub/i.test(result.html)) {
     findings.push({
       rule: 'unsubscribe',
