@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.12.0] — 2026-10-05
 
 ### Added
 - **`::: raw` directive** — a block of HTML passed through untouched, in a section of its own with no side padding, so an embedded layout (a design-tool export, a pre-rendered component, an ad slot) gets the email's full width. The lines inside are never parsed as markdown, so blank lines, indentation and `_underscores_` in the HTML can't end the block, turn into a code block or become emphasis; template tags still pass through. The section keeps the content area's background, its dark-mode color and the `emd-top`/`emd-bot` edge marking, but the built-in dark-mode text rules don't reach into it: only the wrapper is recolored, so uncolored text follows dark mode while HTML with its own colors keeps them. `padding=` insets it, and `emd-raw` is its CSS hook. Like a code fence, the closing `:::` must be at least as long as the opening one. With `allowHtml: false` the block is escaped to text like any other raw HTML.
