@@ -49,7 +49,7 @@ export interface StatsData {
 }
 
 /** Split a tile's text into its value and the signed change trailing it. */
-function splitDelta(text: string): { value: string; delta: string; direction: TrendDirection } {
+export function splitDelta(text: string): { value: string; delta: string; direction: TrendDirection } {
   const match = DELTA_RE.exec(text);
   if (!match || !match[1].trim()) return { value: text, delta: '', direction: 'flat' };
 

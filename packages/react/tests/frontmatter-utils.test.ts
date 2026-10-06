@@ -6,6 +6,8 @@ import {
   setFontsMap,
   removeFrontmatterKey,
   removeAllThemeKeys,
+  parseChartColors,
+  setChartColors,
 } from '../src/builder/frontmatter-utils.js';
 
 const DOC = `---
@@ -71,5 +73,40 @@ describe('frontmatter-utils', () => {
     expect(fm.preheader).toBe('Hello there');
     expect(fm.brand_color).toBeUndefined();
     expect(parseFontsMap(cleaned)).toEqual({});
+  });
+
+  it('removeAllThemeKeys strips divider_color and the data color roles', () => {
+    let doc = setChartColors(DOC, ['#e76e50', '#2a9d90']);
+    for (const key of ['divider_color', 'muted_color', 'positive_color', 'negative_color']) {
+      doc = setFrontmatterKey(doc, key, '#123456');
+    }
+    const cleaned = removeAllThemeKeys(doc);
+    expect(parseFrontmatter(cleaned)).toEqual({ preheader: 'Hello there' });
+    expect(parseChartColors(cleaned)).toEqual([]);
+  });
+
+  describe('chart_colors', () => {
+    it('reads a flow list, a block list, and a comma-separated string', () => {
+      expect(parseChartColors('---\nchart_colors: ["#e76e50", \'#2a9d90\']\n---\n')).toEqual(['#e76e50', '#2a9d90']);
+      expect(parseChartColors('---\nchart_colors:\n  - "#e76e50"\n  - "#2a9d90"\ntheme: auto\n---\n')).toEqual(['#e76e50', '#2a9d90']);
+      expect(parseChartColors('---\nchart_colors: "#e76e50, rgb(1, 2, 3)"\n---\n')).toEqual(['#e76e50', 'rgb(1, 2, 3)']);
+      expect(parseChartColors(DOC)).toEqual([]);
+      expect(parseChartColors('# No frontmatter')).toEqual([]);
+    });
+
+    it('writes a flow list in place, replacing a block list and its items', () => {
+      const block = '---\npreheader: Hi\nchart_colors:\n  - "#e76e50"\n  - "#2a9d90"\ntheme: auto\n---\n# Body\n';
+      const next = setChartColors(block, ['#111111', '#222222', '#333333']);
+      expect(next).toBe('---\npreheader: Hi\nchart_colors: ["#111111", "#222222", "#333333"]\ntheme: auto\n---\n# Body\n');
+      expect(parseChartColors(next)).toEqual(['#111111', '#222222', '#333333']);
+    });
+
+    it('adds the key, creating the block when there is none, and removes it when emptied', () => {
+      expect(setChartColors(DOC, ['#111111'])).toContain('brand_color: "#ff0000"\nchart_colors: ["#111111"]\n---');
+      expect(setChartColors('# Body', ['#111111'])).toBe('---\nchart_colors: ["#111111"]\n---\n# Body');
+
+      const cleared = setChartColors(setChartColors(DOC, ['#111111']), []);
+      expect(cleared).toBe(DOC);
+    });
   });
 });

@@ -55,7 +55,7 @@
     "test:watch": "vitest"
   },
   "peerDependencies": {
-    "emailmd": ">=0.11.0",
+    "emailmd": ">=0.13.0",
     "react": ">=18"
   },
   "devDependencies": {

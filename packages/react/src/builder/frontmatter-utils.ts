@@ -17,6 +17,11 @@ const THEME_KEYS = new Set([
   "danger_text_color",
   "warning_color",
   "warning_text_color",
+  "divider_color",
+  "muted_color",
+  "chart_colors",
+  "positive_color",
+  "negative_color",
   "font_family",
   "font_size",
   "line_height",
@@ -204,6 +209,63 @@ export function setFontsMap(
   }
   const newBlock = `---\n${match[1]}\n${block}\n---`;
   return cleared.replace(FRONTMATTER_RE, newBlock);
+}
+
+/**
+ * Parse the `chart_colors` palette from frontmatter, in any of the shapes
+ * emailmd accepts: a flow list (`["#e76e50", "#2a9d90"]`), a block list
+ * (`- "#e76e50"` lines under the key), or a comma-separated string.
+ */
+export function parseChartColors(markdown: string): string[] {
+  const match = markdown.match(FRONTMATTER_RE);
+  if (!match) return [];
+
+  const lines = match[1].split("\n");
+  const start = lines.findIndex((line) => /^chart_colors\s*:/.test(line));
+  if (start === -1) return [];
+
+  const inline = lines[start].slice(lines[start].indexOf(":") + 1).trim();
+  if (inline === "") {
+    const colors: string[] = [];
+    for (const line of lines.slice(start + 1)) {
+      if (line.trim() === "") continue;
+      if (!/^\s/.test(line)) break;
+      const item = /^\s*-\s*(.+)$/.exec(line);
+      if (item) colors.push(stripQuotes(item[1].trim()));
+    }
+    return colors.filter(Boolean);
+  }
+  const list = inline.startsWith("[") && inline.endsWith("]") ? inline.slice(1, -1) : stripQuotes(inline);
+  // Split on commas outside parentheses, so `rgb(…)` stays whole.
+  return list
+    .split(/,(?![^(]*\))/)
+    .map((c) => stripQuotes(c.trim()))
+    .filter(Boolean);
+}
+
+/**
+ * Replace (or insert) the `chart_colors` palette as a flow list, in place when
+ * the key is already there. Pass an empty array to remove it.
+ */
+export function setChartColors(markdown: string, colors: string[]): string {
+  const entries = colors.filter(Boolean);
+  if (entries.length === 0) return removeFrontmatterKey(markdown, "chart_colors");
+
+  const line = `chart_colors: [${entries.map((c) => `"${c.replace(/"/g, '\\"')}"`).join(", ")}]`;
+  const match = markdown.match(FRONTMATTER_RE);
+  if (!match) return `---\n${line}\n---\n${markdown}`;
+
+  const lines = match[1].split("\n");
+  const start = lines.findIndex((l) => /^chart_colors\s*:/.test(l));
+  if (start === -1) {
+    lines.push(line);
+  } else {
+    // A block list's items go with the key they belong to.
+    let end = start + 1;
+    while (end < lines.length && (lines[end].trim() === "" || /^\s/.test(lines[end]))) end++;
+    lines.splice(start, end - start, line);
+  }
+  return markdown.replace(FRONTMATTER_RE, `---\n${lines.join("\n")}\n---`);
 }
 
 function quoteYamlKey(key: string): string {

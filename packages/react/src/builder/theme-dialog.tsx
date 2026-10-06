@@ -12,6 +12,8 @@ import {
   setFontsMap,
   removeFrontmatterKey,
   removeAllThemeKeys,
+  parseChartColors,
+  setChartColors,
 } from './frontmatter-utils.js';
 
 interface ThemeDialogProps {
@@ -19,7 +21,7 @@ interface ThemeDialogProps {
   onChange: (markdown: string) => void;
 }
 
-/** Theme keys every theme has (the optional color roles and `chartColors` aren't edited here). */
+/** Theme keys every theme has, as opposed to the optional data color roles. */
 type CoreThemeKey = { [K in keyof Theme]-?: undefined extends Theme[K] ? never : K }[keyof Theme];
 
 const COLOR_FIELDS: { key: string; label: string; camelKey: CoreThemeKey }[] = [
@@ -57,6 +59,19 @@ const VARIANT_COLOR_PAIRS: {
   },
 ];
 
+/**
+ * The optional data color roles. Each falls back to another key's color when
+ * unset, so its field shows that color, overridden or not, as the default.
+ */
+const DATA_COLOR_FIELDS: { key: string; label: string; fallback: { key: string; camelKey: CoreThemeKey } }[] = [
+  { key: 'muted_color', label: 'Muted Text', fallback: { key: 'body_color', camelKey: 'bodyColor' } },
+  { key: 'positive_color', label: 'Positive Change', fallback: { key: 'success_color', camelKey: 'successColor' } },
+  { key: 'negative_color', label: 'Negative Change', fallback: { key: 'danger_color', camelKey: 'dangerColor' } },
+];
+
+/** Colors a new palette entry starts from, in order. */
+const PALETTE_PRESET = ['#e76e50', '#2a9d90', '#274754', '#e8c468', '#f4a462'];
+
 const TEXT_FIELDS: { key: string; label: string; camelKey: CoreThemeKey }[] = [
   { key: 'font_size', label: 'Font Size', camelKey: 'fontSize' },
   { key: 'line_height', label: 'Line Height', camelKey: 'lineHeight' },
@@ -81,6 +96,7 @@ export function ThemeDialog({ markdown, onChange }: ThemeDialogProps) {
   const [open, setOpen] = useState(false);
   const fm = parseFrontmatter(markdown);
   const fonts = parseFontsMap(markdown);
+  const chartColors = parseChartColors(markdown);
   const baseThemeName = fm.theme || 'light';
   const baseTheme = baseThemeName === 'dark' ? darkTheme : lightTheme;
 
@@ -174,6 +190,30 @@ export function ThemeDialog({ markdown, onChange }: ThemeDialogProps) {
 
           <hr className="emd-separator" />
 
+          <p className="emd-theme-heading">Data</p>
+          <p className="emd-theme-hint">
+            Charts, stats and breakdowns. Chart colors are the series palette, named{' '}
+            <code>chart-1</code>, <code>chart-2</code>… and taken in order by breakdown swatches.
+          </p>
+          <PaletteField
+            colors={chartColors}
+            onChange={(next) => onChange(setChartColors(markdown, next))}
+          />
+          <div className="emd-theme-grid3">
+            {DATA_COLOR_FIELDS.map((field) => (
+              <ColorField
+                key={field.key}
+                label={field.label}
+                value={fm[field.key]}
+                defaultValue={fm[field.fallback.key] ?? baseTheme[field.fallback.camelKey]}
+                onSet={(v) => handleSet(field.key, v)}
+                onRemove={() => handleRemove(field.key)}
+              />
+            ))}
+          </div>
+
+          <hr className="emd-separator" />
+
           <p className="emd-theme-heading">Typography &amp; Layout</p>
           <FontFamilyField
             value={fm.font_family}
@@ -260,6 +300,78 @@ function ColorField({
         />
         {isOverridden && (
           <Button size="icon-sm" aria-label={`Reset ${label}`} onClick={onRemove}>
+            <XIcon />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The `chart_colors` palette: one swatch per color, in series order. A swatch
+ * opens a picker with the color's hex and a button to drop it.
+ */
+function PaletteField({
+  colors,
+  onChange,
+}: {
+  colors: string[];
+  onChange: (next: string[]) => void;
+}) {
+  // Bumped on removal so every picker remounts closed, rather than staying
+  // open on whichever color slid into the removed one's place.
+  const [generation, setGeneration] = useState(0);
+  const setAt = (i: number, color: string) => onChange(colors.map((c, j) => (j === i ? color : c)));
+  const removeAt = (i: number) => {
+    setGeneration((g) => g + 1);
+    onChange(colors.filter((_, j) => j !== i));
+  };
+  const add = () => onChange([...colors, PALETTE_PRESET[colors.length % PALETTE_PRESET.length]]);
+
+  return (
+    <div className="emd-field">
+      <Label>Chart Colors</Label>
+      <div className="emd-palette">
+        {colors.map((color, i) => (
+          <Popover
+            key={`${generation}-${i}`}
+            trigger={({ toggle }) => (
+              <button
+                type="button"
+                className="emd-swatch"
+                style={{ backgroundColor: color }}
+                aria-label={`Edit chart color ${i + 1}`}
+                title={`chart-${i + 1}`}
+                onClick={toggle}
+              />
+            )}
+            className="emd-popup-picker"
+          >
+            <HexColorPicker color={color} onChange={(v) => setAt(i, v)} />
+            <div className="emd-palette-edit">
+              <Input
+                value={color}
+                className="emd-input-mono"
+                onChange={(e) => {
+                  if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) setAt(i, e.target.value);
+                }}
+              />
+              <Button size="icon-sm" aria-label={`Remove chart color ${i + 1}`} onClick={() => removeAt(i)}>
+                <XIcon />
+              </Button>
+            </div>
+          </Popover>
+        ))}
+        <Tip label="Add color">
+          <Button size="icon-sm" aria-label="Add chart color" onClick={add}>
+            <PlusIcon />
+          </Button>
+        </Tip>
+        {colors.length === 0 ? (
+          <span className="emd-palette-empty">Unset — bars use the brand color.</span>
+        ) : (
+          <Button size="icon-sm" aria-label="Reset Chart Colors" onClick={() => onChange([])}>
             <XIcon />
           </Button>
         )}

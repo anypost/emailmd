@@ -1,0 +1,116 @@
+---
+title: Breakdown
+description: Ranked lists and breakdowns — a label, its value, and how far it moved.
+---
+
+A breakdown is a ranked list, or a total split into its parts: one row per list item, each a label, its value, and where you write one, how far it moved. The values line up down the right edge so they can be read as a column:
+
+```markdown
+::: breakdown
+1. Checkout: $4,210 (+12%)
+2. Search: $3,980 (-3%)
+3. Product page: $2,104
+:::
+```
+
+Everything is drawn with table cells and text — no images, no SVG — so it renders in every client, adapts in [dark mode](/docs/theme#automatic-dark-mode), and becomes aligned columns in the text part.
+
+## Ranks
+
+An ordered list ranks its rows, and a bulleted list doesn't. The rank is the number the list gives the row, so a list that starts at `4.` ranks from 4. That makes it easy to send the next page of a leaderboard. A skipped item keeps its number, so each row keeps the rank written beside it.
+
+## Sub-labels
+
+Any lines under an item become a smaller, muted sub-label under its label:
+
+```markdown
+::: breakdown
+1. Checkout: 4,210 (+12%)
+   p95 182 ms
+2. Search: 3,980 (-3%)
+   p95 240 ms
+:::
+```
+
+Only the first line is read as the label and value, so a sub-label can hold a colon of its own.
+
+## The change
+
+A **signed** parenthetical at the end of a value is read as the change, and the sign becomes the arrow, as in [stats](/docs/directives/stats). Up is the win by default. `good=down` flips the reading for the block, and `{good=…}` sets it for one row:
+
+```markdown
+::: breakdown good=down
+- Bounce rate: 41% (-3pt)
+- Error rate: 0.8% (+0.2pt)
+- Pages per visit: 3.2 (+0.4) {good=up}
+:::
+```
+
+On a row with a sub-label, `{good=…}` can go at the end of the first line or the last. A neutral change takes the theme's [`muted_color`](/docs/theme#data-colors), and good and bad changes its `positive_color` and `negative_color`. Rows without a change leave the column empty, and a block where no row has one leaves the column out.
+
+## Swatches and Bars
+
+`swatches=true` puts a colored dot before each label, colored from the theme's [`chart_colors`](/docs/theme#data-colors) in order: the first row takes the first color, the second the second, and so on, starting again at the first when the rows outnumber the colors. That pairs the list with a chart image or a [raw](/docs/directives/raw) legend drawn in the same colors.
+
+`bars=true` draws a bar under each row, scaled the way a [chart](/docs/directives/chart) is: against the largest value, or against 100 when every value is a percentage, or against `max`. A row's bar takes the same color as its swatch:
+
+```markdown
+---
+chart_colors: ["#e76e50", "#2a9d90", "#274754", "#e8c468", "#f4a462"]
+---
+
+::: breakdown swatches=true bars=true
+- Direct: 4,200
+- Organic search: 3,100
+- Referral: 1,800
+:::
+```
+
+A row's color is its own `{color=…}`, else the block's `color`, else with swatches its palette entry, else the theme's first chart color (or `brand_color`). `color` takes a hex color or a palette entry such as `chart-2`, and a palette entry follows dark mode. Without `chart_colors`, swatches can't tell rows apart, so every one takes the default color and the render warns.
+
+A row whose value has no number to scale gets no bar, with a render warning.
+
+## Dividers
+
+Rows are separated by hairlines in the theme's `divider_color`. `dividers=false` drops them.
+
+## Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `swatches` | `true` puts a palette-colored dot before each label. Defaults to `false`. |
+| `bars` | `true` draws a bar under each row. Defaults to `false`. |
+| `dividers` | `false` drops the hairlines between rows. Defaults to `true`. |
+| `good` | Which direction is the win: `up` (default), `down`, or `neutral`. |
+| `color` | Swatch and bar color, or `chart-N` for a palette entry. Defaults to the palette by position with swatches, and to the theme's first chart color without. |
+| `max` | The value a full bar represents. Defaults to the largest value, or 100 for percentages. |
+| `height` | Bar thickness. Defaults to `6px`. |
+| `track` | Color of the unfilled part of a bar. Defaults to the theme's `card_color`. |
+| `border-radius` | Bar end rounding. Defaults to half the bar height. |
+
+Per-item: `{good=…}` overrides the block's reading for one row, `{color=…}` recolors one row's swatch and bar.
+
+## Dark Mode
+
+Labels and values take the dark palette's heading color, and ranks and sub-labels its muted color. Changes take its positive and negative colors, dividers its divider color, and bar grooves its card color. Swatches and bars in the default color or a palette entry switch to the dark palette's color. A hex color stays as written in both modes.
+
+## Plain Text
+
+The text part keeps the columns, with the values lined up on their right edge, and draws bars in ASCII the way a chart does. Sub-labels sit on the line under their label. Swatches are color alone, so they are left out:
+
+```
+1.  Checkout      $4,210  ▲ 12%
+    p95 182 ms
+2.  Search        $3,980  ▼ 3%
+3.  Product page  $2,104
+```
+
+## Notes
+
+- A row needs both halves of `Label: value` on its first line. Items without a colon are dropped with a render warning, and a block with no usable items degrades to a regular text section.
+- The value is free text: `Status: Healthy` is a valid row, though it can't have a bar.
+- The label splits on the **last** colon of the first line.
+- Labels wrap between words, never mid-word, and values and changes stay on one line. The label column takes whatever room the others leave.
+- Text placed before the list renders above the rows.
+- In right-to-left documents the columns mirror, and bars grow from the right.
+- For a single number per tile, reach for [stats](/docs/directives/stats); for bars with no ranks or changes, [chart](/docs/directives/chart).

@@ -13,6 +13,7 @@ import { barPercent, parseNumber, TREND_ARROWS } from './bar.js';
 import { parseProgress, type ProgressData } from './progress.js';
 import { parseSparkline } from './sparkline.js';
 import { parseStats } from './stats.js';
+import { parseBreakdown } from './breakdown.js';
 import { parseSteps, type StepState } from './steps.js';
 import { parseRating, ratingIcons, RATING_ICONS } from './rating.js';
 
@@ -80,6 +81,13 @@ export function toPlainText(html: string): string {
   text = text.replace(
     /<!--EMAILMD:STATS_OPEN((?:\s+[\w-]+="[^"]*")*)-->([\s\S]*?)<!--EMAILMD:STATS_CLOSE-->/g,
     (_, attrString: string, inner: string) => statsToText(inner, attrString),
+  );
+
+  // Breakdowns flatten to aligned columns, before the generic list conversion
+  // claims their list
+  text = text.replace(
+    /<!--EMAILMD:BREAKDOWN_OPEN((?:\s+[\w-]+="[^"]*")*)-->([\s\S]*?)<!--EMAILMD:BREAKDOWN_CLOSE-->/g,
+    (_, attrString: string, inner: string) => breakdownToText(inner, attrString),
   );
 
   // Steps become an indented outline, before the generic list conversion
@@ -397,6 +405,48 @@ function statsToText(inner: string, attrString: string): string {
     // no changes does not end every line in a run of spaces.
     const value = delta ? values[i].padEnd(valueWidth) : values[i];
     return `${labels[i].padEnd(labelWidth)}  ${value}${delta}`;
+  });
+
+  return `${intro}\n${lines.join('\n')}\n`;
+}
+
+/**
+ * Render a breakdown block as aligned columns: rank, label, the bar when the block
+ * draws them, the value lined up on its right edge, and the change. A
+ * sub-label goes on the line under its label. Swatches are color alone, so
+ * they have nothing to say in a text part and are left out.
+ */
+function breakdownToText(inner: string, attrString: string): string {
+  const attrs = markerAttrs(attrString);
+  const { intro, items } = parseBreakdown(inner, attrs);
+  if (items.length === 0) return inner;
+
+  const bars = attrs.bars === 'true';
+  let max = 1;
+  if (bars) {
+    const parsedMax = parseNumber(attrs.max);
+    const numeric = items.filter((i) => i.number !== null).map((i) => ({ label: i.label, display: i.value, value: i.number! }));
+    max = resolveChartMax(numeric, parsedMax !== null && parsedMax > 0 ? parsedMax : undefined);
+  }
+
+  const ranks = items.map((i) => (i.rank !== undefined ? `${i.rank}.` : ''));
+  const labels = items.map((i) => decodeEntities(i.label));
+  const values = items.map((i) => decodeEntities(i.value));
+  const rankWidth = Math.max(...ranks.map((r) => r.length));
+  const labelWidth = Math.max(...labels.map((l) => l.length));
+  const valueWidth = Math.max(...values.map((v) => v.length));
+
+  const lines = items.map((item, i) => {
+    const prefix = rankWidth > 0 ? `${ranks[i].padStart(rankWidth)}  ` : '';
+    let bar = '';
+    if (bars) {
+      const pct = item.number !== null ? barPercent(item.number, max) : 0;
+      const filled = pct > 0 ? Math.max(1, Math.round((pct / 100) * TEXT_BAR_WIDTH)) : 0;
+      bar = `  ${'█'.repeat(filled).padEnd(TEXT_BAR_WIDTH)}`;
+    }
+    const delta = item.delta ? `  ${TREND_ARROWS[item.direction]} ${decodeEntities(item.delta)}` : '';
+    const line = `${prefix}${labels[i].padEnd(labelWidth)}${bar}  ${values[i].padStart(valueWidth)}${delta}`;
+    return item.sub ? `${line}\n${' '.repeat(prefix.length)}${decodeEntities(item.sub)}` : line;
   });
 
   return `${intro}\n${lines.join('\n')}\n`;

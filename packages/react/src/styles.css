@@ -933,6 +933,25 @@
   cursor: pointer;
 }
 
+.emd-palette {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.emd-palette-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.emd-palette-empty {
+  font-size: 11px;
+  color: var(--emd-muted-fg);
+}
+
 .emd-fonts {
   display: flex;
   flex-direction: column;

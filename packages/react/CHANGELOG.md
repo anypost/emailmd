@@ -4,6 +4,19 @@ All notable changes to `@emailmd/react` are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Breakdown in the Charts & Data menu**, for emailmd's `::: breakdown` directive: inserts a three-row ranked list with signed changes, the first label selected.
+- **Raw HTML in the Content Blocks menu**, for the `::: raw` directive from emailmd 0.12.0: inserts a one-cell layout table on the 32px content inset.
+- **A Data section in the visual theme editor** for emailmd's data color roles. Chart Colors edits the `chart_colors` palette as a row of swatches (add, recolor, remove, or clear it), reading a flow list, a block list or a comma-separated string and writing a flow list in place. Muted Text, Positive Change and Negative Change set `muted_color`, `positive_color` and `negative_color`, each showing the color it falls back to (body, success or danger, as overridden) until set.
+
+### Changed
+- The `emailmd` peer dependency is now `>=0.13.0`, for the breakdown directive and the data color roles. On an older emailmd a breakdown degrades to a plain list and the data colors are ignored.
+
+### Fixed
+- **Reset All in the theme editor left `divider_color` behind.** It now clears `divider_color` too, along with the new data color keys.
+
 ## [0.3.0] — 2026-08-26
 
 ### Added

@@ -139,8 +139,8 @@ Four optional keys give data emails the color roles they need. Each falls back t
 
 | Key | Falls back to | Used for |
 |-----|---------------|----------|
-| `muted_color` | `body_color` | Secondary text: stat, chart, progress, sparkline and rating labels, image captions, the header and footer, a change with no good or bad reading, and upcoming steps |
-| `chart_colors` | `brand_color` | Data colors in series order. Chart, progress and sparkline bars default to the first |
+| `muted_color` | `body_color` | Secondary text: stat, chart, progress, sparkline and rating labels, breakdown ranks and sub-labels, image captions, the header and footer, a change with no good or bad reading, and upcoming steps |
+| `chart_colors` | `brand_color` | Data colors in series order. Chart, progress, sparkline and breakdown bars default to the first, and breakdown swatches take them in order |
 | `positive_color` | `success_color` | Text of a change that is good news (▲ +12%) |
 | `negative_color` | `danger_color` | Text of a change that is bad news (▼ −3%) |
 
@@ -162,7 +162,7 @@ dark:
 :::
 ```
 
-`color=chart-2` names the palette's second color wherever a data directive takes a color (chart, progress, sparkline and stats, on the block or a single item), and dark mode switches it to the dark palette's second color. A hex color written directly can't follow dark mode. A palette set only for light mode carries over to dark, since its colors name series.
+`color=chart-2` names the palette's second color wherever a data directive takes a color (chart, progress, sparkline, stats and breakdown, on the block or a single item), and dark mode switches it to the dark palette's second color. A hex color written directly can't follow dark mode. A palette set only for light mode carries over to dark, since its colors name series.
 
 ### Color Formats
 

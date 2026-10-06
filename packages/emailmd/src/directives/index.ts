@@ -14,6 +14,7 @@ import { registerChart } from './chart.js';
 import { registerProgress } from './progress.js';
 import { registerSparkline } from './sparkline.js';
 import { registerStats } from './stats.js';
+import { registerBreakdown } from './breakdown.js';
 import { registerSteps } from './steps.js';
 import { registerRating } from './rating.js';
 import { registerRaw } from './raw.js';
@@ -34,6 +35,7 @@ export function registerDirectives(md: MarkdownIt): void {
   registerProgress(md);
   registerSparkline(md);
   registerStats(md);
+  registerBreakdown(md);
   registerSteps(md);
   registerRating(md);
   registerRaw(md);

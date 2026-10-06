@@ -30,6 +30,7 @@ Content goes here
 | [sparkline](/docs/directives/sparkline) | Inline trend line drawn from a series |
 | [trend](/docs/directives/sparkline) | Trend indicator: latest value and its change |
 | [stats](/docs/directives/stats) | KPI tiles: a label, the number, and its change |
+| [breakdown](/docs/directives/breakdown) | A ranked list, or a total split into its parts, with changes, swatches and bars |
 | [steps](/docs/directives/steps) | Numbered steps, or a tracker of where something has got to |
 | [timeline](/docs/directives/steps) | The same walk with dots instead of numbers |
 | [rating](/docs/directives/rating) | A star rating, as one score or a breakdown |
@@ -60,9 +61,9 @@ Compact, centered highlight with custom background
 | **padding** | Bare keyword | `compact`, `spacious` | callout, highlight, stats |
 | **color** | `color=<color>` | Hex, named, `rgb()`, or `hsl()` color | callout, highlight, centered, header, footer, and every data directive |
 | **bg** | `bg=<color>` | Hex, named, `rgb()`, or `hsl()` color | callout, highlight, stats |
-| **border-radius** | `border-radius=<value>` | Any CSS length (e.g. `16px`, `0`) | callout, highlight, chart, progress, sparkline, stats |
+| **border-radius** | `border-radius=<value>` | Any CSS length (e.g. `16px`, `0`) | callout, highlight, chart, progress, sparkline, stats, breakdown |
 
-The data directives — [chart](/docs/directives/chart), [progress](/docs/directives/progress), [sparkline](/docs/directives/sparkline), [stats](/docs/directives/stats), [steps](/docs/directives/steps), and [rating](/docs/directives/rating) — all take `color` for the drawn part, and each has its own parameters for the scale, the size, and the ground behind the drawing. See their pages.
+The data directives — [chart](/docs/directives/chart), [progress](/docs/directives/progress), [sparkline](/docs/directives/sparkline), [stats](/docs/directives/stats), [breakdown](/docs/directives/breakdown), [steps](/docs/directives/steps), and [rating](/docs/directives/rating) — all take `color` for the drawn part, and each has its own parameters for the scale, the size, and the ground behind the drawing. See their pages.
 
 Parameter values are validated: an unrecognized color, alignment, or length falls back to the theme default and surfaces a [render warning](/docs/api-reference#renderwarning) rather than breaking the email. Template tags like `{{brand_color}}` are passed through for your sending app to resolve.
 

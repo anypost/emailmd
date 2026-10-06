@@ -441,6 +441,18 @@ export function Toolbar({ getView, value, onChange, onReset, lastSaved, items, e
               >
                 Accordion (FAQ)
               </MenuItem>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) =>
+                  insertBlock(
+                    v,
+                    '::: raw\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0">\n  <tr>\n    <td style="padding: 16px 32px;">Your HTML here.</td>\n  </tr>\n</table>\n:::',
+                    'Your HTML here.'
+                  )
+                )}
+              >
+                Raw HTML
+              </MenuItem>
               <MenuSeparator />
               <MenuLabel>Charts &amp; Data</MenuLabel>
               <MenuItem
@@ -502,6 +514,18 @@ export function Toolbar({ getView, value, onChange, onReset, lastSaved, items, e
                 )}
               >
                 Stat tiles
+              </MenuItem>
+              <MenuItem
+                close={close}
+                onSelect={withView((v) =>
+                  insertBlock(
+                    v,
+                    '::: breakdown\n1. Checkout: $4,210 (+12%)\n2. Search: $3,980 (-3%)\n3. Product page: $2,104 (+4%)\n:::',
+                    'Checkout'
+                  )
+                )}
+              >
+                Breakdown
               </MenuItem>
               <MenuItem
                 close={close}

@@ -9,6 +9,7 @@ import { barPercent, TREND_ARROWS } from './bar.js';
 import { parseProgress, type ProgressData } from './progress.js';
 import { parseSparkline } from './sparkline.js';
 import { parseStats, defaultStatColumns, type StatItem } from './stats.js';
+import { parseBreakdown, type BreakdownItem } from './breakdown.js';
 import { parseSteps, type StepItem } from './steps.js';
 import { parseRating, ratingIcons, RATING_ICONS, type RatingItem } from './rating.js';
 
@@ -308,6 +309,8 @@ function buildDarkModeStyles(dark: Theme): string {
     ['.emd-progress-bar-themed', `background-color: ${data} !important;`],
     ['.emd-progress-track-themed', `background-color: ${dark.cardColor} !important;`],
     ['.emd-sparkline-bar-themed', `background-color: ${data} !important;`],
+    ['.emd-breakdown-bar-themed', `background-color: ${data} !important;`],
+    ['.emd-breakdown-track-themed', `background-color: ${dark.cardColor} !important;`],
     ['.emd-step-marker-themed', `background-color: ${dark.brandColor} !important;`],
     ['.emd-step-marker-todo', `background-color: ${dark.cardColor} !important;`],
     ['.emd-step-rail-themed', `background-color: ${dark.dividerColor} !important;`],
@@ -338,6 +341,9 @@ function buildDarkModeStyles(dark: Theme): string {
     ['.emd-stat-label', `color: ${muted} !important;`],
     ['.emd-stat-value-themed', `color: ${dark.headingColor} !important;`],
     ['.emd-stat-delta-themed', `color: ${muted} !important;`],
+    ['.emd-breakdown-label, .emd-breakdown-value', `color: ${dark.headingColor} !important;`],
+    ['.emd-breakdown-swatch-themed', `color: ${data} !important;`],
+    ['.emd-breakdown-rule', `border-color: ${dark.dividerColor} !important;`],
     ['.emd-step-marker-themed', `color: ${dark.buttonTextColor} !important;`],
     ['.emd-step-marker-todo', `color: ${muted} !important;`],
     ['.emd-step-title-themed', `color: ${dark.headingColor} !important;`],
@@ -1626,6 +1632,147 @@ function renderStatsTable(rows: StatItem[][], columns: number, layout: StatsTabl
     </mj-section>`;
 }
 
+/** Space between a row's cells, and above and below each row. */
+const ROW_GAP = { rank: 12, swatch: 8, value: 16, delta: 10, row: 10, bar: 6 };
+
+/** Reads a `true`/`false` parameter, warning on anything else. */
+function resolveFlag(value: string | undefined, fallback: boolean, ctx: SegmentContext | undefined, name: string, directive: string): boolean {
+  if (value === undefined) return fallback;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  warn(ctx, `Invalid ${name} "${value}" for ${directive} — expected "true" or "false"; using ${fallback}.`);
+  return fallback;
+}
+
+/**
+ * A ranked list or breakdown: one table with a row per item, so the rank,
+ * swatch, label, value and change columns line up down the block. The label
+ * column takes the slack and the others hug their content, and labels wrap
+ * between words only — MJML's `word-break:break-word` would otherwise split a
+ * word to make room for the value beside it.
+ *
+ * A row's color, for its swatch and bar, is its own `{color}`, else the
+ * block's `color`, else with swatches the palette entry for its position, else
+ * the default data color. Rank, sub-label and a neutral change are muted.
+ */
+function renderBreakdownSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
+  const attrs = segment.attrs ?? {};
+  const data = parseBreakdown(segment.content, attrs);
+
+  if (data.items.length === 0) {
+    warn(ctx, 'Breakdown block contains no "Label: value" list items — rendering its content as regular text.');
+    return renderTextSegment(segment.content, theme);
+  }
+  for (const message of data.warnings) warn(ctx, message);
+  if (data.skipped > 0) {
+    warn(ctx, `${data.skipped} row${data.skipped === 1 ? '' : 's'} had no "Label: value" shape and ${data.skipped === 1 ? 'was' : 'were'} skipped.`);
+  }
+
+  const swatches = resolveFlag(attrs.swatches, false, ctx, 'swatches', 'breakdown');
+  const bars = resolveFlag(attrs.bars, false, ctx, 'bars', 'breakdown');
+  const dividers = resolveFlag(attrs.dividers, true, ctx, 'dividers', 'breakdown');
+
+  const blockColor = resolveDataColor(attrs.color, defaultDataColor(theme), theme, ctx, 'breakdown color');
+  const palette = swatches && !attrs.color ? theme.chartColors ?? [] : [];
+  if (swatches && !attrs.color && palette.length === 0 && data.items.some((item) => !item.color)) {
+    warn(ctx, 'Breakdown swatches take their colors from the theme\'s chart_colors, which it doesn\'t set — every swatch is the default data color.');
+  }
+  const rowColor = (item: BreakdownItem, i: number): DataColor => {
+    const base: DataColor = palette.length > 0
+      ? { color: palette[i % palette.length], entry: (i % palette.length) + 1, themed: false }
+      : blockColor;
+    return resolveDataColor(item.color, base, theme, ctx, `row "${item.label}" color`);
+  };
+
+  const shape = resolveBarShape(attrs, '6px', 'breakdown', ctx);
+  const trackColor = resolveColor(attrs.track, theme.cardColor, ctx, 'breakdown track');
+  const trackClass = `emd-breakdown-track${attrs.track ? '' : ' emd-breakdown-track-themed'}`;
+  let max = 1;
+  if (bars) {
+    let maxOverride: number | undefined;
+    if (attrs.max !== undefined) {
+      const parsed = parseFloat(attrs.max.replace(/,/g, ''));
+      if (Number.isFinite(parsed) && parsed > 0) maxOverride = parsed;
+      else warn(ctx, `Invalid max "${attrs.max}" for breakdown — scaling to the largest value.`);
+    }
+    const numeric = data.items.filter((item) => item.number !== null)
+      .map((item) => ({ label: item.label, display: item.value, value: item.number! }));
+    max = resolveChartMax(numeric, maxOverride);
+    const missing = data.items.length - numeric.length;
+    if (missing > 0) warn(ctx, `${missing} row${missing === 1 ? ' has' : 's have'} no number in ${missing === 1 ? 'its' : 'their'} value to draw a bar for.`);
+  }
+
+  const rtl = ctx?.dir === 'rtl';
+  const start = rtl ? 'right' : 'left';
+  const end = rtl ? 'left' : 'right';
+  const muted = mutedColorOf(theme);
+  const small = `${Math.round((parseInt(theme.fontSize, 10) || 16) * 0.875)}px`;
+  const hasDelta = data.items.some((item) => item.delta);
+  const leading = (data.ranked ? 1 : 0) + (swatches ? 1 : 0);
+  const trailing = hasDelta ? 3 : 2;
+
+  /** Padding with the gap on the start or end edge, mirrored in RTL. */
+  const padding = (top: number, bottom: number, gapStart = 0, gapEnd = 0) =>
+    `padding:${top}px ${rtl ? gapStart : gapEnd}px ${bottom}px ${rtl ? gapEnd : gapStart}px;`;
+
+  const trs = data.items.map((item, i) => {
+    const last = i === data.items.length - 1;
+    const color = rowColor(item, i);
+    const bar = bars && item.number !== null;
+    const top = i === 0 ? 0 : ROW_GAP.row;
+    const bottom = bar || last ? 0 : ROW_GAP.row;
+    const rule = dividers && i > 0;
+    const ruleClass = rule ? ' emd-breakdown-rule' : '';
+    const border = rule ? `border-top:1px solid ${theme.dividerColor};` : '';
+    const text = `vertical-align:baseline;font-size:${theme.fontSize};line-height:1.4;${border}`;
+
+    const cells: string[] = [];
+    if (data.ranked) {
+      cells.push(`<td class="emd-breakdown-rank emd-muted${ruleClass}" align="${end}" style="${padding(top, bottom, 0, ROW_GAP.rank)}${text}font-weight:600;color:${muted};white-space:nowrap;">${item.rank}</td>`);
+    }
+    if (swatches) {
+      const swatchClass = color.themed ? ' emd-breakdown-swatch-themed' : color.entry ? ` emd-c${color.entry}` : '';
+      cells.push(`<td class="emd-breakdown-swatch${swatchClass}${ruleClass}" style="${padding(top, bottom, 0, ROW_GAP.swatch)}${text}color:${color.color};white-space:nowrap;">&#9679;</td>`);
+    }
+    const sub = item.sub
+      ? `<br><span class="emd-breakdown-sub emd-muted" style="font-size:${small};color:${muted};">${escapeAttrValue(item.sub)}</span>`
+      : '';
+    cells.push(`<td class="emd-breakdown-label${ruleClass}" align="${start}" width="100%" style="${padding(top, bottom)}${text}color:${theme.headingColor};word-break:normal;">${escapeAttrValue(item.label)}${sub}</td>`);
+    cells.push(`<td class="emd-breakdown-value${ruleClass}" align="${end}" style="${padding(top, bottom, ROW_GAP.value)}${text}font-weight:700;color:${theme.headingColor};white-space:nowrap;">${escapeAttrValue(item.value)}</td>`);
+    if (hasDelta) {
+      const tone = toneStyle(item.tone, theme, 'emd-muted');
+      const change = item.delta ? `${TREND_ARROWS[item.direction]}&#160;${escapeAttrValue(item.delta)}` : '';
+      cells.push(`<td class="emd-breakdown-delta${item.delta ? ` ${tone.cls}` : ''}${ruleClass}" align="${end}" style="${padding(top, bottom, ROW_GAP.delta)}${text}font-size:${small};font-weight:600;color:${tone.color};white-space:nowrap;">${change}</td>`);
+    }
+    // MJML pins the table to direction:ltr, so cell order is what puts each
+    // column on its edge.
+    let html = `<tr>${(rtl ? cells.reverse() : cells).join('')}</tr>`;
+
+    if (bar) {
+      const pct = barPercent(item.number!, max);
+      const barCells = [
+        ...Array.from({ length: leading }, () => '<td style="padding:0;"></td>'),
+        `<td colspan="${trailing}" style="padding:${ROW_GAP.bar}px 0 ${last ? 0 : ROW_GAP.row}px 0;">${renderBar(pct, color.color, dataFillClass('emd-breakdown-bar', color), trackColor, trackClass, shape, rtl)}</td>`,
+      ];
+      html += `\n          <tr>${(rtl ? barCells.reverse() : barCells).join('')}</tr>`;
+    }
+    return html;
+  });
+
+  const introMjml = data.intro.trim()
+    ? `<mj-text padding="0 0 8px" font-size="${theme.fontSize}" color="${theme.bodyColor}" line-height="${theme.lineHeight}">${processInlineImages(data.intro)}</mj-text>
+        `
+    : '';
+
+  return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="8px 32px">
+      <mj-column>
+        ${introMjml}<mj-table css-class="emd-breakdown" role="presentation" cellpadding="0" cellspacing="0" width="100%" padding="4px 0" font-family="${theme.fontFamily}">
+          ${trs.join('\n          ')}
+        </mj-table>
+      </mj-column>
+    </mj-section>`;
+}
+
 /** Width of the connector, which is a line rather than a stripe at any marker size. */
 const STEP_RAIL_WIDTH = 2;
 
@@ -2407,6 +2554,8 @@ function segmentToMjml(segment: Segment, theme: Theme, ctx?: SegmentContext): st
       return renderSparklineSegment(segment, theme, ctx);
     case 'stats':
       return renderStatsSegment(segment, theme, ctx);
+    case 'breakdown':
+      return renderBreakdownSegment(segment, theme, ctx);
     case 'steps':
       return renderStepsSegment(segment, theme, ctx);
     case 'rating':
