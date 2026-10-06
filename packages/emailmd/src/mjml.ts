@@ -298,6 +298,7 @@ function buildDarkModeStyles(dark: Theme): string {
     ['body, .emd-root, .emd-root > div', `background-color: ${dark.backgroundColor} !important;`],
     ['.emd-bg, .emd-bg > table', `background: ${dark.contentColor} !important;`],
     ['.emd-card > table, .emd-card > table > tbody > tr > td', `background-color: ${dark.cardColor} !important;`],
+    ['.emd-stat-cell-themed', `background-color: ${dark.cardColor} !important;`],
     ['.emd-hl > table, .emd-hl > table > tbody > tr > td', `background-color: ${dark.brandColor} !important;`],
     ['.emd-s code, .emd-s pre', `background-color: ${dark.cardColor} !important;`],
     ['.emd-s mark', `background-color: ${dark.brandColor}33 !important;`],
@@ -1396,18 +1397,25 @@ function statTypeScale(theme: Theme): { small: string; value: string } {
 }
 
 /**
- * One tile: caption, headline number, and — where the author wrote one — the
- * change beneath it. Built from table rows rather than stacked divs, because
+ * One tile's rows: caption, headline number, and — where the author wrote one —
+ * the change beneath it. Built from table rows rather than stacked divs, because
  * the gaps between the three lines have to survive Outlook, which drops the
  * margins a div stack would rely on.
+ *
+ * `pad` holds a blank line where the change would go, for a tile that has none
+ * sharing a row with one that does, so the cards in the row end level. The
+ * blank line carries `padClass`, which phone styles use to drop it once the
+ * tiles stack and no longer sit side by side.
  */
-function renderStatTile(
+function statTileRows(
   item: StatItem,
   theme: Theme,
   align: string,
   valueColor: DataColor,
   scale: { small: string; value: string },
   valueSize: string,
+  pad: boolean,
+  padClass: string | undefined,
   ctx?: SegmentContext,
 ): string {
   const value = resolveDataColor(item.color, valueColor, theme, ctx, `stat "${item.label}" color`);
@@ -1420,18 +1428,20 @@ function renderStatTile(
   if (item.delta) {
     const tone = toneStyle(item.tone, theme, 'emd-stat-delta-themed');
     rows += `<tr><td class="emd-stat-delta ${tone.cls}" align="${align}" style="padding:6px 0 0 0;font-size:${scale.small};line-height:1.4;font-weight:600;color:${tone.color};white-space:nowrap;">${TREND_ARROWS[item.direction]}&#160;${escapeAttrValue(item.delta)}</td></tr>`;
+  } else if (pad) {
+    rows += `<tr${padClass ? ` class="${padClass}"` : ''} aria-hidden="true"><td style="padding:6px 0 0 0;font-size:${scale.small};line-height:1.4;">&#160;</td></tr>`;
   }
-
-  return `<mj-table css-class="emd-stat" role="presentation" cellpadding="0" cellspacing="0" width="100%" padding="0" font-family="${theme.fontFamily}">${rows}</mj-table>`;
+  return rows;
 }
 
 /**
  * A grid of stat tiles.
  *
- * Tiles are `mj-column` cards rather than cells of one table: a table of KPIs
- * stays a single unreadable row on a phone, while columns stack. Every tile
- * keeps the width its grid position gives it, so a short last row lines up
- * under the one above instead of stretching to fill.
+ * By default tiles are `mj-column` cards, which stack one per row on a phone.
+ * `stack=false` draws them as cells of one table instead, which stays a grid at
+ * any width and gives every tile in a row the height of the tallest. Either
+ * way every tile keeps the width its grid position gives it, so a short last
+ * row lines up under the one above instead of stretching to fill.
  */
 function renderStatsSegment(segment: Segment, theme: Theme, ctx?: SegmentContext): string {
   const attrs = segment.attrs ?? {};
@@ -1480,6 +1490,12 @@ function renderStatsSegment(segment: Segment, theme: Theme, ctx?: SegmentContext
   const radius = resolveLength(attrs['border-radius'], theme.borderRadius, ctx, 'stats border-radius');
   const padding = resolveTilePadding(attrs.padding);
 
+  let stack = true;
+  if (attrs.stack !== undefined) {
+    if (attrs.stack === 'false') stack = false;
+    else if (attrs.stack !== 'true') warn(ctx, `Invalid stack "${attrs.stack}" for stats — expected "true" or "false"; stacking on phones.`);
+  }
+
   // Section padding is 32px a side, so that is the width the grid divides up.
   const innerPx = (parseInt(theme.contentWidth, 10) || 600) - 64;
   // Percentages are floored: inline-block columns wrap if a row exceeds 100%.
@@ -1499,9 +1515,24 @@ function renderStatsSegment(segment: Segment, theme: Theme, ctx?: SegmentContext
     </mj-section>`);
   }
 
-  for (let start = 0; start < data.items.length; start += columns) {
-    const row = data.items.slice(start, start + columns);
+  const rows: StatItem[][] = [];
+  for (let start = 0; start < data.items.length; start += columns) rows.push(data.items.slice(start, start + columns));
+  // A tile with no change gets a blank line in its place when another tile in
+  // its row has one, so the row's cards end level.
+  const padRow = (row: StatItem[]) => row.some((item) => item.delta) && row.some((item) => !item.delta);
+  const tileRows = (item: StatItem, pad: boolean, padClass?: string) =>
+    statTileRows(item, theme, align, valueColor, scale, valueSize, pad, padClass, ctx);
+
+  if (!stack) {
+    sections.push(renderStatsTable(rows, columns, {
+      theme, card, themedCard, bg, radius, padding, gap, gapPct, tilePct, vpad, rtl, tileRows,
+    }));
+    return sections.join('\n    ');
+  }
+
+  for (const row of rows) {
     const parts: string[] = [];
+    const pad = padRow(row);
 
     // The gap is its own column rather than column padding: mj-column paints
     // its background across the padding box, so padding would widen the card
@@ -1529,7 +1560,7 @@ function renderStatsSegment(segment: Segment, theme: Theme, ctx?: SegmentContext
         ? `${themedCard ? ' css-class="emd-card"' : ''} background-color="${bg}" border-radius="${radius}" padding="${padding}"`
         : ' padding="0"';
       parts.push(`<mj-column width="${tilePct}%"${tileAttrs}>
-        ${renderStatTile(item, theme, align, valueColor, scale, valueSize, ctx)}
+        <mj-table css-class="emd-stat" role="presentation" cellpadding="0" cellspacing="0" width="100%" padding="0" font-family="${theme.fontFamily}">${tileRows(item, pad, 'emd-stat-pad')}</mj-table>
       </mj-column>`);
       if (i < ordered.length - 1) parts.push(spacer);
     });
@@ -1541,6 +1572,58 @@ function renderStatsSegment(segment: Segment, theme: Theme, ctx?: SegmentContext
   }
 
   return sections.join('\n    ');
+}
+
+interface StatsTableLayout {
+  theme: Theme;
+  card: boolean;
+  themedCard: boolean;
+  bg: string;
+  radius: string;
+  padding: string;
+  gap: number;
+  gapPct: number;
+  tilePct: number;
+  vpad: number;
+  rtl: boolean;
+  tileRows: (item: StatItem, pad: boolean, padClass?: string) => string;
+}
+
+/**
+ * `stack=false`: the tiles as cells of one fixed-layout table, which keeps its
+ * columns on a phone where `mj-column`s would stack, and makes every cell in a
+ * row as tall as the tallest — a label that wraps included — in every client,
+ * Outlook too. The gaps are cells of their own, since Outlook ignores
+ * `border-spacing`. Phone styles shrink the type to fit the narrower tiles
+ * (see {@link addStatsPhoneStyles}).
+ */
+function renderStatsTable(rows: StatItem[][], columns: number, layout: StatsTableLayout): string {
+  const { theme, card, themedCard, bg, radius, padding, gap, gapPct, tilePct, vpad, rtl, tileRows } = layout;
+  const gapCell = `<td class="emd-gap" width="${gapPct}%" style="width:${gapPct}%;font-size:0;line-height:0;">&#8202;</td>`;
+  const emptyCell = `<td width="${tilePct}%" style="width:${tilePct}%;font-size:0;line-height:0;">&#8202;</td>`;
+  const tileCell = (item: StatItem) => {
+    const cls = card ? `emd-stat-cell${themedCard ? ' emd-stat-cell-themed' : ''}` : 'emd-stat-cell-bare';
+    const style = card
+      ? `width:${tilePct}%;vertical-align:top;background-color:${bg};border-radius:${radius};padding:${padding};`
+      : `width:${tilePct}%;vertical-align:top;padding:0;`;
+    return `<td class="${cls}" width="${tilePct}%" valign="top"${card ? ` bgcolor="${bg}"` : ''} style="${style}">`
+      + `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;">${tileRows(item, false)}</table></td>`;
+  };
+
+  const trs = rows.map((row) => {
+    // Cells in a row are as tall as the tallest already, so no blank line.
+    const cells = row.map((item) => tileCell(item));
+    while (cells.length < columns) cells.push(emptyCell);
+    const ordered = rtl ? cells.reverse() : cells;
+    return `<tr>${ordered.join(gapCell)}</tr>`;
+  });
+  const between = `<tr><td colspan="${columns * 2 - 1}" style="height:${gap}px;font-size:0;line-height:0;">&#8202;</td></tr>`;
+
+  return `<mj-section css-class="emd-s emd-bg" background-color="${theme.contentColor}" padding="${vpad}px 32px">
+      <mj-column>
+        <mj-table css-class="emd-stats-across emd-stats-across-${columns}" role="presentation" cellpadding="0" cellspacing="0" width="100%" table-layout="fixed" padding="0" font-family="${theme.fontFamily}">${trs.join(between)}</mj-table>
+      </mj-column>
+    </mj-section>`;
 }
 
 /** Width of the connector, which is a line rather than a stripe at any marker size. */
@@ -2418,6 +2501,38 @@ function themeAccordionIcons(html: string, theme: Theme): string {
 /** MJML's hidden preheader block, through its 1px font size and white text color. */
 const PREVIEW_TELLS_RE = /(<div style="display:none;)font-size:1px;color:#(?:ffffff|fff);/;
 
+/** Below MJML's breakpoint, where columns stack. */
+const PHONE_MEDIA = '@media only screen and (max-width:479px)';
+
+/**
+ * Phone styles for stats blocks, added to the head only when the email has a
+ * block that needs them, so every other email's head is left as it was.
+ *
+ * Stacked tiles drop the blank line that levelled them with a neighbour they
+ * no longer sit beside. Tiles kept side by side with `stack=false` take a
+ * tighter inset and smaller type, scaled from the theme's body size and the
+ * tiles per row: three tiles on a phone are about a hundred pixels wide, which
+ * a desktop-sized number breaks across lines in.
+ */
+function addStatsPhoneStyles(html: string, theme: Theme): string {
+  const rules: string[] = [];
+  if (html.includes('class="emd-stat-pad"')) rules.push('.emd-stat-pad { display:none !important; }');
+
+  const counts = new Set([...html.matchAll(/emd-stats-across-(\d)/g)].map((m) => Number(m[1])));
+  if (counts.size > 0) {
+    const base = parseInt(theme.fontSize, 10) || 16;
+    const valueScale: Record<number, number> = { 2: 1.5, 3: 1.125, 4: 0.9375 };
+    if (/<td class="emd-stat-cell[ "]/.test(html)) rules.push('.emd-stats-across .emd-stat-cell { padding:12px 8px !important; }');
+    rules.push(`.emd-stats-across .emd-stat-label, .emd-stats-across .emd-stat-delta { font-size:${Math.round(base * 0.75)}px !important; }`);
+    for (const n of [...counts].sort()) {
+      if (valueScale[n]) rules.push(`.emd-stats-across-${n} .emd-stat-value { font-size:${Math.round(base * valueScale[n])}px !important; }`);
+    }
+  }
+  if (rules.length === 0 || !html.includes('</head>')) return html;
+  const style = `<style type="text/css">\n      ${PHONE_MEDIA} {\n        ${rules.join('\n        ')}\n      }\n    </style>\n  `;
+  return html.replace('</head>', `${style}</head>`);
+}
+
 /**
  * MJML hides the preheader with `display:none`, zero size and `opacity:0`, and
  * also sets a 1px font and colors it white to match a white page. Both are
@@ -2446,5 +2561,5 @@ export async function renderMjml(
     ...(mjmlOptions?.beautify !== undefined ? { beautify: mjmlOptions.beautify } : {}),
   });
   const themed = html.includes('mj-accordion-ico') ? themeAccordionIcons(html, theme) : html;
-  return { html: simplifyPreview(themed), errors: errors ?? [] };
+  return { html: simplifyPreview(addStatsPhoneStyles(themed, theme)), errors: errors ?? [] };
 }

@@ -14,12 +14,13 @@ import { parseDirectiveParams, serializeMarkerAttrs } from '../params.js';
  *
  * Each list item is one tile, written as `Label: value` with the change, if
  * any, in a signed parenthetical after it. Tiles are `mj-column` cards, so
- * they sit side by side on a desktop client and stack on a phone; the value
- * is free text, since not every headline number is a number.
+ * they sit side by side on a desktop client and stack on a phone, unless
+ * `stack=false` keeps them across; the value is free text, since not every
+ * headline number is a number.
  *
  * Params: `columns` (tiles per row), `bg` (tile background, `none` for no
  * card), `color` (value color), `align`, `size` (value type size), `gap`,
- * `good` (which direction is the win, also settable per tile).
+ * `good` (which direction is the win, also settable per tile), `stack`.
  */
 export function registerStats(md: MarkdownIt): void {
   md.use(container, 'stats', {

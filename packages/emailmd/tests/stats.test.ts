@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '../src/index.js';
+import { rulesFor } from './helpers/css.js';
 
 const KPIS = `::: stats
 - Revenue: $48,200 (+12%)
@@ -258,6 +259,178 @@ dir: rtl
     const filler = html.indexOf('mj-column-per-34-32');
     expect(filler).toBeGreaterThan(0);
     expect(html.indexOf('>D<')).toBeGreaterThan(filler);
+  });
+});
+
+describe('stats tile heights', () => {
+  const MIXED = `::: stats
+- Revenue: $48,200 (+12%)
+- New customers: 340
+- Churn: 2.1% (-0.4pt) {good=down}
+:::`;
+
+  /** Blank change lines, in document order. */
+  const pads = (html: string) => html.match(/<tr class="emd-stat-pad" aria-hidden="true">/g) ?? [];
+
+  it('gives a tile with no change a blank line where its row has one', async () => {
+    const { html } = await render(MIXED);
+    expect(pads(html)).toHaveLength(1);
+    // The blank line sits in the New customers tile, under its value.
+    const tile = html.slice(html.indexOf('>New customers<'), html.indexOf('>Churn<'));
+    expect(tile).toContain('<tr class="emd-stat-pad" aria-hidden="true"><td style="padding:6px 0 0 0;font-size:14px;line-height:1.4;">&#160;</td></tr>');
+  });
+
+  it('pads row by row', async () => {
+    const { html } = await render(`::: stats columns=2
+- A: 1 (+1)
+- B: 2
+- C: 3
+- D: 4
+:::`);
+    // Only B, whose row-mate has a change; C and D's row has none to match.
+    expect(pads(html)).toHaveLength(1);
+  });
+
+  it('adds nothing when every tile, or no tile, has a change', async () => {
+    for (const md of [KPIS, '::: stats\n- Plan: Enterprise\n- Seats: 240\n:::']) {
+      const { html } = await render(md);
+      expect(pads(html)).toHaveLength(0);
+      expect(html).not.toContain('max-width:479px');
+    }
+  });
+
+  it('drops the blank line once the tiles stack on a phone', async () => {
+    const { html } = await render(MIXED);
+    const head = html.slice(0, html.indexOf('</head>'));
+    expect(head).toContain('@media only screen and (max-width:479px)');
+    expect(rulesFor(head, '.emd-stat-pad')).toEqual(['.emd-stat-pad { display:none !important; }']);
+  });
+
+  it('leaves the head of an email with no stats alone', async () => {
+    const { html } = await render('# Hello\n\nNo tiles here.');
+    expect(html).not.toContain('max-width:479px');
+  });
+});
+
+describe('stats stack=false', () => {
+  const ACROSS = KPIS.replace('::: stats', '::: stats stack=false');
+
+  /** The cells of the across table, as their class lists. */
+  const cells = (html: string) => [...html.matchAll(/<td class="(emd-stat-cell[^"]*)"/g)].map((m) => m[1]);
+
+  it('draws the tiles as cells of one table instead of columns', async () => {
+    const { html, warnings } = await render(ACROSS);
+    expect(warnings).toBeUndefined();
+    expect(tileWidths(html)).toEqual(['100']);
+    expect(html).toMatch(/<table[^>]*class="emd-stats-across emd-stats-across-3"|class="emd-stats-across emd-stats-across-3"/);
+    expect(cells(html)).toEqual(['emd-stat-cell emd-stat-cell-themed', 'emd-stat-cell emd-stat-cell-themed', 'emd-stat-cell emd-stat-cell-themed']);
+    expect(html).toContain('table-layout:fixed');
+    expect(labels(html)).toEqual(['Revenue', 'New customers', 'Churn']);
+    expect(values(html)).toEqual(['$48,200', '340', '2.1%']);
+    expect(deltas(html)).toHaveLength(3);
+  });
+
+  it('keeps the card, gap and widths of the stacked grid', async () => {
+    const { html } = await render(ACROSS);
+    expect(html).toContain('width="31.34%" valign="top" bgcolor="#f4f4f5" style="width:31.34%;vertical-align:top;background-color:#f4f4f5;border-radius:8px;padding:16px 18px;"');
+    expect(html.match(/<td class="emd-gap" width="2.98%"/g)).toHaveLength(2);
+  });
+
+  it('needs no blank change line, since cells in a row share a height', async () => {
+    const { html } = await render(`::: stats stack=false
+- Revenue: $48,200 (+12%)
+- New customers: 340
+:::`);
+    expect(html).not.toContain('emd-stat-pad');
+  });
+
+  it('fills a short last row with empty cells and spaces rows by the gap', async () => {
+    const { html } = await render(`::: stats stack=false columns=3 gap=12
+- A: 1
+- B: 2
+- C: 3
+- D: 4
+:::`);
+    expect(cells(html)).toHaveLength(4);
+    expect(html.match(/<td width="31.84%" style="width:31.84%;font-size:0;line-height:0;">&#8202;<\/td>/g)).toHaveLength(2);
+    expect(html).toContain('<tr><td colspan="5" style="height:12px;font-size:0;line-height:0;">&#8202;</td></tr>');
+  });
+
+  it('shrinks the type on a phone, scaled from the theme body size', async () => {
+    const { html } = await render(`---
+font_size: 16px
+---
+
+${ACROSS}
+
+::: stats stack=false columns=2
+- A: 1
+- B: 2
+:::`);
+    const head = html.slice(0, html.indexOf('</head>'));
+    expect(rulesFor(head, '.emd-stats-across-3 .emd-stat-value')).toEqual(['.emd-stats-across-3 .emd-stat-value { font-size:18px !important; }']);
+    expect(rulesFor(head, '.emd-stats-across-2 .emd-stat-value')).toEqual(['.emd-stats-across-2 .emd-stat-value { font-size:24px !important; }']);
+    expect(rulesFor(head, '.emd-stats-across-4 .emd-stat-value')).toEqual([]);
+    expect(rulesFor(head, '.emd-stats-across .emd-stat-label')[0]).toContain('font-size:12px');
+    expect(rulesFor(head, '.emd-stats-across .emd-stat-cell')[0]).toContain('padding:12px 8px');
+
+    const larger = await render(`---
+font_size: 20px
+---
+
+${ACROSS}`);
+    expect(rulesFor(larger.html, '.emd-stats-across-3 .emd-stat-value')[0]).toContain('font-size:23px');
+  });
+
+  it('follows dark mode on a themed card only', async () => {
+    const themed = await render(`---
+theme: auto
+---
+
+${ACROSS}`);
+    expect(rulesFor(themed.html, '.emd-stat-cell-themed')).toContain('.emd-stat-cell-themed { background-color: #27272a !important; }');
+
+    const custom = await render(ACROSS.replace('stack=false', 'stack=false bg=#eff6ff'));
+    expect(cells(custom.html)[0]).toBe('emd-stat-cell');
+    expect(custom.html).toContain('background-color:#eff6ff');
+  });
+
+  it('drops the card with bg=none', async () => {
+    const { html } = await render(ACROSS.replace('stack=false', 'stack=false bg=none'));
+    expect(cells(html)).toEqual(['emd-stat-cell-bare', 'emd-stat-cell-bare', 'emd-stat-cell-bare']);
+    expect(html).not.toContain('emd-stat-cell"');
+    // No card inset to tighten on a phone.
+    expect(rulesFor(html, '.emd-stats-across .emd-stat-cell')).toEqual([]);
+  });
+
+  it('mirrors the cells in RTL documents, leftover cells leading', async () => {
+    const { html } = await render(`---
+dir: rtl
+---
+
+::: stats stack=false columns=3
+- A: 1
+- B: 2
+:::`);
+    expect(labels(html)).toEqual(['B', 'A']);
+    const row = html.slice(html.indexOf('emd-stats-across-3'));
+    expect(row.indexOf('font-size:0;line-height:0;">&#8202;</td>')).toBeLessThan(row.indexOf('>B<'));
+  });
+
+  it('accepts stack=true and warns on anything else', async () => {
+    const yes = await render(KPIS.replace('::: stats', '::: stats stack=true'));
+    expect(yes.warnings).toBeUndefined();
+    expect(tileWidths(yes.html)).toHaveLength(3);
+
+    const { html, warnings } = await render(KPIS.replace('::: stats', '::: stats stack=no'));
+    expect(warnings?.map((w) => w.message)).toContain('Invalid stack "no" for stats — expected "true" or "false"; stacking on phones.');
+    expect(tileWidths(html)).toHaveLength(3);
+  });
+
+  it('writes the same plain text as a stacked block', async () => {
+    const stacked = await render(KPIS, { text: true });
+    const across = await render(ACROSS, { text: true });
+    expect(across.text).toBe(stacked.text);
   });
 });
 

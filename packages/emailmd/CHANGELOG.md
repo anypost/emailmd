@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - `positive_color` and `negative_color` color a change's text in stats and sparklines, apart from the success and danger button fills. They fall back to `success_color` and `danger_color`.
 - **`color=chart-N`.** Chart, progress, sparkline and stats colors (on the block or a single item) can name a palette entry, which dark mode switches to the dark palette's entry. A hex color still stays as written in both modes. An entry the palette lacks warns and falls back to the default.
 - **Color-role classes.** `emd-muted`, `emd-good`, `emd-bad`, `emd-c<N>` (text) and `emd-c<N>-bg` (fill) carry dark-mode rules, and HTML in a `::: raw` block can use them to follow the theme.
+- **`stack=false` on stats.** Keeps the tiles in their rows on a phone instead of stacking them one per row. The tiles are drawn as cells of one table, which makes every tile in a row as tall as the tallest, and on a phone they get a tighter inset and type scaled from the body size and tiles per row (1.5× at two across, 1.125× at three, 0.94× at four). The phone styles are added to the head only when the email has a block that uses them.
 - **`oklch()` and `hsl()` theme colors.** Theme colors written as `oklch()` (as shadcn and Tailwind themes are) or `hsl()` are converted to hex, which every email client supports. A color outside sRGB is brought in by lowering its chroma, as browsers do, and a translucent one becomes `rgba()`.
 
 ### Changed
@@ -22,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **`Theme` has optional and list-valued keys.** `mutedColor`, `chartColors`, `positiveColor` and `negativeColor` are optional, and `chartColors` is a `string[]`, so code that indexes a `Theme` with any `keyof Theme` and expects a string needs to narrow the key.
 - **`hsl()` theme colors are written as hex.** They used to pass through as written; the color is the same.
 - **Change arrows follow a dark `success_color` / `danger_color`.** The ▲/▼ text in stats and sparklines kept its light-theme color in dark mode, on the assumption that success and danger are the same in both palettes. It now takes the dark palette's positive and negative colors, so a `dark:` override of either applies. With the built-in palettes nothing changes.
+- **Stats tiles in a row end level (visual change).** A tile with no change sat a line shorter than a tile beside it that had one. It now gets a blank line in the change's place, hidden from screen readers and dropped on a phone, where the tiles stack. A row where every tile, or no tile, has a change is unchanged. The phone rule is added to the head only when a row needs it.
 
 ### Fixed
 - **Mailchimp merge tags.** `*|FNAME|*` lost its asterisks to emphasis (`<em>|FNAME|</em>`), and in a URL its pipes were percent-encoded (`*%7CEMAIL%7C*`). Mailchimp tags (`*|TAG|*`, `*|IF:…|*`, `*|DATE:…|*`) now pass through verbatim in text, links, hrefs and buttons, in both the HTML and the text part, and are accepted as whole directive values like other template tags.

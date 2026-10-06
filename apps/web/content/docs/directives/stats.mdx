@@ -13,7 +13,7 @@ A stats block is a row of KPI tiles: a caption, the number it names, and — whe
 :::
 ```
 
-Tiles are columns rather than cells of one table, so they sit side by side on a desktop client and stack to full width on a phone. Everything is drawn with background colors and text — no images, no SVG — so a tile survives clients that strip both, and adapts in [dark mode](/docs/theme#automatic-dark-mode).
+Tiles sit side by side on a desktop client and stack to full width on a phone, or [stay side by side](#on-a-phone) with `stack=false`. Everything is drawn with background colors and text — no images, no SVG — so a tile survives clients that strip both, and adapts in [dark mode](/docs/theme#automatic-dark-mode).
 
 ## The change
 
@@ -67,6 +67,24 @@ A short last row keeps its tiles at grid width, so they line up under the row ab
 
 Three across is as narrow as a tile gets at the default content width before a long value starts breaking mid-word. Values that are words rather than numbers want `columns=1` or `columns=2`.
 
+Tiles in a row are the same height. Where some have a change and others don't, the ones without get a blank line in its place, so the cards end level. A label that wraps to a second line still makes its tile taller; `stack=false` evens that out too.
+
+### On a phone
+
+Tiles stack one per row on a phone by default, which makes a block of three or more tall. `stack=false` keeps them in their rows at any width:
+
+```markdown
+::: stats stack=false
+- Revenue: $48,200 (+12%)
+- New customers: 340
+- Churn: 2.1% (-0.4pt) {good=down}
+:::
+```
+
+On a phone the tiles get a tighter inset and smaller type to fit: the number drops to 1.5× the theme's body size at two across, 1.125× at three and 0.94× at four, and the label and change to 0.75×, whatever `size` says. Three across leaves a tile about 80px for its number on a 375px phone, enough for `$48,200` but not `$1,248,200`, so keep a kept-across block to short numbers, or to two across. Every tile in a row is as tall as the tallest, wrapped labels included.
+
+The phone sizes are media-query styles, so a client that ignores them, such as Gmail with a non-Google account, keeps the tiles across at their desktop sizes.
+
 ## Appearance
 
 Tiles are cards by default — that is what makes them read as tiles rather than as a paragraph of numbers. `bg` sets the card color and `bg=none` drops the card entirely:
@@ -104,6 +122,7 @@ Text placed before the list renders above the tiles.
 | `padding` | Card inset: `compact`, `spacious`, or the default. |
 | `good` | Which direction is the win: `up` (default), `down`, or `neutral`. |
 | `border-radius` | Card rounding. Defaults to the theme's `border_radius`. |
+| `stack` | `false` keeps the tiles in their rows on a phone instead of stacking them. Defaults to `true`. |
 
 Per-item: `{good=…}` overrides the block's reading for one tile, `{color=…}` recolors one value.
 
