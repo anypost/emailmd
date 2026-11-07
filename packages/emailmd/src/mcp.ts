@@ -98,6 +98,19 @@ type ToolResult = {
   isError?: boolean;
 };
 
+/**
+ * Tool annotations (MCP ToolAnnotations). render and lint are pure functions of
+ * their input; read_docs only reads pages from emailmd.dev. None of them write
+ * anything, so all three are read-only, non-destructive and idempotent, and
+ * none reach outside emailmd's own docs.
+ */
+const READ_ONLY_ANNOTATIONS = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+} as const;
+
 const textResult = (text: string): ToolResult => ({ content: [{ type: 'text', text }] });
 const errorResult = (err: unknown): ToolResult => ({
   content: [{ type: 'text', text: err instanceof Error ? err.message : String(err) }],
@@ -112,6 +125,7 @@ export function registerEmailmdTools(server: McpServer, options?: McpServerOptio
     'render',
     {
       title: 'Render an email',
+      annotations: { title: 'Render an email', ...READ_ONLY_ANNOTATIONS },
       description:
         'Render emailmd markdown into email-safe HTML. Returns html (the complete email document), text (the plain-text MIME part), meta (frontmatter), warnings (non-fatal repairs made while rendering; aim for none), htmlBytes, and previewUrl (a live browser preview of this exact document to share with the user).',
       inputSchema: {
@@ -154,6 +168,7 @@ export function registerEmailmdTools(server: McpServer, options?: McpServerOptio
     'lint',
     {
       title: 'Lint an email',
+      annotations: { title: 'Lint an email', ...READ_ONLY_ANNOTATIONS },
       description:
         'Check emailmd markdown for deliverability, accessibility, and readability problems without rendering it: missing alt text, http:// links, Gmail\'s 102KB clip limit, generic link text, spam-trigger phrases, and more. Fix warnings before sending; suggestions are sometimes intentional (e.g. transactional emails without an unsubscribe link).',
       inputSchema: {
@@ -182,6 +197,7 @@ export function registerEmailmdTools(server: McpServer, options?: McpServerOptio
     'read_docs',
     {
       title: 'Read emailmd docs',
+      annotations: { title: 'Read emailmd docs', ...READ_ONLY_ANNOTATIONS },
       description:
         "Fetch emailmd documentation from emailmd.dev. Call with no arguments for the index of all pages; pass page to read one (e.g. 'buttons', 'frontmatter', 'theme', 'directives/hero'). Read the relevant page before using syntax you are not sure about.",
       inputSchema: {
