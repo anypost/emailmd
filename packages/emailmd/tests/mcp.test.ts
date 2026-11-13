@@ -28,6 +28,20 @@ describe('mcp server', () => {
     }
   });
 
+  it('annotates every tool as read-only, non-destructive and closed-world', async () => {
+    const client = await connect();
+    const { tools } = await client.listTools();
+    for (const tool of tools) {
+      expect(tool.title).toBeTruthy();
+      expect(tool.annotations).toMatchObject({
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      });
+    }
+  });
+
   it('render returns html, text, meta, warnings, and a preview link', async () => {
     const client = await connect();
     const result = await client.callTool({
