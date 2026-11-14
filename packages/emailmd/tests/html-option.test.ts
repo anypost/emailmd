@@ -90,6 +90,42 @@ describe('html option: false neutralizes {attr=…} injection', () => {
     expect(html).toMatch(/href="https:\/\/ok\.example"/);
   });
 
+  // Browsers strip tab/LF/CR anywhere in a URL and leading C0 controls, and the
+  // sending app may resolve a template tag to nothing, so each of these is a
+  // javascript: link once it reaches the reader.
+  const disguisedJavascript: Record<string, string> = {
+    tab: 'java\tscript:alert(1)',
+    leadingControl: '\x01javascript:alert(1)',
+    leadingSpaceAndControl: ' \x1fjavascript:alert(1)',
+    templatePrefix: '{{x}}javascript:alert(1)//}}',
+    templateInside: 'java{{x}}script:alert(1)',
+    mailchimpPrefix: '*|X|*javascript:alert(1)',
+  };
+  for (const [name, href] of Object.entries(disguisedJavascript)) {
+    it(`strips a disguised javascript: href override: ${name}`, async () => {
+      const { html } = await render(`[x](https://ok.example){href="${href}"}`, { allowHtml: false });
+      const anchor = html.match(/<a\b[^>]*>x<\/a>/)?.[0] ?? '';
+      expect(anchor, anchor).not.toMatch(/script:/i);
+      expect(anchor).toMatch(/href="https:\/\/ok\.example"/);
+    });
+  }
+
+  it('falls back to the Markdown src when an image src override is unsafe', async () => {
+    const { html } = await render('![i](https://ok.example/i.png){src="java\tscript:alert(1)"}', { allowHtml: false });
+    expect(html).not.toMatch(/src="[^"]*script:/i);
+    expect(html).toContain('src="https://ok.example/i.png"');
+  });
+
+  it('keeps a safe href override', async () => {
+    const { html } = await render('[x](https://ok.example){href="/other"}', { allowHtml: false });
+    expect(html).toMatch(/<a\b[^>]*href="\/other"[^>]*>x<\/a>/);
+  });
+
+  it('keeps a template-tag href override', async () => {
+    const { html } = await render('[x](https://ok.example){href="{{unsubscribe_url}}"}', { allowHtml: false });
+    expect(html).toMatch(/<a\b[^>]*href="\{\{unsubscribe_url\}\}"[^>]*>x<\/a>/);
+  });
+
   it('keeps benign attributes (class, id, data-*)', async () => {
     const { html } = await render('text *em*{.fancy #lead data-track=1}', { allowHtml: false });
     expect(html).toMatch(/<em[^>]*class="fancy"/);

@@ -54,25 +54,60 @@ md.core.ruler.push('neutralize_internal_markers', (state) => {
 // event handlers (`on*`), inline `style`, and `href`/`src` carrying an unsafe
 // scheme — while leaving emailmd's own attrs (button, caption, width, class,
 // id, …) and everything the author writes in trusted mode untouched.
+//
+// markdown-it-attrs replaces an existing attribute (`attrSet`), so dropping an
+// unsafe `{href=…}` override would also lose the link's own Markdown URL. The
+// `snapshot_url_attrs` rule records each token's URL attributes before
+// curly_attributes runs, and an unsafe override falls back to that value.
 interface AttrToken {
   attrs: [string, string][] | null;
   children: AttrToken[] | null;
 }
-function sanitizeAttrs(tokens: AttrToken[]): void {
+type UrlAttrSnapshot = WeakMap<AttrToken, Map<string, string>>;
+const URL_ATTRS = new Set(['href', 'src', 'xlink:href']);
+
+function snapshotUrlAttrs(tokens: AttrToken[], snapshot: UrlAttrSnapshot): void {
   for (const token of tokens) {
-    if (token.attrs) {
-      token.attrs = token.attrs.filter(([name, value]) => {
-        const n = name.toLowerCase();
-        if (n.startsWith('on') || n === 'style') return false;
-        if ((n === 'href' || n === 'src' || n === 'xlink:href') && !isSafeUrl(value)) return false;
-        return true;
-      });
-    }
-    if (token.children) sanitizeAttrs(token.children);
+    const urls = token.attrs?.filter(([name]) => URL_ATTRS.has(name.toLowerCase()));
+    if (urls?.length) snapshot.set(token, new Map(urls.map(([name, value]) => [name.toLowerCase(), value])));
+    if (token.children) snapshotUrlAttrs(token.children, snapshot);
   }
 }
+
+function sanitizeAttrs(tokens: AttrToken[], isSafe: (url: string) => boolean, snapshot?: UrlAttrSnapshot): void {
+  for (const token of tokens) {
+    if (token.attrs) {
+      const original = snapshot?.get(token);
+      token.attrs = token.attrs.flatMap(([name, value]): [string, string][] => {
+        const n = name.toLowerCase();
+        if (n.startsWith('on') || n === 'style') return [];
+        if (URL_ATTRS.has(n) && !isSafe(value)) {
+          const fallback = original?.get(n);
+          return fallback !== undefined && isSafe(fallback) ? [[name, fallback]] : [];
+        }
+        return [[name, value]];
+      });
+    }
+    if (token.children) sanitizeAttrs(token.children, isSafe, snapshot);
+  }
+}
+md.core.ruler.before('curly_attributes', 'snapshot_url_attrs', (state) => {
+  if (state.env?.escapeRawHtml) {
+    state.env.urlAttrSnapshot = new WeakMap();
+    snapshotUrlAttrs(state.tokens, state.env.urlAttrSnapshot);
+  }
+  return true;
+});
 md.core.ruler.push('sanitize_attrs', (state) => {
-  if (state.env?.escapeRawHtml) sanitizeAttrs(state.tokens);
+  if (!state.env?.escapeRawHtml) return true;
+  // Template tags are shielded as `<prefix><n>ENDTPL` placeholders at this
+  // point. isSafeUrl drops template tags before reading the scheme, so drop the
+  // placeholders too, or `{{x}}javascript:` would read as the made-up scheme
+  // `emailmdtpl0endtpljavascript:`.
+  const prefix: string | undefined = state.env.templatePrefix;
+  const placeholder = prefix ? new RegExp(`${prefix}\\d+ENDTPL`, 'g') : null;
+  const isSafe = (url: string) => isSafeUrl(placeholder ? url.replace(placeholder, '') : url);
+  sanitizeAttrs(state.tokens, isSafe, state.env.urlAttrSnapshot);
   return true;
 });
 
@@ -146,7 +181,7 @@ export function parseMarkdown(markdown: string, options?: ParseOptions): string 
   const { text: shielded, tags, prefix } = shieldTemplateTags(markdown);
   // In untrusted mode, `escapeRawHtml` drives the attribute-sanitizing core
   // rule and the template-tag escaping below.
-  let html = md.render(shielded, { escapeRawHtml: !allowHtml });
+  let html = md.render(shielded, { escapeRawHtml: !allowHtml, templatePrefix: prefix });
   html = restoreTemplateTags(html, tags, prefix, !allowHtml);
 
   // Replace <input> checkboxes with Unicode characters for email safety

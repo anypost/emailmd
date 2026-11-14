@@ -73,17 +73,34 @@ export function normalizeCssLength(value: string): string {
     .join(' ');
 }
 
-const URL_SCHEME_RE = /^\s*([a-z][a-z0-9+.-]*):/i;
+const URL_SCHEME_RE = /^([a-z][a-z0-9+.-]*):/i;
 const BLOCKED_SCHEMES = new Set(['javascript', 'vbscript', 'data', 'file']);
+
+/**
+ * Every template tag in a value, matched lazily so each tag ends at its own
+ * first closing delimiter. Same syntaxes as {@link TEMPLATE_TOKEN_RE}.
+ */
+const TEMPLATE_TAGS_RE = /\{\{[\s\S]*?\}\}|\{%[\s\S]*?%\}|\$\{[^}]*\}|%%[\s\S]*?%%|\[\[[\s\S]*?\]\]|\*\|[A-Z_][^|\n]*\|\*/g;
 
 /**
  * True when the URL has no scheme (relative), a safe scheme (http, https,
  * mailto, tel), or is a template token. Blocks javascript:, vbscript:,
  * data:, and file:.
+ *
+ * The scheme is read the way a browser reads it, not from the raw string. The
+ * WHATWG URL parser removes tab, LF and CR anywhere and strips leading and
+ * trailing C0 controls and spaces, so `java<TAB>script:` and
+ * `\x01javascript:` are both `javascript:` to a browser. Template tags are
+ * dropped before the check, because the sending app may resolve them to an
+ * empty string: `{{x}}javascript:…` and `java{{x}}script:…` both become
+ * `javascript:…`. A value that is nothing but template tags is left with no
+ * scheme and passes, as before.
  */
 export function isSafeUrl(value: string): boolean {
-  const v = value.trim();
-  if (isTemplateToken(v)) return true;
+  const v = value
+    .replace(/[\t\n\r]/g, '')
+    .replace(TEMPLATE_TAGS_RE, '')
+    .replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, '');
   const match = v.match(URL_SCHEME_RE);
   if (!match) return true;
   return !BLOCKED_SCHEMES.has(match[1].toLowerCase());
