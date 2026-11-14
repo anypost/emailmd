@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.3] — 2026-11-13
+
+### Security
+- **`allowHtml: false` blocks disguised `javascript:` URLs ([#28](https://github.com/anypost/emailmd/issues/28)).** `isSafeUrl` read the scheme from the raw string, but browsers remove tabs and newlines anywhere in a URL and strip control characters from its start before reading it. So a `{href=…}` override like `java<TAB>script:alert(1)` or `\x01javascript:alert(1)` passed the check and reached the reader as a working `javascript:` link. A value that started with a template tag (`{{x}}javascript:…//}}`) passed too, and it becomes `javascript:` when the sending app resolves the tag to nothing. The scheme is now read the way a browser reads it, with template tags left out, so all of these are blocked. A URL that is only a template tag (`{{unsubscribe_url}}`) still passes. The fix also covers hero background, accordion and social icon, and font URLs, in either mode. Reported by trackoor ([UCSB PLSE](https://ucsbplse.github.io/)).
+
+### Added
+- **MCP tool annotations.** `render`, `lint` and `read_docs` declare `readOnlyHint`, `destructiveHint: false`, `idempotentHint` and `openWorldHint: false`, so MCP clients and connector directories can see that none of them change anything. Without the hints, clients assume a tool might be destructive. The hosted endpoint has served them since [#27](https://github.com/anypost/emailmd/pull/27) merged; this brings them to `emailmd mcp`.
+
+### Fixed
+- **A dropped `{href=…}` or `{src=…}` override keeps the Markdown URL.** In untrusted mode, removing an unsafe override also removed the link's own URL, because markdown-it-attrs 4.5 and later overwrites the attribute in place. That left a link with no `href`. The URL from the Markdown is now kept.
+
+### Changed
+- **markdown-it-attrs `^4.5.0`.** Raised from `^4.3.1`, matching what a fresh install already resolves.
+
 ## [0.13.2] — 2026-10-06
 
 ### Added
